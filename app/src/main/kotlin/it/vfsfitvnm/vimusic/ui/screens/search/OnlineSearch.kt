@@ -353,6 +353,7 @@ fun OnlineSearch(
                             modifier = Modifier.clickable {
                                 binder?.stopRadio()
                                 binder?.player?.forcePlay(item.asMediaItem)
+                                binder?.setupRadio(item.info?.endpoint)
                             }
                         )
 
@@ -363,6 +364,7 @@ fun OnlineSearch(
                             modifier = Modifier.clickable {
                                 binder?.stopRadio()
                                 binder?.player?.forcePlay(item.asMediaItem)
+                                binder?.setupRadio(item.info?.endpoint)
                             }
                         )
                     }
