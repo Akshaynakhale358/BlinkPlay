@@ -3,21 +3,45 @@ package it.vfsfitvnm.vimusic.ui.screens.home
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as rowItems
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.R
+import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
 import it.vfsfitvnm.vimusic.ui.items.ArtistItem
 import it.vfsfitvnm.vimusic.ui.items.ArtistItemPlaceholder
-import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
+import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collect
 
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
@@ -26,44 +50,139 @@ fun HomeArtistList(
     onArtistClick: (String) -> Unit,
     onSearchClick: () -> Unit,
 ) {
-    val (colorPalette) = it.vfsfitvnm.vimusic.ui.styling.LocalAppearance.current
-    val thumbnailSizeDp = Dimensions.thumbnails.song * 2
+    val (colorPalette, typography) = LocalAppearance.current
+    val categories = listOf(
+        "All" to listOf("Indian music artists", "Bollywood singers", "Hindi singers", "Marathi singers", "Punjabi singers", "Tamil singers", "Telugu singers", "Malayalam singers", "Kannada singers", "Bengali singers", "English pop artists", "international music artists"),
+        "Bollywood" to listOf("Bollywood singers", "Hindi film playback singers", "Bollywood music artists"),
+        "Marathi" to listOf("Marathi singers", "Marathi music artists", "Marathi playback singers"),
+        "Hindi" to listOf("Hindi singers", "Hindi music artists", "Indian playback singers"),
+        "Punjabi" to listOf("Punjabi singers", "Punjabi music artists", "Punjabi playback singers"),
+        "Tamil" to listOf("Tamil singers", "Tamil music artists", "Tamil playback singers"),
+        "Telugu" to listOf("Telugu singers", "Telugu music artists", "Telugu playback singers"),
+        "South Indian" to listOf("Malayalam singers", "Kannada singers", "South Indian music artists"),
+        "English" to listOf("English pop artists", "English rock artists", "international music artists")
+    )
+    var selectedCategory by remember { mutableStateOf("All") }
+    val queries = categories.first { it.first == selectedCategory }.second
+    val gridState = rememberLazyGridState()
+    val thumbnailSizeDp = (Dimensions.thumbnails.song * 1.35f).coerceAtLeast(64.dp)
     val thumbnailSizePx = thumbnailSizeDp.px
 
-    ItemsPage(
-        tag = "home/all-online-artists",
-        itemsPageProvider = { continuation ->
-            if (continuation == null) {
-                Innertube.searchPage(
-                    body = SearchBody(query = "music artists", params = Innertube.SearchFilter.Artist.value),
-                    fromMusicShelfRendererContent = Innertube.ArtistItem::from
-                )
-            } else {
-                Innertube.searchPage(
-                    body = ContinuationBody(continuation = continuation),
-                    fromMusicShelfRendererContent = Innertube.ArtistItem::from
-                )
-            }
-        },
-        emptyItemsText = "No online artists found. Try Search.",
-        headerContent = {
-            Header(title = "Artists") {
-                HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
-            }
-        },
-        itemContent = { artist ->
-            ArtistItem(
-                artist = artist,
-                thumbnailSizePx = thumbnailSizePx,
-                thumbnailSizeDp = thumbnailSizeDp,
-                alternative = true,
-                modifier = Modifier.clickable {
-                    artist.info?.endpoint?.browseId?.let(onArtistClick)
+    var artists by remember(selectedCategory) { mutableStateOf<List<Innertube.ArtistItem>>(emptyList()) }
+    var continuation by remember(selectedCategory) { mutableStateOf<String?>(null) }
+    var queryIndex by remember(selectedCategory) { mutableStateOf(0) }
+    var loading by remember(selectedCategory) { mutableStateOf(false) }
+    var finished by remember(selectedCategory) { mutableStateOf(false) }
+
+    LaunchedEffect(selectedCategory, gridState) {
+        snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
+            .collect { lastVisible ->
+                if (loading || finished || lastVisible < artists.size - 4) return@collect
+                loading = true
+                withContext(Dispatchers.IO) {
+                    var attempts = 0
+                    while (attempts < 4 && !finished) {
+                        val query = queries.getOrNull(queryIndex)
+                        if (query == null) {
+                            finished = true
+                            break
+                        }
+                        val result = if (continuation == null) {
+                            Innertube.searchPage(
+                                body = SearchBody(query = query, params = Innertube.SearchFilter.Artist.value),
+                                fromMusicShelfRendererContent = Innertube.ArtistItem::from
+                            )
+                        } else {
+                            Innertube.searchPage(
+                                body = ContinuationBody(continuation = continuation!!),
+                                fromMusicShelfRendererContent = Innertube.ArtistItem::from
+                            )
+                        }
+                        val page = result?.getOrNull()
+                        val incoming = page?.items.orEmpty()
+                        if (incoming.isNotEmpty()) {
+                            val known = artists.mapTo(mutableSetOf()) { it.key }
+                            artists = artists + incoming.filter { known.add(it.key) }
+                        }
+                        continuation = page?.continuation
+                        if (page == null || continuation == null) {
+                            queryIndex += 1
+                            continuation = null
+                        }
+                        if (page == null && queryIndex >= queries.size) finished = true
+                        attempts += 1
+                        if (incoming.isNotEmpty()) break
+                    }
+                    if (queryIndex >= queries.size && continuation == null) finished = true
                 }
-            )
-        },
-        itemPlaceholderContent = {
-            ArtistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true)
+                loading = false
+            }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Header(title = "Artists") {
+            HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
         }
-    )
+        BasicText(
+            text = "Explore artists",
+            style = typography.m.semiBold,
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
+        )
+        LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
+            rowItems(categories, key = { it.first }) { category ->
+                BasicText(
+                    text = category.first,
+                    style = if (selectedCategory == category.first) typography.m.semiBold else typography.m,
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp, vertical = 8.dp)
+                        .clickable {
+                            if (selectedCategory != category.first) {
+                                selectedCategory = category.first
+                                gridState.scrollToItem(0)
+                            }
+                        }
+                        .padding(horizontal = 12.dp, vertical = 9.dp)
+                )
+            }
+        }
+        if (artists.isEmpty() && !finished) {
+            ShimmerHost(modifier = Modifier.fillMaxSize()) {
+                repeat(9) {
+                    ArtistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true)
+                }
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                state = gridState,
+                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 96.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(artists, key = Innertube.ArtistItem::key) { artist ->
+                    ArtistItem(
+                        artist = artist,
+                        thumbnailSizePx = thumbnailSizePx,
+                        thumbnailSizeDp = thumbnailSizeDp,
+                        alternative = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                artist.info?.endpoint?.browseId?.let(onArtistClick)
+                            }
+                    )
+                }
+                if (loading || !finished) {
+                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        BasicText(
+                            text = if (loading) "Loading more artists..." else "Scroll to load more artists",
+                            style = typography.xs,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
