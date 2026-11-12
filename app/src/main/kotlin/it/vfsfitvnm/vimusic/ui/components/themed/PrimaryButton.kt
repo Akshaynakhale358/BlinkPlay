@@ -56,7 +56,6 @@ fun PrimaryButton(
     }
 }
 
-
 @Composable
 fun MiniPlayerActionButton(
     modifier: Modifier = Modifier,
@@ -65,49 +64,17 @@ fun MiniPlayerActionButton(
     val binder = LocalPlayerServiceBinder.current
     val player = binder?.player
     val playerSheetState = LocalPlayerBottomSheetState.current
-    var isPlaying by remember(player) {
-        mutableStateOf(player?.isPlaying == true)
-    }
 
-    DisposableEffect(player) {
-        if (player == null) return@DisposableEffect onDispose { }
-        val listener = object : Player.Listener {
-            override fun onIsPlayingChanged(isPlayingNow: Boolean) {
-                isPlaying = isPlayingNow
-            }
-
-            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                isPlaying = playWhenReady
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                isPlaying = player.isPlaying
-            }
-        }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
-    }
+    // The rail button is only an entry point. Once the player is expanded,
+    // hide this button so a duplicate play control is not shown over the player.
+    if (player?.currentMediaItem == null || playerSheetState.isExpanded) return
 
     PrimaryButton(
-        iconId = if (isPlaying) R.drawable.pause else R.drawable.play,
-        enabled = player?.currentMediaItem != null,
+        iconId = R.drawable.play,
+        enabled = true,
         transparentBackground = true,
         circle = circle,
-        onClick = {
-            player?.let { currentPlayer ->
-                if (currentPlayer.isPlaying || currentPlayer.playWhenReady) {
-                    currentPlayer.pause()
-                } else {
-                    if (currentPlayer.playbackState == Player.STATE_ENDED) {
-                        currentPlayer.seekToDefaultPosition()
-                    }
-                    if (currentPlayer.playbackState == Player.STATE_IDLE) {
-                        currentPlayer.prepare()
-                    }
-                    currentPlayer.play()
-                }
-            }
-        },
+        onClick = { playerSheetState.expandSoft() },
         modifier = modifier
     )
 }
