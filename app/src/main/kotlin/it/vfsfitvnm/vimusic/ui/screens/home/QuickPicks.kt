@@ -60,8 +60,6 @@ import it.vfsfitvnm.vimusic.models.Song
 import it.vfsfitvnm.vimusic.query
 import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
-import it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton
-import it.vfsfitvnm.vimusic.ui.components.themed.MiniPlayerActionButton
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.components.themed.TextPlaceholder
@@ -207,17 +205,6 @@ fun QuickPicks(
                     .padding(endPaddingValues)
             )
 
-                androidx.compose.foundation.layout.Row(
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(start = 0.dp, top = 4.dp, bottom = 8.dp)
-                ) {
-                    PrimaryButton(
-                        iconId = R.drawable.search,
-                        onClick = onSearchClick,
-                        transparentBackground = true
-                    )
-                    MiniPlayerActionButton()
-                }
 
 
             BasicText(
