@@ -74,7 +74,7 @@ fun MiniPlayerActionButton(
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                isPlaying = player.isPlaying
+                isPlaying = playWhenReady
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -94,12 +94,14 @@ fun MiniPlayerActionButton(
                 if (currentPlayer.isPlaying || currentPlayer.playWhenReady) {
                     currentPlayer.pause()
                 } else {
+                    if (currentPlayer.playbackState == Player.STATE_ENDED) {
+                        currentPlayer.seekToDefaultPosition()
+                    }
                     if (currentPlayer.playbackState == Player.STATE_IDLE) {
                         currentPlayer.prepare()
                     }
                     currentPlayer.play()
                 }
-                playerSheetState?.expandSoft()
             }
         },
         modifier = modifier
