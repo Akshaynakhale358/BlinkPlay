@@ -113,18 +113,23 @@ fun HomeArtistList(
                         }
                         val page = result?.getOrNull()
                         val incoming = page?.items.orEmpty()
-                        if (incoming.isNotEmpty()) {
-                            val known = artists.mapTo(mutableSetOf()) { it.key }
-                            artists = artists + incoming.filter { known.add(it.key) }
+                        val known = artists.mapTo(mutableSetOf()) { it.key }
+                        val newItems = incoming.filter { known.add(it.key) }
+                        if (newItems.isNotEmpty()) {
+                            artists = artists + newItems
                         }
-                        continuation = page?.continuation
-                        if (page == null || continuation == null) {
+
+                        val nextContinuation = page?.continuation
+                        if (page == null || nextContinuation == null || nextContinuation == token) {
+                            // A failed, exhausted, or repeated page must not strand this category.
                             queryIndex += 1
                             continuation = null
+                        } else {
+                            continuation = nextContinuation
                         }
                         if (page == null && queryIndex >= queries.size) finished = true
                         attempts += 1
-                        if (incoming.isNotEmpty()) break
+                        if (newItems.isNotEmpty()) break
                     }
                     if (queryIndex >= queries.size && continuation == null) finished = true
                 }
