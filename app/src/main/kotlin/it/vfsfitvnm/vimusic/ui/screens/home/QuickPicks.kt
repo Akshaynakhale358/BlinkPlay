@@ -757,11 +757,14 @@ private fun MixForYouShelf(
                 fromMusicShelfRendererContent = Innertube.PlaylistItem::from
             )?.getOrNull()?.items.orEmpty()
 
-            val languageOrdered = languageQueries.flatMap { fetch(it) }
-                .distinctBy { it.key }
+            val languageOrdered = mutableListOf<Innertube.PlaylistItem>()
+            for (query in languageQueries) {
+                languageOrdered += fetch(query)
+            }
+            val uniqueLanguageOrdered = languageOrdered.distinctBy { it.key }
 
-            if (languageOrdered.isNotEmpty()) {
-                languageOrdered
+            if (uniqueLanguageOrdered.isNotEmpty()) {
+                uniqueLanguageOrdered
             } else {
                 Innertube.searchPage(
                     body = SearchBody(
