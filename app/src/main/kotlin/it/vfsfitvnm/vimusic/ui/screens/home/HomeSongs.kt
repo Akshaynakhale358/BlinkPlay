@@ -58,18 +58,20 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     val menuState = LocalMenuState.current
     val thumbnailSizeDp = Dimensions.thumbnails.song
     val thumbnailSizePx = thumbnailSizeDp.px
+    // Each shelf has a distinct intent so search results match the selected category.
+    // Keep these as discovery phrases rather than generic "popular songs" queries.
     val categories = listOf(
-        "Podcast" to "popular podcasts episodes",
-        "Workout" to "workout motivation songs",
-        "Feel Good" to "feel good happy songs",
-        "Romance" to "romantic love songs",
-        "Energetic" to "high energy energetic songs",
-        "Relax" to "relaxing calm music",
-        "Commute" to "road trip commute songs",
-        "Sad" to "sad emotional songs",
-        "Focus" to "focus concentration instrumental music",
-        "Sleep" to "sleep peaceful ambient music",
-        "Party" to "party dance hits"
+        "Podcast" to "Indian podcast episodes spoken audio conversations",
+        "Workout" to "gym workout running fitness motivation high energy songs",
+        "Feel Good" to "happy uplifting positive feel good mood songs",
+        "Romance" to "romantic love songs Bollywood romance",
+        "Energetic" to "fast beat high energy energetic dance songs",
+        "Relax" to "calm relaxing chill soft acoustic songs",
+        "Commute" to "road trip driving travel commute music songs",
+        "Sad" to "sad heartbreak emotional melancholy songs",
+        "Focus" to "study focus concentration instrumental background music",
+        "Sleep" to "sleep peaceful soft ambient lullaby music",
+        "Party" to "party dance celebration upbeat hit songs"
     )
     var selectedCategory by persist("home/songsCategory", "Workout")
     val selectedQuery = categories.firstOrNull { it.first == selectedCategory }?.second
