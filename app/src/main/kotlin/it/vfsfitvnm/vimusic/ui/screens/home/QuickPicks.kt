@@ -340,6 +340,8 @@ fun QuickPicks(
                 }
             }
 
+
+
         OnlineSongShelf(
             title = "Top song",
             query = "top songs global chart 2026",
@@ -410,7 +412,6 @@ fun QuickPicks(
             sectionTextModifier = sectionTextModifier,
             refreshKey = refreshToken
         )
-
                 related.playlists?.let { playlists ->
                     BasicText(
                         text = "Playlists you might like",
