@@ -83,6 +83,9 @@ import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
 private const val SeedPoolSize = 20
@@ -521,7 +524,7 @@ private suspend fun loadLanguageOrderedRelatedPage(
     val baseResult = Innertube.relatedPage(
         NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
     )
-    val base = baseResult.getOrNull() ?: return baseResult
+    val base = baseResult?.getOrNull() ?: return baseResult ?: Result.success(null)
 
     // Keep Song for me personalized to the current listening seed, but request each
     // language group explicitly so English results can never lead the shelf.
@@ -580,10 +583,32 @@ private fun OnlineSongShelf(
 
     LaunchedEffect(query, refreshKey) {
         songs = withContext(Dispatchers.IO) {
-            // Search Indian-language results first; English is fetched separately and appended last.
+            // New Release must target the current release period, not a timeless
+            // "new music" search that can keep surfacing old catalogue tracks.
+            // Keep the existing language order: Hindi, other Indian languages, English.
+            val releasePeriod = LocalDate.now().format(
+                DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
+            )
+            val isNewRelease = title == "New release"
+            val hindiQuery = if (isNewRelease) {
+                "latest new Hindi songs released $releasePeriod official"
+            } else {
+                "Hindi songs India $query"
+            }
+            val regionalQuery = if (isNewRelease) {
+                "latest new Indian regional language songs Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam released $releasePeriod"
+            } else {
+                "Indian regional language songs Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam $query"
+            }
+            val englishQuery = if (isNewRelease) {
+                "latest new English songs released $releasePeriod official"
+            } else {
+                "English language songs international $query"
+            }
+
             val hindi = Innertube.searchPage(
                 body = SearchBody(
-                    query = "Hindi songs India $query",
+                    query = hindiQuery,
                     params = Innertube.SearchFilter.Song.value
                 ),
                 fromMusicShelfRendererContent = Innertube.SongItem::from
@@ -591,7 +616,7 @@ private fun OnlineSongShelf(
 
             val otherIndianLanguages = Innertube.searchPage(
                 body = SearchBody(
-                    query = "Indian regional language songs Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam $query",
+                    query = regionalQuery,
                     params = Innertube.SearchFilter.Song.value
                 ),
                 fromMusicShelfRendererContent = Innertube.SongItem::from
@@ -599,7 +624,7 @@ private fun OnlineSongShelf(
 
             val english = Innertube.searchPage(
                 body = SearchBody(
-                    query = "English language songs international $query",
+                    query = englishQuery,
                     params = Innertube.SearchFilter.Song.value
                 ),
                 fromMusicShelfRendererContent = Innertube.SongItem::from
