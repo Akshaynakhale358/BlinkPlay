@@ -80,17 +80,17 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
         itemsPageProvider = { continuation ->
             if (continuation == null) {
                 // Seed each category with language-prioritized results. Keep all languages:
-                // Marathi first, Hindi next, other regional languages, and English last.
-                val marathiPage = Innertube.searchPage(
+                // Hindi first, Marathi next, other regional languages, and English last.
+                val hindiPage = Innertube.searchPage(
                     body = SearchBody(
-                        query = "Marathi $selectedQuery",
+                        query = "Hindi $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
                 )?.getOrNull()
-                val hindiPage = Innertube.searchPage(
+                val marathiPage = Innertube.searchPage(
                     body = SearchBody(
-                        query = "Hindi $selectedQuery",
+                        query = "Marathi $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
@@ -111,8 +111,8 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 )?.getOrNull()
 
                 val prioritizedSongs = (
-                    marathiPage?.items.orEmpty() +
                     hindiPage?.items.orEmpty() +
+                    marathiPage?.items.orEmpty() +
                     otherLanguagesPage?.items.orEmpty() +
                     englishPage?.items.orEmpty()
                 ).distinctBy { it.key }
