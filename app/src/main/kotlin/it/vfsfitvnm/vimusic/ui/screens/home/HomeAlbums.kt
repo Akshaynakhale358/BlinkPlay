@@ -83,15 +83,15 @@ fun HomeAlbums(
                     HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
                 }
                 BasicText(
-                    text = "Explore album categories",
+                    text = "EXPLORE ALBUM CATEGORIES",
                     style = typography.m.semiBold,
                     modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp)
                 )
                 LazyRow {
                     items(categories, key = { it.first }) { category ->
                         BasicText(
-                            text = category.first,
-                            style = if (selectedCategory == category.first) typography.m.semiBold else typography.m,
+                            text = category.first.uppercase(),
+                            style = typography.m.semiBold,
                             modifier = Modifier
                                 .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 12.dp)
                                 .background(
@@ -104,7 +104,7 @@ fun HomeAlbums(
                     }
                 }
                 BasicText(
-                    text = selectedCategory,
+                    text = selectedCategory.uppercase(),
                     style = typography.m.semiBold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
