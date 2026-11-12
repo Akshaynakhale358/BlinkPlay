@@ -85,6 +85,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             }
         },
         emptyItemsText = "No online songs found. Try Search.",
+        refreshOnEnter = true,
         headerContent = {
             androidx.compose.foundation.layout.Column {
                 Header(title = "Songs") {
