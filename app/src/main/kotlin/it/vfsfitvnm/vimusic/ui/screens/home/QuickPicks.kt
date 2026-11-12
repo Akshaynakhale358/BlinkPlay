@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -92,6 +93,48 @@ private const val SeedPoolSize = 20
 
 /** Used when nothing has been played yet, so the page is not empty on a fresh install. */
 private const val DefaultSeedVideoId = "J7p4bzqLvCw"
+
+// Each date selects a different 10-theme pack. Adjacent days never repeat a theme;
+// the 3-pack cycle keeps the daily list deterministic for everyone on that date.
+private data class DailyMixSpec(val title: String, val query: String)
+
+private val DailyMixThemes = listOf(
+    // Pack 1
+    DailyMixSpec("Intense Love", "Hindi romantic intense love songs playlist"),
+    DailyMixSpec("Today's Top 10", "India current top 10 hit songs playlist"),
+    DailyMixSpec("Bollywood Gold", "classic golden era Bollywood Hindi songs playlist"),
+    DailyMixSpec("Marathi Mania", "popular Marathi hit songs playlist"),
+    DailyMixSpec("Broken Hearts", "Hindi sad breakup heartbreak songs playlist"),
+    DailyMixSpec("Chill & Relax", "Indian chill relaxing soft music playlist"),
+    DailyMixSpec("Punjabi Swag", "Punjabi hit songs playlist"),
+    DailyMixSpec("Desi Party", "Hindi Bollywood dance party songs playlist"),
+    DailyMixSpec("Midnight Romance", "Hindi late night romantic songs playlist"),
+    DailyMixSpec("Retro Rewind", "old Hindi retro Bollywood songs playlist"),
+
+    // Pack 2
+    DailyMixSpec("Romantic Nights", "Hindi romantic night songs playlist"),
+    DailyMixSpec("Viral India Hits", "currently viral Indian music hits playlist"),
+    DailyMixSpec("2000s Bollywood", "2000s Bollywood Hindi hit songs playlist"),
+    DailyMixSpec("Marathi DJ Beats", "Marathi DJ remix dance songs playlist"),
+    DailyMixSpec("Sad Soul", "Hindi emotional sad songs playlist"),
+    DailyMixSpec("Lo-Fi Dreams", "Indian Hindi lo-fi chill beats playlist"),
+    DailyMixSpec("Punjabi Fire", "latest Punjabi bhangra hit songs playlist"),
+    DailyMixSpec("Party Anthems", "Bollywood high energy party dance songs playlist"),
+    DailyMixSpec("Acoustic Love", "Hindi acoustic romantic unplugged songs playlist"),
+    DailyMixSpec("90s Classics", "1990s classic Hindi Bollywood songs playlist"),
+
+    // Pack 3
+    DailyMixSpec("Love Unplugged", "Hindi unplugged love songs playlist"),
+    DailyMixSpec("Chartbusters India", "India latest chartbuster hit songs playlist"),
+    DailyMixSpec("Evergreen Hindi", "evergreen all time Hindi film songs playlist"),
+    DailyMixSpec("Marathi Melodies", "Marathi melodious romantic songs playlist"),
+    DailyMixSpec("Heartbreak Hindi", "Hindi heartbreak pain sad songs playlist"),
+    DailyMixSpec("Peaceful Mornings", "peaceful Indian instrumental and soft songs playlist"),
+    DailyMixSpec("Bhangra Beats", "Punjabi bhangra dance hits playlist"),
+    DailyMixSpec("Wedding Dance Hits", "Indian wedding sangeet dance songs playlist"),
+    DailyMixSpec("Rainy Day Songs", "Hindi monsoon rainy day romantic songs playlist"),
+    DailyMixSpec("Indie Discoveries", "Indian independent indie pop songs playlist")
+)
 
 private val IndiaMusicContext = Context.DefaultWeb.copy(
     client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
@@ -208,7 +251,7 @@ fun QuickPicks(
 
 
             BasicText(
-                text = "SONGS FOR ME",
+                text = "SONGS FOR YOU",
                 style = typography.s.semiBold,
                 modifier = sectionTextModifier
             )
@@ -422,7 +465,7 @@ fun QuickPicks(
         )
 
         OnlinePlaylistShelf(
-            title = "MIX FOR ME",
+            title = "MIX FOR YOU",
             query = "${trending?.artistsText.orEmpty()} Hindi Marathi Indian regional language personalized music mix",
             filter = Innertube.SearchFilter.FeaturedPlaylist.value,
             thumbnailSizeDp = playlistThumbnailSizeDp,
@@ -431,6 +474,37 @@ fun QuickPicks(
             sectionTextModifier = sectionTextModifier,
             refreshKey = refreshToken
         )
+
+        val dailyMixDay = LocalDate.now().toEpochDay()
+        val dailyMixPack = Math.floorMod(dailyMixDay, 3L).toInt()
+        val dailyMixes = remember(dailyMixDay) {
+            DailyMixThemes.drop(dailyMixPack * 10).take(10)
+        }
+
+        BasicText(
+            text = "DAILY MIXES",
+            style = typography.s.semiBold,
+            modifier = sectionTextModifier
+        )
+        dailyMixes.chunked(2).forEach { rowMixes ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                rowMixes.forEach { mix ->
+                    DailyMixPlaylistCard(
+                        mix = mix,
+                        dayKey = dailyMixDay,
+                        refreshKey = refreshToken,
+                        thumbnailSizeDp = playlistThumbnailSizeDp,
+                        thumbnailSizePx = playlistThumbnailSizePx,
+                        onPlaylistClick = onPlaylistClick
+                    )
+                }
+            }
+        }
         relatedPageResult?.getOrNull()?.let { related ->
             related.playlists?.let { playlists ->
                     BasicText(
@@ -459,53 +533,6 @@ fun QuickPicks(
                 }
 
 
-                related.albums?.let { albums ->
-                    BasicText(
-                        text = "RELATED ALBUMS",
-                        style = typography.s.semiBold,
-                        modifier = sectionTextModifier
-                    )
-
-                    LazyRow(contentPadding = endPaddingValues) {
-                        items(
-                            items = albums,
-                            key = Innertube.AlbumItem::key
-                        ) { album ->
-                            AlbumItem(
-                                album = album,
-                                thumbnailSizePx = albumThumbnailSizePx,
-                                thumbnailSizeDp = albumThumbnailSizeDp,
-                                alternative = true,
-                                modifier = Modifier
-                                    .clickable(onClick = { onAlbumClick(album.key) })
-                            )
-                        }
-                    }
-                }
-
-                related.artists?.let { artists ->
-                    BasicText(
-                        text = "SIMILAR ARTISTS",
-                        style = typography.s.semiBold,
-                        modifier = sectionTextModifier
-                    )
-
-                    LazyRow(contentPadding = endPaddingValues) {
-                        items(
-                            items = artists,
-                            key = Innertube.ArtistItem::key,
-                        ) { artist ->
-                            ArtistItem(
-                                artist = artist,
-                                thumbnailSizePx = artistThumbnailSizePx,
-                                thumbnailSizeDp = artistThumbnailSizeDp,
-                                alternative = true,
-                                modifier = Modifier
-                                    .clickable(onClick = { onArtistClick(artist.key) })
-                            )
-                        }
-                    }
-                }
 
             }
 
@@ -701,6 +728,72 @@ private fun OnlinePlaylistShelf(
                     modifier = Modifier.clickable(onClick = { onPlaylistClick(playlist.key) })
                 )
             }
+        }
+    }
+}
+
+
+
+@Composable
+private fun DailyMixPlaylistCard(
+    mix: DailyMixSpec,
+    dayKey: Long,
+    refreshKey: Int,
+    thumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    thumbnailSizePx: Int,
+    onPlaylistClick: (String) -> Unit
+) {
+    var playlist by remember(mix.query, dayKey, refreshKey) {
+        mutableStateOf<Innertube.PlaylistItem?>(null)
+    }
+    var loaded by remember(mix.query, dayKey, refreshKey) { mutableStateOf(false) }
+
+    LaunchedEffect(mix.query, dayKey, refreshKey) {
+        playlist = withContext(Dispatchers.IO) {
+            suspend fun fetch(query: String) = Innertube.searchPage(
+                body = SearchBody(
+                    context = IndiaMusicContext,
+                    query = query,
+                    params = Innertube.SearchFilter.FeaturedPlaylist.value
+                ),
+                fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+            )?.getOrNull()?.items.orEmpty()
+
+            val results = fetch(mix.query).ifEmpty {
+                fetch("${mix.query} official music")
+            }
+            if (results.isEmpty()) null else {
+                val index = Math.floorMod(dayKey, results.size.toLong()).toInt()
+                results[index]
+            }
+        }
+        loaded = true
+    }
+
+    when {
+        playlist != null -> {
+            val result = playlist!!
+            PlaylistItem(
+                thumbnailUrl = result.thumbnail?.url,
+                songCount = result.songCount,
+                name = mix.title,
+                channelName = null,
+                thumbnailSizePx = thumbnailSizePx,
+                thumbnailSizeDp = thumbnailSizeDp,
+                alternative = true,
+                modifier = Modifier.clickable { onPlaylistClick(result.key) }
+            )
+        }
+        !loaded -> PlaylistItemPlaceholder(
+            thumbnailSizeDp = thumbnailSizeDp,
+            alternative = true
+        )
+        else -> {
+            BasicText(
+                text = "${mix.title} unavailable",
+                style = LocalAppearance.current.second.xs,
+                modifier = Modifier.padding(12.dp)
+            )
         }
     }
 }
