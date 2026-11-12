@@ -47,6 +47,7 @@ inline fun NavigationRail(
     tabIndex: Int,
     crossinline onTabIndexChanged: (Int) -> Unit,
     content: @Composable ColumnScope.(@Composable (Int, String, Int) -> Unit) -> Unit,
+    bottomContent: @Composable ColumnScope.() -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val (colorPalette, typography) = LocalAppearance.current
@@ -154,6 +155,8 @@ inline fun NavigationRail(
                 }
             }
         }
+
+        bottomContent()
     }
 }
 
