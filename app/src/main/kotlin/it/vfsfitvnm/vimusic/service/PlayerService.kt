@@ -106,6 +106,7 @@ import it.vfsfitvnm.vimusic.utils.isInvincibilityEnabledKey
 import it.vfsfitvnm.vimusic.utils.isShowingThumbnailInLockscreenKey
 import it.vfsfitvnm.vimusic.utils.mediaItems
 import it.vfsfitvnm.vimusic.utils.persistentQueueKey
+import it.vfsfitvnm.vimusic.utils.prefer320KbpsKey
 import it.vfsfitvnm.vimusic.utils.preferences
 import it.vfsfitvnm.vimusic.utils.queueLoopEnabledKey
 import it.vfsfitvnm.vimusic.utils.resumePlaybackWhenDeviceConnectedKey
@@ -985,7 +986,13 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                             }
 
                             when (status) {
-                                "OK" -> body.streamingData?.highestQualityFormat?.let { format ->
+                                "OK" -> body.streamingData?.let { streaming ->
+                                    if (preferences.getBoolean(prefer320KbpsKey, true)) {
+                                        streaming.preferred320KbpsFormat
+                                    } else {
+                                        streaming.highestQualityFormat
+                                    }
+                                }?.let { format ->
                                     val mediaItem = runBlocking(Dispatchers.Main) {
                                         player.findNextMediaItemById(videoId)
                                     }
