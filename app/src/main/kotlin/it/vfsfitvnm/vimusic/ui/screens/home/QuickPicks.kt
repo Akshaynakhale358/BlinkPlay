@@ -350,7 +350,7 @@ fun QuickPicks(
 
         OnlineSongShelf(
             title = "Top song",
-            query = "top songs global chart 2026",
+            query = "top Hindi songs India chart Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam 2026",
             thumbnailSizeDp = songThumbnailSizeDp,
             thumbnailSizePx = songThumbnailSizePx,
             onSongClick = { song ->
@@ -370,7 +370,7 @@ fun QuickPicks(
 
         OnlineSongShelf(
             title = "Trending song",
-            query = "trending songs right now 2026",
+            query = "trending Hindi songs India Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam 2026",
             thumbnailSizeDp = songThumbnailSizeDp,
             thumbnailSizePx = songThumbnailSizePx,
             onSongClick = { song ->
@@ -390,7 +390,7 @@ fun QuickPicks(
 
         OnlineSongShelf(
             title = "New release",
-            query = "new music releases 2026",
+            query = "new Hindi Marathi Indian regional English music releases",
             thumbnailSizeDp = songThumbnailSizeDp,
             thumbnailSizePx = songThumbnailSizePx,
             onSongClick = { song ->
@@ -410,7 +410,7 @@ fun QuickPicks(
 
         OnlinePlaylistShelf(
             title = "Mix for me",
-            query = "personalized music mix",
+            query = "${trending?.artistsText.orEmpty()} Hindi Marathi Indian regional language personalized music mix",
             filter = Innertube.SearchFilter.FeaturedPlaylist.value,
             thumbnailSizeDp = playlistThumbnailSizeDp,
             thumbnailSizePx = playlistThumbnailSizePx,
@@ -498,7 +498,7 @@ fun QuickPicks(
 
         OnlinePlaylistShelf(
             title = "Trending community playlist",
-            query = "trending community playlists",
+            query = "trending Indian community music playlists Hindi Marathi Punjabi Tamil Telugu",
             filter = Innertube.SearchFilter.CommunityPlaylist.value,
             thumbnailSizeDp = playlistThumbnailSizeDp,
             thumbnailSizePx = playlistThumbnailSizePx,
