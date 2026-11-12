@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -33,12 +34,13 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     transparentBackground: Boolean = false,
+    circle: Boolean = false,
 ) {
     val (colorPalette) = LocalAppearance.current
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(if (circle) CircleShape else RoundedCornerShape(16.dp))
             .clickable(enabled = enabled, onClick = onClick)
             .then(if (transparentBackground) Modifier else Modifier.background(colorPalette.primaryButton))
             .size(62.dp)
@@ -58,6 +60,7 @@ fun PrimaryButton(
 @Composable
 fun MiniPlayerActionButton(
     modifier: Modifier = Modifier,
+    circle: Boolean = false,
 ) {
     val binder = LocalPlayerServiceBinder.current
     val player = binder?.player
@@ -89,6 +92,7 @@ fun MiniPlayerActionButton(
         iconId = if (isPlaying) R.drawable.pause else R.drawable.play,
         enabled = player?.currentMediaItem != null,
         transparentBackground = true,
+        circle = circle,
         onClick = {
             player?.let { currentPlayer ->
                 if (currentPlayer.isPlaying || currentPlayer.playWhenReady) {
