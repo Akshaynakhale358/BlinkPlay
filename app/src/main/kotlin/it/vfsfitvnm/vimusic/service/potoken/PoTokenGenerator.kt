@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import android.webkit.CookieManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -79,6 +80,8 @@ class PoTokenGenerator(private val context: Context) {
                 this@PoTokenGenerator.sessionId = null
             }
             null
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: BadWebViewException) {
             Log.e(TAG, "WebView is broken, disabling poTokens for this session", e)
             webViewBadImpl = true
@@ -122,7 +125,7 @@ class PoTokenGenerator(private val context: Context) {
         val videoPot = try {
             webView.generatePoToken(videoId)
         } catch (t: Throwable) {
-            if (recreated) throw t
+            if (t is CancellationException || recreated) throw t
             // The WebView may have been torn down in the background; rebuild once and retry.
             Log.e(TAG, "Failed to obtain poToken, retrying with a fresh WebView", t)
             return generate(videoId, session, forceRecreate = true)
