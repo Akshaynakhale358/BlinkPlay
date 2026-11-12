@@ -500,16 +500,14 @@ fun QuickPicks(
             refreshKey = refreshToken
         )
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            FloatingActionsContainerWithScrollToTop(
-                scrollState = scrollState,
-                iconId = R.drawable.search,
-                onClick = onSearchClick
-            )
-        }
+    }
+        PrimaryButton(
+            iconId = R.drawable.search,
+            onClick = onSearchClick,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 88.dp)
+        )
     }
     }
-}
 }
 
 
