@@ -50,6 +50,7 @@ inline fun <T : Innertube.Item> ItemsPage(
     emptyItemsText: String = "No items found",
     refreshOnEnter: Boolean = false,
     noinline itemsPageProvider: (suspend (String?) -> Result<Innertube.ItemsPage<T>?>?)? = null,
+    noinline onRefresh: (() -> Unit)? = null,
 ) {
     val (_, typography) = LocalAppearance.current
 
@@ -105,6 +106,7 @@ inline fun <T : Innertube.Item> ItemsPage(
             if (!isRefreshing) {
                 isRefreshing = true
                 itemsPage = null
+                onRefresh?.invoke()
             }
         },
         modifier = Modifier.fillMaxSize()
