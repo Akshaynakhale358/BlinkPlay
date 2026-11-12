@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -40,6 +41,7 @@ import it.vfsfitvnm.vimusic.ui.styling.Dimensions
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collect
 
@@ -65,6 +67,7 @@ fun HomeArtistList(
     var selectedCategory by remember { mutableStateOf("All") }
     val queries = categories.first { it.first == selectedCategory }.second
     val gridState = rememberLazyGridState()
+    val scope = rememberCoroutineScope()
     val thumbnailSizeDp = (Dimensions.thumbnails.song * 1.35f).coerceAtLeast(64.dp)
     val thumbnailSizePx = thumbnailSizeDp.px
 
@@ -138,7 +141,7 @@ fun HomeArtistList(
                         .clickable {
                             if (selectedCategory != category.first) {
                                 selectedCategory = category.first
-                                gridState.scrollToItem(0)
+                                scope.launch { gridState.scrollToItem(0) }
                             }
                         }
                         .padding(horizontal = 12.dp, vertical = 9.dp)
