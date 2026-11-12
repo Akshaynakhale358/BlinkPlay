@@ -202,11 +202,13 @@ fun HomePlaylists(
         }
 
         FloatingActionsContainerWithScrollToTop(
-            lazyGridState = lazyGridState,
+            lazyGridState = lazyGridState
+        )
+        it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton(
             iconId = R.drawable.search,
             onClick = onSearchClick,
-            transparentIconBackground = true,
-            alignment = Alignment.BottomStart
+            transparentBackground = true,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 88.dp)
         )
     }
 }
