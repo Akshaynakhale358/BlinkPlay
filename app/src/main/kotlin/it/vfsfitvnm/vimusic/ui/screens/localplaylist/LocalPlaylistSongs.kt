@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -63,8 +64,8 @@ import it.vfsfitvnm.vimusic.utils.forcePlayAtIndex
 import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 @ExperimentalAnimationApi
 @ExperimentalFoundationApi
@@ -76,6 +77,7 @@ fun LocalPlaylistSongs(
     val (colorPalette) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
+    val scope = rememberCoroutineScope()
 
     var playlistWithSongs by persist<PlaylistWithSongs?>("localPlaylist/$playlistId/playlistWithSongs")
 
@@ -182,15 +184,17 @@ fun LocalPlaylistSongs(
                                             text = "Sync",
                                             onClick = {
                                                 menuState.hide()
-                                                transaction {
-                                                    runBlocking(Dispatchers.IO) {
-                                                        withContext(Dispatchers.IO) {
-                                                            Innertube.playlistPage(BrowseBody(browseId = browseId))
-                                                                ?.completed()
-                                                        }
-                                                    }?.getOrNull()?.let { remotePlaylist ->
-                                                        Database.clearPlaylist(playlistId)
+                                                scope.launch {
+                                                    val remotePlaylist = withContext(Dispatchers.IO) {
+                                                        Innertube.playlistPage(BrowseBody(browseId = browseId))
+                                                            ?.completed()
+                                                            ?.getOrNull()
+                                                    } ?: return@launch
 
+                                                    // Fetch remotely first; hold the database transaction
+                                                    // only for the local playlist replacement.
+                                                    transaction {
+                                                        Database.clearPlaylist(playlistId)
                                                         remotePlaylist.songsPage
                                                             ?.items
                                                             ?.map(Innertube.SongItem::asMediaItem)
