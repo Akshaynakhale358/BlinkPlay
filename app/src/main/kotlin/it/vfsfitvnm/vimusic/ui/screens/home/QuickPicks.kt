@@ -87,6 +87,7 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.random.Random
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
 private const val SeedPoolSize = 20
@@ -476,9 +477,10 @@ fun QuickPicks(
         )
 
         val dailyMixDay = LocalDate.now().toEpochDay()
-        val dailyMixPack = Math.floorMod(dailyMixDay, 3L).toInt()
+        // Stable for the whole day, but a new deterministic shuffle on the next date.
+        // Pick 10 different themes from the full pool instead of cycling a fixed 3-day pack.
         val dailyMixes = remember(dailyMixDay) {
-            DailyMixThemes.drop(dailyMixPack * 10).take(10)
+            DailyMixThemes.shuffled(Random(dailyMixDay)).take(10)
         }
 
         BasicText(
