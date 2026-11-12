@@ -43,13 +43,21 @@ data class PlayerResponse(
          * YouTube does not expose 320 kbps for every track, so never upsample or label
          * a lower-bitrate source as 320 kbps.
          */
+        private val playableAudioFormats: List<AdaptiveFormat>
+            get() = adaptiveFormats.orEmpty().filter {
+                (it.url != null || it.signatureCipher != null) &&
+                    it.mimeType.startsWith("audio/")
+            }
+
+        /** Prefer a genuine 320 kbps stream when available, otherwise best source quality. */
+        val preferred320KbpsFormat: AdaptiveFormat?
+            get() = playableAudioFormats
+                .filter { (it.averageBitrate ?: it.bitrate ?: 0L) >= 320_000L }
+                .maxByOrNull { it.averageBitrate ?: it.bitrate ?: 0L }
+                ?: highestQualityFormat
+
         val highestQualityFormat: AdaptiveFormat?
-            get() = adaptiveFormats
-                ?.filter {
-                    (it.url != null || it.signatureCipher != null) &&
-                        it.mimeType.startsWith("audio/")
-                }
-                ?.maxByOrNull { it.averageBitrate ?: it.bitrate ?: 0L }
+            get() = playableAudioFormats.maxByOrNull { it.averageBitrate ?: it.bitrate ?: 0L }
 
         @Serializable
         data class AdaptiveFormat(
