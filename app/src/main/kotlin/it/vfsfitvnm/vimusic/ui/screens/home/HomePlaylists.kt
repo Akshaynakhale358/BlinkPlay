@@ -43,8 +43,6 @@ import it.vfsfitvnm.vimusic.models.PlaylistPreview
 import it.vfsfitvnm.vimusic.query
 import it.vfsfitvnm.vimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
-import it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton
-import it.vfsfitvnm.vimusic.ui.components.themed.MiniPlayerActionButton
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
 import it.vfsfitvnm.vimusic.ui.components.themed.SecondaryTextButton
 import it.vfsfitvnm.vimusic.ui.components.themed.TextFieldDialog
@@ -163,20 +161,7 @@ fun HomePlaylists(
                 }
             }
 
-            item(key = "home-actions", span = { GridItemSpan(maxLineSpan) }) {
-                androidx.compose.foundation.layout.Row(
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(start = 0.dp, top = 4.dp, bottom = 8.dp)
-                ) {
-                    PrimaryButton(
-                        iconId = R.drawable.search,
-                        onClick = onSearchClick,
-                        transparentBackground = true
-                    )
-                    MiniPlayerActionButton()
-                }
 
-            }
 
             item(key = "favorites") {
                 PlaylistItem(
