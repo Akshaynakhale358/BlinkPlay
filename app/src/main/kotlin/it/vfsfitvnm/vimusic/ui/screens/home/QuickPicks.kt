@@ -45,6 +45,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
+import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
@@ -92,6 +93,10 @@ private const val SeedPoolSize = 20
 
 /** Used when nothing has been played yet, so the page is not empty on a fresh install. */
 private const val DefaultSeedVideoId = "J7p4bzqLvCw"
+
+private val IndiaMusicContext = Context.DefaultWeb.copy(
+    client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+)
 
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
@@ -542,6 +547,7 @@ private suspend fun loadLanguageOrderedRelatedPage(
 
     suspend fun fetchRelatedSongs(languageQuery: String) = Innertube.searchPage(
         body = SearchBody(
+            context = IndiaMusicContext,
             query = "$languageQuery similar to $seedContext",
             params = Innertube.SearchFilter.Song.value
         ),
@@ -597,6 +603,7 @@ private fun OnlineSongShelf(
 
             suspend fun fetchSongs(searchQuery: String) = Innertube.searchPage(
                 body = SearchBody(
+                    context = IndiaMusicContext,
                     query = searchQuery,
                     params = Innertube.SearchFilter.Song.value
                 ),
@@ -672,7 +679,7 @@ private fun OnlinePlaylistShelf(
     LaunchedEffect(query, filter, refreshKey) {
         val result = withContext(Dispatchers.IO) {
             Innertube.searchPage(
-                body = SearchBody(query = query, params = filter),
+                body = SearchBody(context = IndiaMusicContext, query = query, params = filter),
                 fromMusicShelfRendererContent = Innertube.PlaylistItem::from
             )
         }
