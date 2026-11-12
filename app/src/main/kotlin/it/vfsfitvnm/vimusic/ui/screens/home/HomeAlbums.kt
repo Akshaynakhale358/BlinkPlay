@@ -124,6 +124,18 @@ fun HomeAlbums(
             Column {
                 Header(title = "Albums") {
                 }
+                androidx.compose.foundation.layout.Row(
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(start = 0.dp, top = 4.dp, bottom = 8.dp)
+                ) {
+                    PrimaryButton(
+                        iconId = R.drawable.search,
+                        onClick = onSearchClick,
+                        transparentBackground = true
+                    )
+                    MiniPlayerActionButton()
+                }
+
                 BasicText(
                     text = "EXPLORE ALBUM CATEGORIES",
                     style = typography.s.semiBold,
@@ -166,14 +178,5 @@ fun HomeAlbums(
             AlbumItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
         }
     )
-        PrimaryButton(
-            iconId = R.drawable.search,
-            onClick = onSearchClick,
-            transparentBackground = true,
-            modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 88.dp)
-        )
-        MiniPlayerActionButton(
-            modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 16.dp)
-        )
     }
 }
