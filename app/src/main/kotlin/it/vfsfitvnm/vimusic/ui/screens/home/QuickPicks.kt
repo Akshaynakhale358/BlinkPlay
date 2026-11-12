@@ -353,11 +353,31 @@ fun QuickPicks(
                 }
             }
 
-        // One combined shelf: merge top-chart and trending discovery intent.
+        // Keep chart-style Top Song and currently popular Trending Song as separate shelves.
         // YouTube Music search does not expose a guaranteed live chart rank here.
         OnlineSongShelf(
+            title = "TOP SONG",
+            query = "top chart highest ranked most popular hit songs India Hindi Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam",
+            thumbnailSizeDp = songThumbnailSizeDp,
+            thumbnailSizePx = songThumbnailSizePx,
+            onSongClick = { song ->
+                val mediaItem = song.asMediaItem
+                binder?.stopRadio()
+                binder?.player?.forcePlay(mediaItem)
+                binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+            },
+            onSongLongClick = { song ->
+                menuState.display {
+                    NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                }
+            },
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
+        )
+
+        OnlineSongShelf(
             title = "TRENDING SONG",
-            query = "trending top chart popular hit songs India Hindi Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam English 2026",
+            query = "trending now viral popular songs India Hindi Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam English 2026",
             thumbnailSizeDp = songThumbnailSizeDp,
             thumbnailSizePx = songThumbnailSizePx,
             onSongClick = { song ->
