@@ -28,8 +28,6 @@ import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
-import it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton
-import it.vfsfitvnm.vimusic.ui.components.themed.MiniPlayerActionButton
 import it.vfsfitvnm.vimusic.ui.items.AlbumItem
 import it.vfsfitvnm.vimusic.ui.items.AlbumItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
@@ -123,17 +121,6 @@ fun HomeAlbums(
         headerContent = {
             Column {
                 Header(title = "Albums") {
-                }
-                androidx.compose.foundation.layout.Row(
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(start = 0.dp, top = 4.dp, bottom = 8.dp)
-                ) {
-                    PrimaryButton(
-                        iconId = R.drawable.search,
-                        onClick = onSearchClick,
-                        transparentBackground = true
-                    )
-                    MiniPlayerActionButton()
                 }
 
                 BasicText(
