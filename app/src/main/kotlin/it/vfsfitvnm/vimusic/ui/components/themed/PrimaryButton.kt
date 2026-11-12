@@ -23,6 +23,7 @@ fun PrimaryButton(
     @DrawableRes iconId: Int,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    transparentBackground: Boolean = false,
 ) {
     val (colorPalette) = LocalAppearance.current
 
@@ -30,7 +31,7 @@ fun PrimaryButton(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .clickable(enabled = enabled, onClick = onClick)
-            .background(colorPalette.primaryButton)
+            .then(if (transparentBackground) Modifier else Modifier.background(colorPalette.primaryButton))
             .size(62.dp)
     ) {
         Image(
