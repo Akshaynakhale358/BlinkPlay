@@ -34,6 +34,7 @@ import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.semiBold
+import java.time.LocalDate
 
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
@@ -45,11 +46,14 @@ fun HomeAlbums(
     val (colorPalette, typography) = LocalAppearance.current
     val thumbnailSizeDp = 108.dp
     val thumbnailSizePx = thumbnailSizeDp.px
+    val releasePeriod = LocalDate.now().month.name.lowercase().replaceFirstChar { it.uppercase() } +
+        " " + LocalDate.now().year
+    // Keep each shelf tied to a distinct Indian music discovery intent.
     val categories = listOf(
-        "Album" to "popular music albums",
-        "New Releases Album" to "new album releases latest albums",
-        "Trending Album" to "trending albums this week",
-        "Top Album" to "top chart popular albums"
+        "Album" to "Indian music albums Hindi Marathi Tamil Telugu Punjabi Bengali Kannada Malayalam",
+        "New Releases Album" to "newly released Indian music albums $releasePeriod Hindi Marathi Tamil Telugu Punjabi",
+        "Trending Album" to "trending Indian music albums this week Hindi Marathi Tamil Telugu Punjabi",
+        "Top Album" to "top Indian music albums chart most popular Hindi Marathi Tamil Telugu Punjabi"
     )
     var selectedCategory by persist("home/albumsCategory", "Album")
     val selectedQuery = categories.firstOrNull { it.first == selectedCategory }?.second
