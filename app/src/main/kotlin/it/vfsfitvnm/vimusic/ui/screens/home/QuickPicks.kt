@@ -207,7 +207,7 @@ fun QuickPicks(
             )
 
             BasicText(
-                text = "SONG FOR ME",
+                text = "SONGS FOR ME",
                 style = typography.s.semiBold,
                 modifier = sectionTextModifier
             )
@@ -382,7 +382,7 @@ fun QuickPicks(
 
         OnlineSongShelf(
             title = "TRENDING SONG",
-            query = "trending now viral popular songs India Hindi Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam English 2026",
+            query = "trending now viral popular songs India Hindi Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam ${LocalDate.now().year}",
             thumbnailSizeDp = songThumbnailSizeDp,
             thumbnailSizePx = songThumbnailSizePx,
             onSongClick = { song ->
@@ -535,8 +535,12 @@ private suspend fun loadLanguageOrderedRelatedPage(
 ): Result<Innertube.RelatedPage?> {
     val baseResult = Innertube.relatedPage(
         NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
-    ) ?: return Result.success(null)
-    val base = baseResult.getOrNull() ?: return baseResult
+    ) ?: return Result.failure(IllegalStateException("Related recommendations are unavailable"))
+
+    if (baseResult.isFailure) return baseResult
+
+    val base = baseResult.getOrNull()
+        ?: return Result.failure(IllegalStateException("Related recommendations are empty"))
 
     // Keep Song for me personalized to the current listening seed, but request each
     // language group explicitly so English results can never lead the shelf.
