@@ -13,12 +13,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.media3.common.Player as Media3Player
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
+import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
-import it.vfsfitvnm.vimusic.models.Song
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.forcePlay
 import kotlinx.coroutines.Dispatchers
@@ -117,10 +117,10 @@ fun MiniPlayerActionButton(
                     }
 
                     if (mediaItem != null) {
-                        binder.stopRadio()
+                        binder?.stopRadio()
                         player.forcePlay(mediaItem)
-                        binder.setupRadio(
-                            it.vfsfitvnm.innertube.models.NavigationEndpoint.Endpoint.Watch(
+                        binder?.setupRadio(
+                            NavigationEndpoint.Endpoint.Watch(
                                 videoId = mediaItem.mediaId
                             )
                         )
