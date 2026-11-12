@@ -44,6 +44,7 @@ inline fun <T : Innertube.Item> ItemsPage(
     initialPlaceholderCount: Int = 8,
     continuationPlaceholderCount: Int = 3,
     emptyItemsText: String = "No items found",
+    refreshOnEnter: Boolean = false,
     noinline itemsPageProvider: (suspend (String?) -> Result<Innertube.ItemsPage<T>?>?)? = null,
 ) {
     val (_, typography) = LocalAppearance.current
@@ -55,6 +56,7 @@ inline fun <T : Innertube.Item> ItemsPage(
     var itemsPage by persist<Innertube.ItemsPage<T>?>(tag)
 
     LaunchedEffect(lazyListState, updatedItemsPageProvider) {
+        if (refreshOnEnter) itemsPage = null
         val currentItemsPageProvider = updatedItemsPageProvider ?: return@LaunchedEffect
 
         snapshotFlow { lazyListState.layoutInfo.visibleItemsInfo.any { it.key == "loading" } }
