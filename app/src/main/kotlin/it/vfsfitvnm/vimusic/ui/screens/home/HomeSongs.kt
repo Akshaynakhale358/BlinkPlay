@@ -75,6 +75,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     var selectedCategory by persist("home/songsCategory", "Workout")
     val selectedQuery = categories.firstOrNull { it.first == selectedCategory }?.second
         ?: "workout motivation songs"
+    var categoryPlaylistRefreshKey by remember { mutableStateOf(0) }
 
     Box(modifier = Modifier.fillMaxSize()) {
     ItemsPage(
@@ -175,6 +176,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
         },
         emptyItemsText = "No online songs found. Try Search.",
         refreshOnEnter = true,
+        onRefresh = { categoryPlaylistRefreshKey += 1 },
         headerContent = {
             androidx.compose.foundation.layout.Column {
                 Header(title = "Songs") {
@@ -204,6 +206,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 CategoryPublicPlaylists(
                     category = selectedCategory,
                     query = selectedQuery,
+                    refreshKey = categoryPlaylistRefreshKey,
                     onPlaylistClick = onPlaylistClick
                 )
                 BasicText(
@@ -247,14 +250,15 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
 private fun CategoryPublicPlaylists(
     category: String,
     query: String,
+    refreshKey: Int,
     onPlaylistClick: (String) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
     val playlistThumbnailSizeDp = 108.dp
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
-    var playlists by remember(category) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
+    var playlists by remember(category, refreshKey) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
 
-    LaunchedEffect(category, query) {
+    LaunchedEffect(category, query, refreshKey) {
         playlists = withContext(Dispatchers.IO) {
             Innertube.searchPage(
                 body = SearchBody(
