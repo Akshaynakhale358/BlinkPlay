@@ -76,7 +76,7 @@ fun ArtistScreen(browseId: String) {
 
     var artistPage by persist<Innertube.ArtistPage?>("artist/$browseId/artistPage")
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(browseId) {
         Database
             .artist(browseId)
             .combine(snapshotFlow { tabIndex }.map { it != 4 }) { artist, mustFetch -> artist to mustFetch }
