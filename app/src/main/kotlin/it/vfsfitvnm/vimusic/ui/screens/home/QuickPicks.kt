@@ -112,9 +112,7 @@ fun QuickPicks(
 
     LaunchedEffect(refreshToken) {
         if (refreshToken > 0) {
-            relatedPageResult = Innertube.relatedPage(
-                NextBody(videoId = trending?.id ?: DefaultSeedVideoId)
-            )
+            relatedPageResult = loadLanguageOrderedRelatedPage(trending)
             isRefreshing = false
         }
     }
@@ -133,8 +131,7 @@ fun QuickPicks(
                 ?: candidates.randomOrNull()
 
             if (relatedPageResult == null || seed?.id != current?.id) {
-                relatedPageResult =
-                    Innertube.relatedPage(NextBody(videoId = seed?.id ?: DefaultSeedVideoId))
+                relatedPageResult = loadLanguageOrderedRelatedPage(seed)
             }
             trending = seed
         }
@@ -510,6 +507,51 @@ fun QuickPicks(
     }
 }
 
+
+private suspend fun loadLanguageOrderedRelatedPage(
+    seed: Song?
+): Result<Innertube.RelatedPage?> {
+    val baseResult = Innertube.relatedPage(
+        NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
+    )
+    val base = baseResult.getOrNull() ?: return baseResult
+
+    // Keep Song for me personalized to the current listening seed, but request each
+    // language group explicitly so English results can never lead the shelf.
+    val seedContext = listOfNotNull(seed?.title, seed?.artistsText)
+        .joinToString(" ")
+        .takeIf { it.isNotBlank() }
+        ?: "popular"
+
+    val hindi = Innertube.searchPage(
+        body = SearchBody(
+            query = "Hindi songs similar to $seedContext",
+            params = Innertube.SearchFilter.Song.value
+        ),
+        fromMusicShelfRendererContent = Innertube.SongItem::from
+    )?.getOrNull()?.items.orEmpty()
+
+    val otherIndianLanguages = Innertube.searchPage(
+        body = SearchBody(
+            query = "Indian regional language songs Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam similar to $seedContext",
+            params = Innertube.SearchFilter.Song.value
+        ),
+        fromMusicShelfRendererContent = Innertube.SongItem::from
+    )?.getOrNull()?.items.orEmpty()
+
+    val english = Innertube.searchPage(
+        body = SearchBody(
+            query = "English songs similar to $seedContext international",
+            params = Innertube.SearchFilter.Song.value
+        ),
+        fromMusicShelfRendererContent = Innertube.SongItem::from
+    )?.getOrNull()?.items.orEmpty()
+
+    val orderedSongs = (hindi + otherIndianLanguages + english)
+        .distinctBy { it.key }
+
+    return Result.success(base.copy(songs = orderedSongs))
+}
 
 @Composable
 private fun OnlineSongShelf(
