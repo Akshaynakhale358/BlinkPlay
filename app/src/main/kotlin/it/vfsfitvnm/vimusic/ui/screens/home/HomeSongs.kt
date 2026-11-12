@@ -139,7 +139,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                     )
                 } else {
                     Innertube.searchPage(
-                        body = ContinuationBody(continuation = token),
+                        body = ContinuationBody(context = indiaHindiContext, continuation = token),
                         fromMusicShelfRendererContent = { content ->
                             if (isPodcastCategory) {
                                 Innertube.VideoItem.from(content)?.let { video ->
