@@ -105,16 +105,22 @@ fun formatAsDuration(millis: Long) = DateUtils.formatElapsedTime(millis / 1000).
 
 suspend fun Result<Innertube.PlaylistOrAlbumPage>.completed(): Result<Innertube.PlaylistOrAlbumPage>? {
     var playlistPage = getOrNull() ?: return null
+    val seenContinuations = mutableSetOf<String>()
+    var loadedPages = 0
 
-    while (playlistPage.songsPage?.continuation != null) {
-        val continuation = playlistPage.songsPage?.continuation!!
-        val otherPlaylistPageResult = Innertube.playlistPage(ContinuationBody(continuation = continuation)) ?: break
+    // Guard against a repeated continuation token or a malformed endless playlist response.
+    // A very large playlist can still load, but one request can never trap the player forever.
+    while (playlistPage.songsPage?.continuation != null && loadedPages < 100) {
+        val continuation = playlistPage.songsPage?.continuation ?: break
+        if (!seenContinuations.add(continuation)) break
 
+        val otherPlaylistPageResult =
+            Innertube.playlistPage(ContinuationBody(continuation = continuation)) ?: break
         if (otherPlaylistPageResult.isFailure) break
 
-        otherPlaylistPageResult.getOrNull()?.let { otherSongsPage ->
-            playlistPage = playlistPage.copy(songsPage = playlistPage.songsPage + otherSongsPage)
-        }
+        val otherSongsPage = otherPlaylistPageResult.getOrNull() ?: break
+        playlistPage = playlistPage.copy(songsPage = playlistPage.songsPage + otherSongsPage)
+        loadedPages += 1
     }
 
     return Result.success(playlistPage)
