@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.compose.persist.persist
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
@@ -31,7 +32,7 @@ import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
-import it.vfsfitvnm.vimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
+import it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItem
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItemPlaceholder
@@ -155,10 +156,10 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
         }
     )
-        FloatingActionsContainerWithScrollToTop(
-            scrollState = rememberScrollState(),
+        PrimaryButton(
             iconId = R.drawable.search,
-            onClick = onSearchClick
+            onClick = onSearchClick,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 88.dp)
         )
     }
 }
