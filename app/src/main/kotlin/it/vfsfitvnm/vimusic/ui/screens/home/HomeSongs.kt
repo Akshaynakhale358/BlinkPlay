@@ -79,9 +79,49 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
         tag = "home/category-songs-$selectedCategory",
         itemsPageProvider = { continuation ->
             if (continuation == null) {
-                Innertube.searchPage(
-                    body = SearchBody(query = selectedQuery, params = Innertube.SearchFilter.Song.value),
+                // Seed each category with language-prioritized results. Keep all languages:
+                // Marathi first, Hindi next, other regional languages, and English last.
+                val marathiPage = Innertube.searchPage(
+                    body = SearchBody(
+                        query = "Marathi $selectedQuery",
+                        params = Innertube.SearchFilter.Song.value
+                    ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
+                )?.getOrNull()
+                val hindiPage = Innertube.searchPage(
+                    body = SearchBody(
+                        query = "Hindi $selectedQuery",
+                        params = Innertube.SearchFilter.Song.value
+                    ),
+                    fromMusicShelfRendererContent = Innertube.SongItem::from
+                )?.getOrNull()
+                val otherLanguagesPage = Innertube.searchPage(
+                    body = SearchBody(
+                        query = "Indian regional languages $selectedQuery",
+                        params = Innertube.SearchFilter.Song.value
+                    ),
+                    fromMusicShelfRendererContent = Innertube.SongItem::from
+                )?.getOrNull()
+                val englishPage = Innertube.searchPage(
+                    body = SearchBody(
+                        query = "English $selectedQuery",
+                        params = Innertube.SearchFilter.Song.value
+                    ),
+                    fromMusicShelfRendererContent = Innertube.SongItem::from
+                )?.getOrNull()
+
+                val prioritizedSongs = (
+                    marathiPage?.items.orEmpty() +
+                    hindiPage?.items.orEmpty() +
+                    otherLanguagesPage?.items.orEmpty() +
+                    englishPage?.items.orEmpty()
+                ).distinctBy { it.key }
+
+                Result.success(
+                    Innertube.ItemsPage(
+                        items = prioritizedSongs,
+                        continuation = englishPage?.continuation
+                    )
                 )
             } else {
                 Innertube.searchPage(
