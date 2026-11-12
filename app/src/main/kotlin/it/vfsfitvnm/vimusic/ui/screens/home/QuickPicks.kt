@@ -255,8 +255,15 @@ fun QuickPicks(
                     }
 
                     items(
-                        items = related.songs?.dropLast(if (trending == null) 0 else 1)
-                            ?: emptyList(),
+                        items = related.songs.orEmpty().let { songs ->
+                            // The seed is rendered in its own starred tile above. Only remove
+                            // a trailing duplicate when the API actually returned that seed.
+                            if (trending != null && songs.lastOrNull()?.key == trending?.id) {
+                                songs.dropLast(1)
+                            } else {
+                                songs
+                            }
+                        },
                         key = Innertube.SongItem::key
                     ) { song ->
                         SongItem(
@@ -550,7 +557,11 @@ private suspend fun loadLanguageOrderedRelatedPage(
     val orderedSongs = (hindi + otherIndianLanguages + english)
         .distinctBy { it.key }
 
-    return Result.success(base.copy(songs = orderedSongs))
+    // If language-specific search is temporarily unavailable, retain YouTube's
+    // personalized recommendations instead of showing only the starred seed song.
+    val songs = orderedSongs.ifEmpty { base.songs.orEmpty() }
+
+    return Result.success(base.copy(songs = songs))
 }
 
 @Composable
