@@ -389,7 +389,6 @@ fun QuickPicks(
                     }
                 }
             }
-        }
 
         OnlinePlaylistShelf(
             title = "Mix for me",
@@ -467,6 +466,7 @@ fun QuickPicks(
             onPlaylistClick = onPlaylistClick,
             sectionTextModifier = sectionTextModifier
         )
+        }
 
         FloatingActionsContainerWithScrollToTop(
             scrollState = scrollState,
