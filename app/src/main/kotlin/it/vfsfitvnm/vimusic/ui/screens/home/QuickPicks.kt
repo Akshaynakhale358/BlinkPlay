@@ -61,6 +61,7 @@ import it.vfsfitvnm.vimusic.query
 import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton
+import it.vfsfitvnm.vimusic.ui.components.themed.MiniPlayerActionButton
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.components.themed.TextPlaceholder
@@ -523,7 +524,10 @@ fun QuickPicks(
             iconId = R.drawable.search,
             onClick = onSearchClick,
             transparentBackground = true,
-            modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 88.dp)
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 88.dp)
+        )
+        MiniPlayerActionButton(
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 16.dp)
         )
     }
     }
