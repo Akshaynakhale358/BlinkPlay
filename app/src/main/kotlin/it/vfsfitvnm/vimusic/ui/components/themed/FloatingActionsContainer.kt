@@ -113,7 +113,8 @@ fun BoxScope.FloatingActions(
     onScrollToTop: (suspend () -> Unit)? = null,
     iconId: Int? = null,
     onClick: (() -> Unit)? = null,
-    transparentIconBackground: Boolean = false
+    transparentIconBackground: Boolean = false,
+    alignment: Alignment = Alignment.BottomEnd
 ) {
     val transition = updateTransition(transitionState, "")
 
@@ -123,9 +124,9 @@ fun BoxScope.FloatingActions(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.Bottom,
         modifier = modifier
-            .align(Alignment.BottomEnd)
-            .padding(end = 16.dp)
-            .padding(windowInsets.only(WindowInsetsSides.End).asPaddingValues())
+            .align(alignment)
+            .padding(if (alignment == Alignment.BottomStart) Modifier.padding(start = 16.dp) else Modifier.padding(end = 16.dp))
+            .padding(if (alignment == Alignment.BottomStart) windowInsets.only(WindowInsetsSides.Start).asPaddingValues() else windowInsets.only(WindowInsetsSides.End).asPaddingValues())
     ) {
         onScrollToTop?.let {
             transition.AnimatedVisibility(
