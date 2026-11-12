@@ -34,6 +34,7 @@ import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
 import it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton
+import it.vfsfitvnm.vimusic.ui.components.themed.MiniPlayerActionButton
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItem
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItemPlaceholder
@@ -243,7 +244,10 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             iconId = R.drawable.search,
             onClick = onSearchClick,
             transparentBackground = true,
-            modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 88.dp)
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 88.dp)
+        )
+        MiniPlayerActionButton(
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 16.dp)
         )
     }
 }
