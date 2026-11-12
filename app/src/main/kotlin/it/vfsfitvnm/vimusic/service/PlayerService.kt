@@ -468,15 +468,15 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     private fun maybeRestorePlayerQueue() {
         if (!isPersistentQueueEnabled) return
 
-        query {
-            val queuedSong = Database.queue()
-            Database.clearQueue()
-
-            if (queuedSong.isEmpty()) return@query
+        coroutineScope.launch {
+            val queuedSong = withContext(Dispatchers.IO) {
+                Database.queue().also { Database.clearQueue() }
+            }
+            if (queuedSong.isEmpty()) return@launch
 
             val index = queuedSong.indexOfFirst { it.position != null }.coerceAtLeast(0)
 
-            runBlocking(Dispatchers.Main) {
+            withContext(Dispatchers.Main) {
                 player.setMediaItems(
                     queuedSong.map { mediaItem ->
                         mediaItem.mediaItem.buildUpon()
