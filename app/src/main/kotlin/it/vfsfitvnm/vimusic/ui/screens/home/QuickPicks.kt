@@ -165,6 +165,12 @@ fun QuickPicks(
                     .padding(endPaddingValues)
             )
 
+            BasicText(
+                text = "Song for me",
+                style = typography.m.semiBold,
+                modifier = sectionTextModifier
+            )
+
             relatedPageResult?.getOrNull()?.let { related ->
                 LazyHorizontalGrid(
                     state = quickPicksLazyGridState,
@@ -379,10 +385,176 @@ fun QuickPicks(
             }
         }
 
+        OnlineSongShelf(
+            title = "Top song",
+            query = "top songs global chart 2026",
+            thumbnailSizeDp = songThumbnailSizeDp,
+            thumbnailSizePx = songThumbnailSizePx,
+            onSongClick = { song ->
+                val mediaItem = song.asMediaItem
+                binder?.stopRadio()
+                binder?.player?.forcePlay(mediaItem)
+                binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+            },
+            onSongLongClick = { song ->
+                menuState.display {
+                    NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                }
+            },
+            sectionTextModifier = sectionTextModifier
+        )
+
+        OnlineSongShelf(
+            title = "Trending song",
+            query = "trending songs right now 2026",
+            thumbnailSizeDp = songThumbnailSizeDp,
+            thumbnailSizePx = songThumbnailSizePx,
+            onSongClick = { song ->
+                val mediaItem = song.asMediaItem
+                binder?.stopRadio()
+                binder?.player?.forcePlay(mediaItem)
+                binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+            },
+            onSongLongClick = { song ->
+                menuState.display {
+                    NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                }
+            },
+            sectionTextModifier = sectionTextModifier
+        )
+
+        OnlineSongShelf(
+            title = "New release",
+            query = "new music releases 2026",
+            thumbnailSizeDp = songThumbnailSizeDp,
+            thumbnailSizePx = songThumbnailSizePx,
+            onSongClick = { song ->
+                val mediaItem = song.asMediaItem
+                binder?.stopRadio()
+                binder?.player?.forcePlay(mediaItem)
+                binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+            },
+            onSongLongClick = { song ->
+                menuState.display {
+                    NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                }
+            },
+            sectionTextModifier = sectionTextModifier
+        )
+
+        OnlinePlaylistShelf(
+            title = "Mix for me",
+            query = "personalized music mix",
+            filter = Innertube.SearchFilter.FeaturedPlaylist.value,
+            thumbnailSizeDp = playlistThumbnailSizeDp,
+            thumbnailSizePx = playlistThumbnailSizePx,
+            onPlaylistClick = onPlaylistClick,
+            sectionTextModifier = sectionTextModifier
+        )
+
+        OnlinePlaylistShelf(
+            title = "Trending community playlist",
+            query = "trending community playlists",
+            filter = Innertube.SearchFilter.CommunityPlaylist.value,
+            thumbnailSizeDp = playlistThumbnailSizeDp,
+            thumbnailSizePx = playlistThumbnailSizePx,
+            onPlaylistClick = onPlaylistClick,
+            sectionTextModifier = sectionTextModifier
+        )
+
         FloatingActionsContainerWithScrollToTop(
             scrollState = scrollState,
             iconId = R.drawable.search,
             onClick = onSearchClick
         )
+    }
+}
+
+
+@Composable
+private fun OnlineSongShelf(
+    title: String,
+    query: String,
+    thumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    thumbnailSizePx: Int,
+    onSongClick: (Innertube.SongItem) -> Unit,
+    onSongLongClick: (Innertube.SongItem) -> Unit,
+    sectionTextModifier: Modifier
+) {
+    val (_, typography) = LocalAppearance.current
+    var songs by remember(query) { mutableStateOf<List<Innertube.SongItem>?>(null) }
+
+    LaunchedEffect(query) {
+        val result = withContext(Dispatchers.IO) {
+            Innertube.searchPage(
+                body = SearchBody(query = query, params = Innertube.SearchFilter.Song.value),
+                fromMusicShelfRendererContent = Innertube.SongItem::from
+            )
+        }
+        songs = result?.getOrNull()?.items.orEmpty()
+    }
+
+    BasicText(text = title, style = typography.m.semiBold, modifier = sectionTextModifier)
+    if (songs == null) {
+        ShimmerHost {
+            repeat(2) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) }
+        }
+    } else {
+        LazyRow {
+            items(songs.orEmpty(), key = Innertube.SongItem::key) { song ->
+                SongItem(
+                    song = song,
+                    thumbnailSizePx = thumbnailSizePx,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    modifier = Modifier.combinedClickable(
+                        onLongClick = { onSongLongClick(song) },
+                        onClick = { onSongClick(song) }
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnlinePlaylistShelf(
+    title: String,
+    query: String,
+    filter: String,
+    thumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    thumbnailSizePx: Int,
+    onPlaylistClick: (String) -> Unit,
+    sectionTextModifier: Modifier
+) {
+    val (_, typography) = LocalAppearance.current
+    var playlists by remember(query) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
+
+    LaunchedEffect(query, filter) {
+        val result = withContext(Dispatchers.IO) {
+            Innertube.searchPage(
+                body = SearchBody(query = query, params = filter),
+                fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+            )
+        }
+        playlists = result?.getOrNull()?.items.orEmpty()
+    }
+
+    BasicText(text = title, style = typography.m.semiBold, modifier = sectionTextModifier)
+    if (playlists == null) {
+        ShimmerHost {
+            repeat(2) { PlaylistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true) }
+        }
+    } else {
+        LazyRow {
+            items(playlists.orEmpty(), key = Innertube.PlaylistItem::key) { playlist ->
+                PlaylistItem(
+                    playlist = playlist,
+                    thumbnailSizePx = thumbnailSizePx,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    alternative = true,
+                    modifier = Modifier.clickable(onClick = { onPlaylistClick(playlist.key) })
+                )
+            }
+        }
     }
 }
