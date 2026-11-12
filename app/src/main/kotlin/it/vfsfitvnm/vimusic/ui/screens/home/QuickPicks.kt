@@ -290,81 +290,6 @@ fun QuickPicks(
                     }
                 }
 
-                related.playlists?.let { playlists ->
-                    BasicText(
-                        text = "Playlists you might like",
-                        style = typography.m.semiBold,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 24.dp, bottom = 8.dp)
-                    )
-
-                    LazyRow(contentPadding = endPaddingValues) {
-                        items(
-                            items = playlists,
-                            key = Innertube.PlaylistItem::key,
-                        ) { playlist ->
-                            PlaylistItem(
-                                playlist = playlist,
-                                thumbnailSizePx = playlistThumbnailSizePx,
-                                thumbnailSizeDp = playlistThumbnailSizeDp,
-                                alternative = true,
-                                modifier = Modifier
-                                    .clickable(onClick = { onPlaylistClick(playlist.key) })
-                            )
-                        }
-                    }
-                }
-
-
-                related.albums?.let { albums ->
-                    BasicText(
-                        text = "Related albums",
-                        style = typography.m.semiBold,
-                        modifier = sectionTextModifier
-                    )
-
-                    LazyRow(contentPadding = endPaddingValues) {
-                        items(
-                            items = albums,
-                            key = Innertube.AlbumItem::key
-                        ) { album ->
-                            AlbumItem(
-                                album = album,
-                                thumbnailSizePx = albumThumbnailSizePx,
-                                thumbnailSizeDp = albumThumbnailSizeDp,
-                                alternative = true,
-                                modifier = Modifier
-                                    .clickable(onClick = { onAlbumClick(album.key) })
-                            )
-                        }
-                    }
-                }
-
-                related.artists?.let { artists ->
-                    BasicText(
-                        text = "Similar artists",
-                        style = typography.m.semiBold,
-                        modifier = sectionTextModifier
-                    )
-
-                    LazyRow(contentPadding = endPaddingValues) {
-                        items(
-                            items = artists,
-                            key = Innertube.ArtistItem::key,
-                        ) { artist ->
-                            ArtistItem(
-                                artist = artist,
-                                thumbnailSizePx = artistThumbnailSizePx,
-                                thumbnailSizeDp = artistThumbnailSizeDp,
-                                alternative = true,
-                                modifier = Modifier
-                                    .clickable(onClick = { onArtistClick(artist.key) })
-                            )
-                        }
-                    }
-                }
-
                 Unit
             } ?: relatedPageResult?.exceptionOrNull()?.let {
                 BasicText(
@@ -485,6 +410,82 @@ fun QuickPicks(
             sectionTextModifier = sectionTextModifier,
             refreshKey = refreshToken
         )
+
+                related.playlists?.let { playlists ->
+                    BasicText(
+                        text = "Playlists you might like",
+                        style = typography.m.semiBold,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 24.dp, bottom = 8.dp)
+                    )
+
+                    LazyRow(contentPadding = endPaddingValues) {
+                        items(
+                            items = playlists,
+                            key = Innertube.PlaylistItem::key,
+                        ) { playlist ->
+                            PlaylistItem(
+                                playlist = playlist,
+                                thumbnailSizePx = playlistThumbnailSizePx,
+                                thumbnailSizeDp = playlistThumbnailSizeDp,
+                                alternative = true,
+                                modifier = Modifier
+                                    .clickable(onClick = { onPlaylistClick(playlist.key) })
+                            )
+                        }
+                    }
+                }
+
+
+                related.albums?.let { albums ->
+                    BasicText(
+                        text = "Related albums",
+                        style = typography.m.semiBold,
+                        modifier = sectionTextModifier
+                    )
+
+                    LazyRow(contentPadding = endPaddingValues) {
+                        items(
+                            items = albums,
+                            key = Innertube.AlbumItem::key
+                        ) { album ->
+                            AlbumItem(
+                                album = album,
+                                thumbnailSizePx = albumThumbnailSizePx,
+                                thumbnailSizeDp = albumThumbnailSizeDp,
+                                alternative = true,
+                                modifier = Modifier
+                                    .clickable(onClick = { onAlbumClick(album.key) })
+                            )
+                        }
+                    }
+                }
+
+                related.artists?.let { artists ->
+                    BasicText(
+                        text = "Similar artists",
+                        style = typography.m.semiBold,
+                        modifier = sectionTextModifier
+                    )
+
+                    LazyRow(contentPadding = endPaddingValues) {
+                        items(
+                            items = artists,
+                            key = Innertube.ArtistItem::key,
+                        ) { artist ->
+                            ArtistItem(
+                                artist = artist,
+                                thumbnailSizePx = artistThumbnailSizePx,
+                                thumbnailSizeDp = artistThumbnailSizeDp,
+                                alternative = true,
+                                modifier = Modifier
+                                    .clickable(onClick = { onArtistClick(artist.key) })
+                            )
+                        }
+                    }
+                }
+
 
         OnlinePlaylistShelf(
             title = "Trending community playlist",
