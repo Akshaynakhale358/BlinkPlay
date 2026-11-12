@@ -51,13 +51,13 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["appName"] = "ViMusic Debug"
+            manifestPlaceholders["appName"] = "BlinkPlay"
         }
 
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            manifestPlaceholders["appName"] = "ViMusic"
+            manifestPlaceholders["appName"] = "BlinkPlay"
             // Falls back to the debug key when no keystore.properties is present, so a fresh
             // clone -- or F-Droid, which signs with its own key anyway -- still builds.
             signingConfig = signingConfigs.findByName("release")
