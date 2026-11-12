@@ -171,6 +171,12 @@ fun HomeArtistList(
                     ArtistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true)
                 }
             }
+        } else if (artists.isEmpty()) {
+            BasicText(
+                text = "No artists found. Try another category or Search.",
+                style = typography.s,
+                modifier = Modifier.padding(24.dp)
+            )
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
