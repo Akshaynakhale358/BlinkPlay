@@ -61,16 +61,31 @@ inline fun <T : Innertube.Item> ItemsPage(
             .collect { shouldLoadMore ->
                 if (!shouldLoadMore) return@collect
 
-                withContext(Dispatchers.IO) {
+                val result = withContext(Dispatchers.IO) {
                     currentItemsPageProvider(itemsPage?.continuation)
-                }?.onSuccess {
-                    if (it == null) {
-                        if (itemsPage == null) {
-                            itemsPage = Innertube.ItemsPage(null, null)
-                        }
-                    } else {
-                        itemsPage += it
+                }
+
+                if (result == null) {
+                    if (itemsPage == null) {
+                        itemsPage = Innertube.ItemsPage(null, null)
                     }
+                } else {
+                    result
+                        .onSuccess { page ->
+                            if (page == null) {
+                                if (itemsPage == null) {
+                                    itemsPage = Innertube.ItemsPage(null, null)
+                                }
+                            } else {
+                                itemsPage += page
+                            }
+                        }
+                        .onFailure {
+                            // Do not leave the loading placeholders spinning forever on API errors.
+                            if (itemsPage == null) {
+                                itemsPage = Innertube.ItemsPage(null, null)
+                            }
+                        }
                 }
             }
     }
