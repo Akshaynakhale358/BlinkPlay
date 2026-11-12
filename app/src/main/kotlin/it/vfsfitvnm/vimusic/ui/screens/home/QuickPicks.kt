@@ -565,7 +565,7 @@ private fun OnlineSongShelf(
             val releasePeriod = LocalDate.now().format(
                 DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
             )
-            val isNewRelease = title == "New release"
+            val isNewRelease = title.equals("NEW RELEASE", ignoreCase = true)
             fun languageQuery(language: String): String = if (isNewRelease) {
                 "latest new $language songs released $releasePeriod official"
             } else {
