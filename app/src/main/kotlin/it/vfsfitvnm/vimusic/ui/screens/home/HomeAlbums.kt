@@ -26,6 +26,7 @@ fun HomeAlbums(
     onAlbumClick: (String) -> Unit,
     onSearchClick: () -> Unit,
 ) {
+    val (colorPalette) = it.vfsfitvnm.vimusic.ui.styling.LocalAppearance.current
     val thumbnailSizeDp = 108.dp
     val thumbnailSizePx = thumbnailSizeDp.px
 
@@ -47,7 +48,7 @@ fun HomeAlbums(
         emptyItemsText = "No online albums found. Try Search.",
         headerContent = {
             Header(title = "Albums") {
-                HeaderIconButton(icon = R.drawable.search, onClick = onSearchClick)
+                HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
             }
         },
         itemContent = { album ->
