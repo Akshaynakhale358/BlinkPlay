@@ -91,7 +91,7 @@ fun HomeAlbums(
                     items(categories, key = { it.first }) { category ->
                         BasicText(
                             text = category.first.uppercase(),
-                            style = typography.s.semiBold,
+                            style = typography.s.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                             modifier = Modifier
                                 .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 12.dp)
                                 .background(
