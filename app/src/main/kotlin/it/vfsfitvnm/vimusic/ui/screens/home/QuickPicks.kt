@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +44,10 @@ import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.models.bodies.NextBody
+import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.relatedPage
+import it.vfsfitvnm.innertube.requests.searchPage
+import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
 import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
@@ -73,7 +77,9 @@ import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.withContext
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
 private const val SeedPoolSize = 20
@@ -385,6 +391,16 @@ fun QuickPicks(
             }
         }
 
+        OnlinePlaylistShelf(
+            title = "Mix for me",
+            query = "personalized music mix",
+            filter = Innertube.SearchFilter.FeaturedPlaylist.value,
+            thumbnailSizeDp = playlistThumbnailSizeDp,
+            thumbnailSizePx = playlistThumbnailSizePx,
+            onPlaylistClick = onPlaylistClick,
+            sectionTextModifier = sectionTextModifier
+        )
+
         OnlineSongShelf(
             title = "Top song",
             query = "top songs global chart 2026",
@@ -439,16 +455,6 @@ fun QuickPicks(
                     NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
                 }
             },
-            sectionTextModifier = sectionTextModifier
-        )
-
-        OnlinePlaylistShelf(
-            title = "Mix for me",
-            query = "personalized music mix",
-            filter = Innertube.SearchFilter.FeaturedPlaylist.value,
-            thumbnailSizeDp = playlistThumbnailSizeDp,
-            thumbnailSizePx = playlistThumbnailSizePx,
-            onPlaylistClick = onPlaylistClick,
             sectionTextModifier = sectionTextModifier
         )
 
