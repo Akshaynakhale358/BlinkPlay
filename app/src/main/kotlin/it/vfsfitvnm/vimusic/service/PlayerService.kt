@@ -748,8 +748,17 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
         when (key) {
-            persistentQueueKey -> isPersistentQueueEnabled =
-                sharedPreferences.getBoolean(key, isPersistentQueueEnabled)
+            persistentQueueKey -> {
+                isPersistentQueueEnabled =
+                    sharedPreferences.getBoolean(key, isPersistentQueueEnabled)
+                if (isPersistentQueueEnabled && !isQueueRestored) {
+                    if (player.mediaItemCount > 0) {
+                        isQueueRestored = true
+                    } else {
+                        maybeRestorePlayerQueue()
+                    }
+                }
+            }
 
             volumeNormalizationKey -> maybeNormalizeVolume()
 
