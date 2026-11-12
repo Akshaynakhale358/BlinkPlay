@@ -469,9 +469,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         if (!isPersistentQueueEnabled) return
 
         coroutineScope.launch {
-            val queuedSong = withContext(Dispatchers.IO) {
-                Database.queue().also { Database.clearQueue() }
-            }
+            val queuedSong = withContext(Dispatchers.IO) { Database.queue() }
             if (queuedSong.isEmpty()) return@launch
 
             val index = queuedSong.indexOfFirst { it.position != null }.coerceAtLeast(0)
@@ -495,6 +493,9 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                 startForegroundService(this@PlayerService, intent<PlayerService>())
                 startForeground(NotificationId, notification())
             }
+
+            // Keep the saved queue intact if the service is cancelled before player restoration.
+            withContext(Dispatchers.IO) { Database.clearQueue() }
         }
     }
 
