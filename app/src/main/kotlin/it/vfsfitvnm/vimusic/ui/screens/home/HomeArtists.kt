@@ -62,13 +62,13 @@ fun HomeArtistList(
     val (colorPalette, typography) = LocalAppearance.current
     val categories = listOf(
         "All" to listOf("Hindi singers", "Bollywood playback singers", "Marathi singers", "Punjabi singers", "Tamil singers", "Telugu singers", "Bengali singers", "Kannada singers", "Malayalam singers", "English pop artists", "international music artists"),
-        "Bollywood" to listOf("Bollywood singers", "Hindi film playback singers", "Bollywood music artists"),
-        "Marathi" to listOf("Marathi singers", "Marathi music artists", "Marathi playback singers"),
         "Hindi" to listOf("Hindi singers", "Hindi music artists", "Indian playback singers"),
+        "Marathi" to listOf("Marathi singers", "Marathi music artists", "Marathi playback singers"),
+        "Bollywood" to listOf("Bollywood singers", "Hindi film playback singers", "Bollywood music artists"),
         "Punjabi" to listOf("Punjabi singers", "Punjabi music artists", "Punjabi playback singers"),
         "Tamil" to listOf("Tamil singers", "Tamil music artists", "Tamil playback singers"),
         "Telugu" to listOf("Telugu singers", "Telugu music artists", "Telugu playback singers"),
-        "South Indian" to listOf("Malayalam singers", "Kannada singers", "South Indian music artists"),
+        "South Indian" to listOf("Tamil singers", "Telugu singers", "Malayalam singers", "Kannada singers", "South Indian music artists"),
         "English" to listOf("English pop artists", "English rock artists", "international music artists")
     )
     var selectedCategory by remember { mutableStateOf("All") }
