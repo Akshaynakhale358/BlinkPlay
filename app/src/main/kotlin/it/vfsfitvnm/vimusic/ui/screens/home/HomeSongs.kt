@@ -87,43 +87,34 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 val indiaHindiContext = Context.DefaultWeb.copy(
                     client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
                 )
-                val hindiPage = Innertube.searchPage(
+                // Fetch each language separately to preserve the requested order:
+                // Hindi first, Marathi second, other Indian languages next, English last.
+                suspend fun fetchSongs(languageQuery: String) = Innertube.searchPage(
                     body = SearchBody(
                         context = indiaHindiContext,
-                        query = "Hindi Bollywood film songs India $selectedQuery",
-                        params = Innertube.SearchFilter.Song.value
-                    ),
-                    fromMusicShelfRendererContent = Innertube.SongItem::from
-                )?.getOrNull()
-                val otherLanguagesPage = Innertube.searchPage(
-                    body = SearchBody(
-                        context = indiaHindiContext,
-                        query = "Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs $selectedQuery",
-                        params = Innertube.SearchFilter.Song.value
-                    ),
-                    fromMusicShelfRendererContent = Innertube.SongItem::from
-                )?.getOrNull()
-                val englishPage = Innertube.searchPage(
-                    body = SearchBody(
-                        context = indiaHindiContext,
-                        query = "English language songs international $selectedQuery",
+                        query = "$languageQuery $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
                 )?.getOrNull()
 
-                val nonEnglishSongs = (
-                    hindiPage?.items.orEmpty() +
-                    otherLanguagesPage?.items.orEmpty()
-                ).distinctBy { it.key }.shuffled()
+                val hindiPage = fetchSongs("Hindi Bollywood songs")
+                val marathiPage = fetchSongs("Marathi songs")
+                val otherIndianPage = fetchSongs("Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs")
+                val englishPage = fetchSongs("English language songs international")
+
+                val hindiSongs = hindiPage?.items.orEmpty()
+                val marathiSongs = marathiPage?.items.orEmpty()
+                    .filterNot { song -> hindiSongs.any { it.key == song.key } }
+                val indianSongs = (hindiSongs + marathiSongs + otherIndianPage?.items.orEmpty())
+                    .distinctBy { it.key }
                 val englishSongs = englishPage?.items.orEmpty()
                     .distinctBy { it.key }
-                    .filterNot { song -> nonEnglishSongs.any { it.key == song.key } }
-                val prioritizedSongs = nonEnglishSongs + englishSongs
+                    .filterNot { song -> indianSongs.any { it.key == song.key } }
 
                 Result.success(
                     Innertube.ItemsPage(
-                        items = prioritizedSongs,
+                        items = indianSongs + englishSongs,
                         continuation = englishPage?.continuation
                     )
                 )
