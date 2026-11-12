@@ -97,7 +97,7 @@ fun HomeAlbums(
                     )
                 } else {
                     Innertube.searchPage(
-                        body = ContinuationBody(continuation = token),
+                        body = ContinuationBody(context = indiaContext, continuation = token),
                         fromMusicShelfRendererContent = Innertube.AlbumItem::from
                     )
                 }
