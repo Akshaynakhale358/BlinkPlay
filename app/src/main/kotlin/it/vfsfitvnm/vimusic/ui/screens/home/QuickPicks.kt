@@ -198,7 +198,7 @@ fun QuickPicks(
 
             BasicText(
                 text = "SONG FOR ME",
-                style = typography.m.semiBold,
+                style = typography.s.semiBold,
                 modifier = sectionTextModifier
             )
 
@@ -404,7 +404,7 @@ fun QuickPicks(
             related.playlists?.let { playlists ->
                     BasicText(
                         text = "PLAYLISTS YOU MIGHT LIKE",
-                        style = typography.m.semiBold,
+                        style = typography.s.semiBold,
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
                             .padding(top = 24.dp, bottom = 8.dp)
@@ -431,7 +431,7 @@ fun QuickPicks(
                 related.albums?.let { albums ->
                     BasicText(
                         text = "RELATED ALBUMS",
-                        style = typography.m.semiBold,
+                        style = typography.s.semiBold,
                         modifier = sectionTextModifier
                     )
 
@@ -455,7 +455,7 @@ fun QuickPicks(
                 related.artists?.let { artists ->
                     BasicText(
                         text = "SIMILAR ARTISTS",
-                        style = typography.m.semiBold,
+                        style = typography.s.semiBold,
                         modifier = sectionTextModifier
                     )
 
@@ -598,7 +598,7 @@ private fun OnlineSongShelf(
         }
     }
 
-    BasicText(text = title, style = typography.m.semiBold, modifier = sectionTextModifier)
+    BasicText(text = title, style = typography.s.semiBold, modifier = sectionTextModifier)
     if (songs == null) {
         ShimmerHost {
             repeat(2) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) }
@@ -656,7 +656,7 @@ private fun OnlinePlaylistShelf(
         playlists = result?.getOrNull()?.items.orEmpty()
     }
 
-    BasicText(text = title, style = typography.m.semiBold, modifier = sectionTextModifier)
+    BasicText(text = title, style = typography.s.semiBold, modifier = sectionTextModifier)
     if (playlists == null) {
         ShimmerHost {
             repeat(2) { PlaylistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true) }
