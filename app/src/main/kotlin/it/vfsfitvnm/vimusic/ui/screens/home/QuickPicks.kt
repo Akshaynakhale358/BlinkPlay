@@ -526,13 +526,37 @@ private fun OnlineSongShelf(
     var songs by remember(query, refreshKey) { mutableStateOf<List<Innertube.SongItem>?>(null) }
 
     LaunchedEffect(query, refreshKey) {
-        val result = withContext(Dispatchers.IO) {
-            Innertube.searchPage(
-                body = SearchBody(query = query, params = Innertube.SearchFilter.Song.value),
+        songs = withContext(Dispatchers.IO) {
+            // Search Indian-language results first; English is fetched separately and appended last.
+            val hindi = Innertube.searchPage(
+                body = SearchBody(
+                    query = "Hindi songs India $query",
+                    params = Innertube.SearchFilter.Song.value
+                ),
                 fromMusicShelfRendererContent = Innertube.SongItem::from
-            )
+            )?.getOrNull()?.items.orEmpty()
+
+            val otherIndianLanguages = Innertube.searchPage(
+                body = SearchBody(
+                    query = "Indian regional language songs Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam $query",
+                    params = Innertube.SearchFilter.Song.value
+                ),
+                fromMusicShelfRendererContent = Innertube.SongItem::from
+            )?.getOrNull()?.items.orEmpty()
+
+            val english = Innertube.searchPage(
+                body = SearchBody(
+                    query = "English language songs international $query",
+                    params = Innertube.SearchFilter.Song.value
+                ),
+                fromMusicShelfRendererContent = Innertube.SongItem::from
+            )?.getOrNull()?.items.orEmpty()
+
+            val nonEnglish = (hindi + otherIndianLanguages).distinctBy { it.key }
+            nonEnglish + english.distinctBy { it.key }.filterNot { song ->
+                nonEnglish.any { it.key == song.key }
+            }
         }
-        songs = result?.getOrNull()?.items.orEmpty()
     }
 
     BasicText(text = title, style = typography.m.semiBold, modifier = sectionTextModifier)
