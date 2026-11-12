@@ -44,6 +44,14 @@ class PoTokenGenerator(private val context: Context) {
         }
     }
 
+    /** Releases the service-owned WebView when playback service is torn down. */
+    fun close() {
+        generator?.close()
+        generator = null
+        streamingPot = null
+        sessionId = null
+    }
+
     /** Mints both tokens, reusing the existing WebView when one is already warm. */
     suspend fun awaitWebClientPoToken(videoId: String, sessionId: String): PoTokenResult? {
         // Returning null here used to be silent, which made "playback quietly downgraded itself"
