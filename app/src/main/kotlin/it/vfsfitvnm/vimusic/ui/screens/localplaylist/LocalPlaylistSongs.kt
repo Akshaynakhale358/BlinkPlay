@@ -81,7 +81,7 @@ fun LocalPlaylistSongs(
 
     var playlistWithSongs by persist<PlaylistWithSongs?>("localPlaylist/$playlistId/playlistWithSongs")
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(playlistId) {
         Database.playlistWithSongs(playlistId).filterNotNull().collect { playlistWithSongs = it }
     }
 
