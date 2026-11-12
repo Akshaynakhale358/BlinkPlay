@@ -312,9 +312,9 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
     override fun onDestroy() {
         maybeSavePlayerQueue()
-        poTokenGenerator.close()
         // Stop warm-up, radio, timer, and metadata jobs before releasing player resources.
         coroutineScope.cancel()
+        poTokenGenerator.close()
 
         preferences.unregisterOnSharedPreferenceChangeListener(this)
 
