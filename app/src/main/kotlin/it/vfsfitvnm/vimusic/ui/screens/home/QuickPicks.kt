@@ -507,6 +507,7 @@ fun QuickPicks(
     }
     }
 }
+}
 
 
 @Composable
