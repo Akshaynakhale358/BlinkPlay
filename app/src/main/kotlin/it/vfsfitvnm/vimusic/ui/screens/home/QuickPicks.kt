@@ -523,8 +523,8 @@ private suspend fun loadLanguageOrderedRelatedPage(
 ): Result<Innertube.RelatedPage?> {
     val baseResult = Innertube.relatedPage(
         NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
-    )
-    val base = baseResult?.getOrNull() ?: return baseResult ?: Result.success(null)
+    ) ?: return Result.success(null)
+    val base = baseResult.getOrNull() ?: return baseResult
 
     // Keep Song for me personalized to the current listening seed, but request each
     // language group explicitly so English results can never lead the shelf.
