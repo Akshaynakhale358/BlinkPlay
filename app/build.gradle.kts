@@ -129,6 +129,7 @@ dependencies {
     implementation(libs.serialization.json)
 
     implementation(libs.core.ktx)
+    implementation("androidx.work:work-runtime-ktx:2.11.1")
     implementation(libs.lifecycle.runtime)
     implementation(libs.annotation)
     implementation(libs.palette)
