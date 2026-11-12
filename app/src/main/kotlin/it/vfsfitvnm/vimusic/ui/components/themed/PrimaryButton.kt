@@ -9,6 +9,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.media3.common.Player as Media3Player
+import it.vfsfitvnm.innertube.Innertube
+import it.vfsfitvnm.innertube.models.Context
+import it.vfsfitvnm.innertube.models.bodies.SearchBody
+import it.vfsfitvnm.innertube.requests.searchPage
+import it.vfsfitvnm.innertube.utils.from
+import it.vfsfitvnm.vimusic.Database
+import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
+import it.vfsfitvnm.vimusic.models.Song
+import it.vfsfitvnm.vimusic.utils.asMediaItem
+import it.vfsfitvnm.vimusic.utils.forcePlay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +71,8 @@ fun MiniPlayerActionButton(
     circle: Boolean = false,
 ) {
     val playerSheetState = LocalPlayerBottomSheetState.current
+    val binder = LocalPlayerServiceBinder.current
+    val coroutineScope = rememberCoroutineScope()
 
     // Show the launcher only while the player sheet is dismissed.
     if (playerSheetState?.isDismissed != true) return
@@ -64,7 +82,55 @@ fun MiniPlayerActionButton(
         enabled = true,
         transparentBackground = true,
         circle = circle,
-        onClick = { playerSheetState.expandSoft() },
+        onClick = {
+            val player = binder?.player
+            if (player == null) {
+                playerSheetState.expandSoft()
+                return@PrimaryButton
+            }
+
+            val currentItem = player.currentMediaItem
+            if (currentItem != null) {
+                // Resume the same paused track; never replace a track that is already playing.
+                if (!player.isPlaying) {
+                    if (player.playbackState == Media3Player.STATE_IDLE) player.prepare()
+                    player.play()
+                }
+                playerSheetState.expandSoft()
+            } else {
+                // No current track: choose a random previously played song first.
+                coroutineScope.launch {
+                    val mediaItem = withContext(Dispatchers.IO) {
+                        Database.trending(20).first().randomOrNull()?.asMediaItem
+                    } ?: withContext(Dispatchers.IO) {
+                        val indiaContext = Context.DefaultWeb.copy(
+                            client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+                        )
+                        Innertube.searchPage(
+                            body = SearchBody(
+                                context = indiaContext,
+                                query = "Hindi Bollywood songs",
+                                params = Innertube.SearchFilter.Song.value
+                            ),
+                            fromMusicShelfRendererContent = Innertube.SongItem::from
+                        )?.getOrNull()?.items?.randomOrNull()?.asMediaItem
+                    }
+
+                    if (mediaItem != null) {
+                        binder.stopRadio()
+                        player.forcePlay(mediaItem)
+                        binder.setupRadio(
+                            it.vfsfitvnm.innertube.models.NavigationEndpoint.Endpoint.Watch(
+                                videoId = mediaItem.mediaId
+                            )
+                        )
+                        playerSheetState.expandSoft()
+                    } else {
+                        playerSheetState.expandSoft()
+                    }
+                }
+            }
+        },
         modifier = modifier
     )
 }
