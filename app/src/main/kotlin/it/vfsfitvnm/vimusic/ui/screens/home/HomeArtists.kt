@@ -128,7 +128,7 @@ fun HomeArtistList(
         }
         BasicText(
             text = "Explore artists",
-            style = typography.m.semiBold,
+            style = typography.m,
             modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
         )
         LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
