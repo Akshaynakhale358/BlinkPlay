@@ -359,18 +359,14 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
                 DisposableEffect(binder?.player) {
                     val player = binder?.player ?: return@DisposableEffect onDispose { }
 
-                    if (player.currentMediaItem == null) {
-                        if (!playerBottomSheetState.isDismissed) {
-                            playerBottomSheetState.dismiss()
-                        }
-                    } else {
-                        if (playerBottomSheetState.isDismissed) {
-                            if (launchedFromNotification) {
-                                intent.replaceExtras(Bundle())
-                                playerBottomSheetState.expand(tween(700))
-                            } else {
-                                playerBottomSheetState.collapse(tween(700))
-                            }
+                    // Keep the empty player sheet available so the rail launcher can open it.
+                    // Only apply the automatic initial collapse/expand when a track exists.
+                    if (player.currentMediaItem != null && playerBottomSheetState.isDismissed) {
+                        if (launchedFromNotification) {
+                            intent.replaceExtras(Bundle())
+                            playerBottomSheetState.expand(tween(700))
+                        } else {
+                            playerBottomSheetState.collapse(tween(700))
                         }
                     }
 
