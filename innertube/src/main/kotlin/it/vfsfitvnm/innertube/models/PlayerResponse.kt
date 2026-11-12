@@ -26,12 +26,8 @@ data class PlayerResponse(
             private val perceptualLoudnessDb: Double? = null
         ) {
             /**
-             * How much louder than YouTube's reference level this track is, in dB. Playback should
-             * apply the negation of this as gain.
-             *
-             * The old `+7` correction here existed only to rebase `ANDROID_MUSIC`'s reference level.
-             * The playback clients used now report against the standard reference, so the value is
-             * already normalized and shifting it would over-boost every track by 7 dB.
+             * How much louder than YouTube's reference level this track is, in dB.
+             * Playback applies the negation of this as gain.
              */
             val normalizedLoudnessDb: Float?
                 get() = loudnessDb?.toFloat()
@@ -42,10 +38,18 @@ data class PlayerResponse(
     data class StreamingData(
         val adaptiveFormats: List<AdaptiveFormat>?
     ) {
+        /**
+         * Prefer the highest-bitrate audio-only format actually supplied by YouTube.
+         * YouTube does not expose 320 kbps for every track, so never upsample or label
+         * a lower-bitrate source as 320 kbps.
+         */
         val highestQualityFormat: AdaptiveFormat?
             get() = adaptiveFormats
-                ?.filter { it.url != null || it.signatureCipher != null }
-                ?.findLast { it.itag == 251 || it.itag == 140 }
+                ?.filter {
+                    (it.url != null || it.signatureCipher != null) &&
+                        it.mimeType.startsWith("audio/")
+                }
+                ?.maxByOrNull { it.averageBitrate ?: it.bitrate ?: 0L }
 
         @Serializable
         data class AdaptiveFormat(
