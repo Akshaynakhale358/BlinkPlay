@@ -28,6 +28,8 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.PullToRefreshBox
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -79,6 +81,7 @@ import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
@@ -104,6 +107,18 @@ fun QuickPicks(
     var trending by persist<Song?>("home/trending")
 
     var relatedPageResult by persist<Result<Innertube.RelatedPage?>?>(tag = "home/relatedPageResult")
+    var refreshToken by remember { mutableStateOf(0) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    val refreshScope = androidx.compose.runtime.rememberCoroutineScope()
+
+    LaunchedEffect(refreshToken) {
+        if (refreshToken > 0) {
+            relatedPageResult = Innertube.relatedPage(
+                NextBody(videoId = trending?.id ?: DefaultSeedVideoId)
+            )
+            isRefreshing = false
+        }
+    }
 
     LaunchedEffect(Unit) {
         Database.trending(SeedPoolSize).distinctUntilChanged().collect { candidates ->
@@ -145,6 +160,17 @@ fun QuickPicks(
         .padding(top = 24.dp, bottom = 8.dp)
         .padding(endPaddingValues)
 
+    @OptIn(ExperimentalMaterial3Api::class)
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            if (!isRefreshing) {
+                isRefreshing = true
+                refreshToken += 1
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
     BoxWithConstraints {
         val quickPicksLazyGridItemWidthFactor = if (isLandscape && maxWidth * 0.475f >= 320.dp) {
             0.475f
@@ -397,7 +423,8 @@ fun QuickPicks(
             thumbnailSizeDp = playlistThumbnailSizeDp,
             thumbnailSizePx = playlistThumbnailSizePx,
             onPlaylistClick = onPlaylistClick,
-            sectionTextModifier = sectionTextModifier
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
         )
 
         OnlineSongShelf(
@@ -416,7 +443,8 @@ fun QuickPicks(
                     NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
                 }
             },
-            sectionTextModifier = sectionTextModifier
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
         )
 
         OnlineSongShelf(
@@ -474,6 +502,7 @@ fun QuickPicks(
             onClick = onSearchClick
         )
     }
+    }
 }
 
 
@@ -485,12 +514,13 @@ private fun OnlineSongShelf(
     thumbnailSizePx: Int,
     onSongClick: (Innertube.SongItem) -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit,
-    sectionTextModifier: Modifier
+    sectionTextModifier: Modifier,
+    refreshKey: Int
 ) {
     val (_, typography) = LocalAppearance.current
-    var songs by remember(query) { mutableStateOf<List<Innertube.SongItem>?>(null) }
+    var songs by remember(query, refreshKey) { mutableStateOf<List<Innertube.SongItem>?>(null) }
 
-    LaunchedEffect(query) {
+    LaunchedEffect(query, refreshKey) {
         val result = withContext(Dispatchers.IO) {
             Innertube.searchPage(
                 body = SearchBody(query = query, params = Innertube.SearchFilter.Song.value),
@@ -542,12 +572,13 @@ private fun OnlinePlaylistShelf(
     thumbnailSizeDp: androidx.compose.ui.unit.Dp,
     thumbnailSizePx: Int,
     onPlaylistClick: (String) -> Unit,
-    sectionTextModifier: Modifier
+    sectionTextModifier: Modifier,
+    refreshKey: Int
 ) {
     val (_, typography) = LocalAppearance.current
-    var playlists by remember(query) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
+    var playlists by remember(query, refreshKey) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
 
-    LaunchedEffect(query, filter) {
+    LaunchedEffect(query, filter, refreshKey) {
         val result = withContext(Dispatchers.IO) {
             Innertube.searchPage(
                 body = SearchBody(query = query, params = filter),
