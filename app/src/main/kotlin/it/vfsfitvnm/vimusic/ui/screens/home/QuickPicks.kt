@@ -32,6 +32,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,7 +44,10 @@ import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.models.bodies.NextBody
+import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.relatedPage
+import it.vfsfitvnm.innertube.requests.searchPage
+import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
 import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
@@ -73,7 +77,9 @@ import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.withContext
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
 private const val SeedPoolSize = 20
@@ -98,6 +104,39 @@ fun QuickPicks(
     var trending by persist<Song?>("home/trending")
 
     var relatedPageResult by persist<Result<Innertube.RelatedPage?>?>(tag = "home/relatedPageResult")
+
+    val quickPickCategories = listOf(
+        "Podcast" to "popular podcasts episodes",
+        "Workout" to "workout motivation songs",
+        "Feel Good" to "feel good happy songs",
+        "Romance" to "romantic love songs",
+        "Energetic" to "high energy energetic songs",
+        "Relax" to "relaxing calm music",
+        "Commute" to "road trip commute songs",
+        "Sad" to "sad emotional songs",
+        "Focus" to "focus concentration instrumental music",
+        "Sleep" to "sleep peaceful ambient music",
+        "Party" to "party dance hits"
+    )
+    var selectedCategory by persist("home/quickPickCategory", "Workout")
+    var categorySongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var categoryLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedCategory) {
+        val query = quickPickCategories.firstOrNull { it.first == selectedCategory }?.second
+            ?: "workout motivation songs"
+        categoryLoading = true
+        categorySongs = emptyList()
+        withContext(Dispatchers.IO) {
+            Innertube.searchPage(
+                body = SearchBody(query = query, params = Innertube.SearchFilter.Song.value),
+                fromMusicShelfRendererContent = Innertube.SongItem.Companion::from
+            )
+        }?.onSuccess { page ->
+            categorySongs = page?.items.orEmpty()
+        }
+        categoryLoading = false
+    }
 
     LaunchedEffect(Unit) {
         Database.trending(SeedPoolSize).distinctUntilChanged().collect { candidates ->
@@ -164,6 +203,79 @@ fun QuickPicks(
                 modifier = Modifier
                     .padding(endPaddingValues)
             )
+
+
+            BasicText(
+                text = "Explore your mood",
+                style = typography.m.semiBold,
+                modifier = sectionTextModifier
+            )
+
+            LazyRow(
+                contentPadding = endPaddingValues,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(quickPickCategories, key = { it.first }) { category ->
+                    BasicText(
+                        text = category.first,
+                        style = if (selectedCategory == category.first) typography.m.semiBold else typography.m,
+                        modifier = Modifier
+                            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 12.dp)
+                            .background(
+                                if (selectedCategory == category.first) colorPalette.accent else colorPalette.background1,
+                                androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+                            )
+                            .clickable { selectedCategory = category.first }
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    )
+                }
+            }
+
+            BasicText(
+                text = selectedCategory,
+                style = typography.m.semiBold,
+                modifier = sectionTextModifier
+            )
+
+            if (categoryLoading && categorySongs.isEmpty()) {
+                ShimmerHost {
+                    repeat(3) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) }
+                }
+            } else if (categorySongs.isNotEmpty()) {
+                LazyRow(contentPadding = endPaddingValues) {
+                    items(categorySongs, key = Innertube.SongItem::key) { song ->
+                        SongItem(
+                            song = song,
+                            thumbnailSizePx = songThumbnailSizePx,
+                            thumbnailSizeDp = songThumbnailSizeDp,
+                            modifier = Modifier
+                                .combinedClickable(
+                                    onLongClick = {
+                                        menuState.display {
+                                            NonQueuedMediaItemMenu(
+                                                onDismiss = menuState::hide,
+                                                mediaItem = song.asMediaItem
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        val mediaItem = song.asMediaItem
+                                        binder?.stopRadio()
+                                        binder?.player?.forcePlay(mediaItem)
+                                        binder?.setupRadio(song.info?.endpoint)
+                                    }
+                                )
+                                .width(itemInHorizontalGridWidth)
+                        )
+                    }
+                }
+            } else if (!categoryLoading) {
+                BasicText(
+                    text = "No results found. Try another category.",
+                    style = typography.xs.secondary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            }
 
             relatedPageResult?.getOrNull()?.let { related ->
                 LazyHorizontalGrid(
