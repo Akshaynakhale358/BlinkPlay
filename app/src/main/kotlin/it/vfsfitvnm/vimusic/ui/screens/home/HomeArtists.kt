@@ -26,6 +26,7 @@ fun HomeArtistList(
     onArtistClick: (String) -> Unit,
     onSearchClick: () -> Unit,
 ) {
+    val (colorPalette) = it.vfsfitvnm.vimusic.ui.styling.LocalAppearance.current
     val thumbnailSizeDp = Dimensions.thumbnails.song * 2
     val thumbnailSizePx = thumbnailSizeDp.px
 
@@ -47,7 +48,7 @@ fun HomeArtistList(
         emptyItemsText = "No online artists found. Try Search.",
         headerContent = {
             Header(title = "Artists") {
-                HeaderIconButton(icon = R.drawable.search, onClick = onSearchClick)
+                HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
             }
         },
         itemContent = { artist ->
