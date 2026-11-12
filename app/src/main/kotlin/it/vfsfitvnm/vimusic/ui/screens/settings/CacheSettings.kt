@@ -26,9 +26,11 @@ import it.vfsfitvnm.vimusic.enums.CoilDiskCacheMaxSize
 import it.vfsfitvnm.vimusic.enums.ExoPlayerDiskCacheMaxSize
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
+import it.vfsfitvnm.vimusic.utils.autoClearCacheEnabledKey
 import it.vfsfitvnm.vimusic.utils.coilDiskCacheMaxSizeKey
 import it.vfsfitvnm.vimusic.utils.exoPlayerDiskCacheMaxSizeKey
 import it.vfsfitvnm.vimusic.utils.rememberPreference
+import it.vfsfitvnm.vimusic.utils.toast
 
 @OptIn(ExperimentalCoilApi::class)
 @ExperimentalAnimationApi
@@ -46,6 +48,7 @@ fun CacheSettings() {
         exoPlayerDiskCacheMaxSizeKey,
         ExoPlayerDiskCacheMaxSize.`2GB`
     )
+    var autoClearCacheEnabled by rememberPreference(autoClearCacheEnabledKey, true)
 
     Column(
         modifier = Modifier
@@ -61,6 +64,38 @@ fun CacheSettings() {
         Header(title = "Cache")
 
         SettingsDescription(text = "When the cache runs out of space, the resources that haven't been accessed for the longest time are cleared")
+
+        SettingsGroupSpacer()
+        SettingsEntryGroupText(title = "CACHE TOOLS")
+
+        SettingsEntry(
+            title = "Clear cache now",
+            text = if (binder?.player?.isPlaying == true) {
+                "Pause music before clearing cached songs and images"
+            } else {
+                "Remove temporary song and image cache"
+            },
+            isEnabled = binder?.player?.isPlaying != true,
+            onClick = {
+                runCatching {
+                    binder?.cache?.keys?.toList()?.forEach { key ->
+                        binder.cache.removeResource(key)
+                    }
+                    context.cacheDir.resolve("coil").deleteRecursively()
+                }.onSuccess {
+                    context.toast("Cache cleared")
+                }.onFailure {
+                    context.toast("Couldn't clear cache. Please try again.")
+                }
+            }
+        )
+
+        SwitchSettingEntry(
+            title = "Auto clear cache",
+            text = "Automatically clear temporary cache every 24 hours when music is stopped",
+            isChecked = autoClearCacheEnabled,
+            onCheckedChange = { autoClearCacheEnabled = it }
+        )
 
         Coil.imageLoader(context).diskCache?.let { diskCache ->
             val diskCacheSize = remember(diskCache) {
