@@ -104,6 +104,12 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
 
             languageQueries.forEachIndexed { index, languageQuery ->
                 val token = previousTokens?.getOrNull(index)?.takeIf { it.isNotBlank() }
+                // On later pages, an exhausted language group must stay exhausted;
+                // do not restart its first page and append duplicate songs.
+                if (continuation != null && token == null) {
+                    nextTokens += null
+                    return@forEachIndexed
+                }
                 val result = if (token == null) {
                     Innertube.searchPage(
                         body = SearchBody(
