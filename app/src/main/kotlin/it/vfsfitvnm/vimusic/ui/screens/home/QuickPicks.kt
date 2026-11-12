@@ -752,18 +752,23 @@ private fun DailyMixPlaylistCard(
 
     LaunchedEffect(mix.query, dayKey, refreshKey) {
         playlist = withContext(Dispatchers.IO) {
-            suspend fun fetch(query: String) = Innertube.searchPage(
+            suspend fun fetch(query: String, filter: String) = Innertube.searchPage(
                 body = SearchBody(
                     context = IndiaMusicContext,
                     query = query,
-                    params = Innertube.SearchFilter.FeaturedPlaylist.value
+                    params = filter
                 ),
                 fromMusicShelfRendererContent = Innertube.PlaylistItem::from
             )?.getOrNull()?.items.orEmpty()
 
-            val results = fetch(mix.query).ifEmpty {
-                fetch("${mix.query} official music")
-            }
+            // Featured playlists are preferred, but category searches often return better
+            // matches from community playlists. Try that filter before marking a mix unavailable.
+            val results = fetch(mix.query, Innertube.SearchFilter.FeaturedPlaylist.value)
+                .ifEmpty {
+                    fetch(mix.query, Innertube.SearchFilter.CommunityPlaylist.value)
+                }.ifEmpty {
+                    fetch("${mix.query} official music", Innertube.SearchFilter.CommunityPlaylist.value)
+                }
             if (results.isEmpty()) null else {
                 val index = Math.floorMod(dayKey, results.size.toLong()).toInt()
                 results[index]
