@@ -31,11 +31,11 @@ fun HomeArtistList(
     val thumbnailSizePx = thumbnailSizeDp.px
 
     ItemsPage(
-        tag = "home/online-artists",
+        tag = "home/online-artists-v2",
         itemsPageProvider = { continuation ->
             if (continuation == null) {
                 Innertube.searchPage(
-                    body = SearchBody(query = "popular Indian music artists", params = Innertube.SearchFilter.Artist.value),
+                    body = SearchBody(query = "Indian singers", params = Innertube.SearchFilter.Artist.value),
                     fromMusicShelfRendererContent = Innertube.ArtistItem::from
                 )
             } else {
