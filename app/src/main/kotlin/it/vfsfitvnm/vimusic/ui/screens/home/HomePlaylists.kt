@@ -42,6 +42,7 @@ import it.vfsfitvnm.vimusic.models.PlaylistPreview
 import it.vfsfitvnm.vimusic.query
 import it.vfsfitvnm.vimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
+import it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
 import it.vfsfitvnm.vimusic.ui.components.themed.SecondaryTextButton
 import it.vfsfitvnm.vimusic.ui.components.themed.TextFieldDialog
@@ -204,7 +205,7 @@ fun HomePlaylists(
         FloatingActionsContainerWithScrollToTop(
             lazyGridState = lazyGridState
         )
-        it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton(
+        PrimaryButton(
             iconId = R.drawable.search,
             onClick = onSearchClick,
             transparentBackground = true,
