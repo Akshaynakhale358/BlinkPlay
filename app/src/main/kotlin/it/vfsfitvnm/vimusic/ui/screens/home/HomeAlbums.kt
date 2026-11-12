@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
+import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.searchPage
@@ -48,12 +49,13 @@ fun HomeAlbums(
     val thumbnailSizePx = thumbnailSizeDp.px
     val releasePeriod = LocalDate.now().month.name.lowercase().replaceFirstChar { it.uppercase() } +
         " " + LocalDate.now().year
-    // Keep each shelf tied to a distinct Indian music discovery intent.
+    // Keep the category intent separate from language queries so language priority
+    // is enforced in the returned list, not left to YouTube's mixed search ranking.
     val categories = listOf(
-        "Album" to "Indian music albums Hindi Marathi Tamil Telugu Punjabi Bengali Kannada Malayalam",
-        "New Releases Album" to "newly released Indian music albums $releasePeriod Hindi Marathi Tamil Telugu Punjabi",
-        "Trending Album" to "trending Indian music albums this week Hindi Marathi Tamil Telugu Punjabi",
-        "Top Album" to "top Indian music albums chart most popular Hindi Marathi Tamil Telugu Punjabi"
+        "Album" to "popular music albums",
+        "New Releases Album" to "newly released music albums $releasePeriod",
+        "Trending Album" to "trending music albums this week",
+        "Top Album" to "top chart most popular music albums"
     )
     var selectedCategory by persist("home/albumsCategory", "Album")
     val selectedQuery = categories.firstOrNull { it.first == selectedCategory }?.second
@@ -63,17 +65,57 @@ fun HomeAlbums(
     ItemsPage(
         tag = "home/online-albums-$selectedCategory",
         itemsPageProvider = { continuation ->
-            if (continuation == null) {
-                Innertube.searchPage(
-                    body = SearchBody(query = selectedQuery, params = Innertube.SearchFilter.Album.value),
-                    fromMusicShelfRendererContent = Innertube.AlbumItem::from
-                )
-            } else {
-                Innertube.searchPage(
-                    body = ContinuationBody(continuation = continuation),
-                    fromMusicShelfRendererContent = Innertube.AlbumItem::from
-                )
+            // Keep one independent continuation per language group. This prevents
+            // later pages from dropping Hindi/Marathi priority or restarting old pages.
+            val indiaContext = Context.DefaultWeb.copy(
+                client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+            )
+            val languageQueries = listOf(
+                "Hindi Bollywood music albums",
+                "Marathi music albums",
+                "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional music albums",
+                "English international music albums"
+            )
+            val previousTokens = continuation?.split('\u001F')
+            val nextTokens = mutableListOf<String?>()
+            val combinedAlbums = mutableListOf<Innertube.AlbumItem>()
+
+            languageQueries.forEachIndexed { index, languageQuery ->
+                val token = previousTokens?.getOrNull(index)?.takeIf { it.isNotBlank() }
+                if (continuation != null && token == null) {
+                    nextTokens += null
+                    return@forEachIndexed
+                }
+                val result = if (token == null) {
+                    Innertube.searchPage(
+                        body = SearchBody(
+                            context = indiaContext,
+                            query = "$languageQuery $selectedQuery",
+                            params = Innertube.SearchFilter.Album.value
+                        ),
+                        fromMusicShelfRendererContent = Innertube.AlbumItem::from
+                    )
+                } else {
+                    Innertube.searchPage(
+                        body = ContinuationBody(continuation = token),
+                        fromMusicShelfRendererContent = Innertube.AlbumItem::from
+                    )
+                }
+                val page = result?.getOrNull()
+                combinedAlbums += page?.items.orEmpty()
+                nextTokens += page?.continuation
             }
+
+            val nextContinuation = nextTokens
+                .takeIf { tokens -> tokens.any { it != null } }
+                ?.joinToString("\u001F") { it.orEmpty() }
+
+            Result.success(
+                Innertube.ItemsPage(
+                    items = combinedAlbums.distinctBy { it.key },
+                    continuation = nextContinuation
+                )
+            )
         },
         emptyItemsText = "No online albums found. Try Search.",
         refreshOnEnter = true,
