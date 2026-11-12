@@ -322,6 +322,10 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         player.release()
 
         unregisterReceiver(notificationActionReceiver)
+        audioDeviceCallback?.let { callback ->
+            audioManager?.unregisterAudioDeviceCallback(callback)
+        }
+        audioDeviceCallback = null
 
         mediaSession.isActive = false
         mediaSession.release()
