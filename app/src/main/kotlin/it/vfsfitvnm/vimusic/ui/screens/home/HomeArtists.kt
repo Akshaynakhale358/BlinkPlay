@@ -4,6 +4,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +38,7 @@ import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
+import it.vfsfitvnm.vimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import it.vfsfitvnm.vimusic.ui.items.ArtistItem
 import it.vfsfitvnm.vimusic.ui.items.ArtistItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
@@ -132,6 +134,7 @@ fun HomeArtistList(
         onRefresh = { refreshToken += 1 },
         modifier = Modifier.fillMaxSize()
     ) {
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(modifier = Modifier.fillMaxSize()) {
         Header(title = "Artists") {
             HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
@@ -197,6 +200,12 @@ fun HomeArtistList(
                 }
             }
         }
+    }
+        FloatingActionsContainerWithScrollToTop(
+            lazyGridState = gridState,
+            iconId = R.drawable.search,
+            onClick = onSearchClick
+        )
     }
     }
 }
