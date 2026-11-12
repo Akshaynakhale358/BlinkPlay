@@ -180,12 +180,12 @@ fun QuickPicks(
             relatedPageResult?.getOrNull()?.let { related ->
                 LazyHorizontalGrid(
                     state = quickPicksLazyGridState,
-                    rows = GridCells.Fixed(4),
+                    rows = GridCells.Fixed(5),
                     flingBehavior = rememberSnapFlingBehavior(quickPicksLazyGridState, SnapPosition.Center),
                     contentPadding = endPaddingValues,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height((songThumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 4)
+                        .height((songThumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
                 ) {
                     trending?.let { song ->
                         item {
@@ -350,7 +350,7 @@ fun QuickPicks(
                         .padding(all = 16.dp)
                 )
             } ?: ShimmerHost {
-                repeat(4) {
+                repeat(5) {
                     SongItemPlaceholder(
                         thumbnailSizeDp = songThumbnailSizeDp,
                     )
@@ -506,17 +506,29 @@ private fun OnlineSongShelf(
             repeat(2) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) }
         }
     } else {
-        LazyRow {
-            items(songs.orEmpty(), key = Innertube.SongItem::key) { song ->
-                SongItem(
-                    song = song,
-                    thumbnailSizePx = thumbnailSizePx,
-                    thumbnailSizeDp = thumbnailSizeDp,
-                    modifier = Modifier.combinedClickable(
-                        onLongClick = { onSongLongClick(song) },
-                        onClick = { onSongClick(song) }
+        BoxWithConstraints {
+            val itemWidth = maxWidth * 0.9f
+            val gridState = rememberLazyGridState()
+            LazyHorizontalGrid(
+                state = gridState,
+                rows = GridCells.Fixed(5),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
+            ) {
+                items(songs.orEmpty(), key = Innertube.SongItem::key) { song ->
+                    SongItem(
+                        song = song,
+                        thumbnailSizePx = thumbnailSizePx,
+                        thumbnailSizeDp = thumbnailSizeDp,
+                        modifier = Modifier
+                            .width(itemWidth)
+                            .combinedClickable(
+                                onLongClick = { onSongLongClick(song) },
+                                onClick = { onSongClick(song) }
+                            )
                     )
-                )
+                }
             }
         }
     }
