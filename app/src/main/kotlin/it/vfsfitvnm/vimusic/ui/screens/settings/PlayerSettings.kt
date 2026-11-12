@@ -25,6 +25,7 @@ import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.utils.persistentQueueKey
+import it.vfsfitvnm.vimusic.utils.prefer320KbpsKey
 import it.vfsfitvnm.vimusic.utils.rememberPreference
 import it.vfsfitvnm.vimusic.utils.resumePlaybackWhenDeviceConnectedKey
 import it.vfsfitvnm.vimusic.utils.skipSilenceKey
@@ -45,6 +46,7 @@ fun PlayerSettings() {
     )
     var skipSilence by rememberPreference(skipSilenceKey, false)
     var volumeNormalization by rememberPreference(volumeNormalizationKey, false)
+    var prefer320Kbps by rememberPreference(prefer320KbpsKey, true)
 
     val activityResultLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
@@ -85,6 +87,13 @@ fun PlayerSettings() {
         SettingsGroupSpacer()
 
         SettingsEntryGroupText(title = "AUDIO")
+
+        SwitchSettingEntry(
+            title = "Prefer 320 kbps",
+            text = "Use 320 kbps when available; otherwise use the best available quality",
+            isChecked = prefer320Kbps,
+            onCheckedChange = { prefer320Kbps = it }
+        )
 
         SwitchSettingEntry(
             title = "Skip silence",
