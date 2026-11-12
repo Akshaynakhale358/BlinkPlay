@@ -74,25 +74,24 @@ inline fun <T : Innertube.Item> ItemsPage(
                 }
 
                 if (result == null) {
-                    if (itemsPage == null) {
-                        itemsPage = Innertube.ItemsPage(null, null)
-                    }
+                    // A cancelled or unavailable page must not leave a continuation spinner
+                    // attached to an otherwise usable list.
+                    itemsPage = itemsPage?.copy(continuation = null)
+                        ?: Innertube.ItemsPage(null, null)
                 } else {
                     result
                         .onSuccess { page ->
                             if (page == null) {
-                                if (itemsPage == null) {
-                                    itemsPage = Innertube.ItemsPage(null, null)
-                                }
+                                itemsPage = itemsPage?.copy(continuation = null)
+                                    ?: Innertube.ItemsPage(null, null)
                             } else {
                                 itemsPage += page
                             }
                         }
                         .onFailure {
-                            // Do not leave the loading placeholders spinning forever on API errors.
-                            if (itemsPage == null) {
-                                itemsPage = Innertube.ItemsPage(null, null)
-                            }
+                            // Preserve already loaded items, but stop the failed continuation.
+                            itemsPage = itemsPage?.copy(continuation = null)
+                                ?: Innertube.ItemsPage(null, null)
                         }
                 }
                 isRefreshing = false
