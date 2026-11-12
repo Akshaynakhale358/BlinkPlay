@@ -269,14 +269,16 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         player.addListener(this)
         player.addAnalyticsListener(PlaybackStatsListener(false, this))
 
-        maybeRestorePlayerQueue()
-
         mediaSession = MediaSession(baseContext, "PlayerService")
         mediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
         mediaSession.setCallback(SessionCallback(player))
         mediaSession.setRatingType(Rating.RATING_HEART)
         mediaSession.setPlaybackState(playbackState)
         mediaSession.isActive = true
+
+        // Queue restoration can publish a notification and trigger player callbacks; the
+        // MediaSession must exist before either path reads its session token or playback state.
+        maybeRestorePlayerQueue()
 
         notificationActionReceiver = NotificationActionReceiver(player)
 
