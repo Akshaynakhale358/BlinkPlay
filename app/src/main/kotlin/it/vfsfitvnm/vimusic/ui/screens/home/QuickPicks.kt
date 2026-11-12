@@ -87,7 +87,6 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.random.Random
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
 private const val SeedPoolSize = 20
@@ -134,7 +133,43 @@ private val DailyMixThemes = listOf(
     DailyMixSpec("Bhangra Beats", "Punjabi bhangra dance hits playlist"),
     DailyMixSpec("Wedding Dance Hits", "Indian wedding sangeet dance songs playlist"),
     DailyMixSpec("Rainy Day Songs", "Hindi monsoon rainy day romantic songs playlist"),
-    DailyMixSpec("Indie Discoveries", "Indian independent indie pop songs playlist")
+    DailyMixSpec("Indie Discoveries", "Indian independent indie pop songs playlist"),
+
+    // Pack 4
+    DailyMixSpec("Soft Love", "Hindi soft romantic love songs playlist"),
+    DailyMixSpec("India Viral Mix", "India trending viral songs this week playlist"),
+    DailyMixSpec("Bollywood 2010s", "2010 to 2019 Bollywood Hindi hit songs playlist"),
+    DailyMixSpec("Marathi Love Songs", "Marathi romantic love songs playlist"),
+    DailyMixSpec("Emotional Nights", "Hindi emotional slow sad songs playlist"),
+    DailyMixSpec("Ambient Focus", "ambient focus study instrumental playlist"),
+    DailyMixSpec("Punjabi Romance", "Punjabi romantic love songs playlist"),
+    DailyMixSpec("Sangeet Special", "Indian sangeet wedding dance songs playlist"),
+    DailyMixSpec("Coffee House Acoustic", "acoustic cafe soft indie songs playlist"),
+    DailyMixSpec("Classic 80s Hindi", "1980s classic Hindi Bollywood songs playlist"),
+
+    // Pack 5
+    DailyMixSpec("Love Forever", "evergreen Hindi romantic love songs playlist"),
+    DailyMixSpec("Global Top Hits", "global current top chart hits playlist"),
+    DailyMixSpec("Bollywood New Wave", "latest Bollywood Hindi soundtrack hits playlist"),
+    DailyMixSpec("Marathi Folk Fusion", "Marathi folk fusion popular songs playlist"),
+    DailyMixSpec("Lonely Nights", "Hindi lonely heartbreak sad songs playlist"),
+    DailyMixSpec("Rainy Chill", "relaxing monsoon rainy day chill songs playlist"),
+    DailyMixSpec("Punjabi Pop Party", "Punjabi pop party dance hits playlist"),
+    DailyMixSpec("Dance Floor Anthems", "Bollywood dance floor party anthems playlist"),
+    DailyMixSpec("Late Night Acoustic", "late night Hindi acoustic soft songs playlist"),
+    DailyMixSpec("Golden 70s", "1970s golden era Hindi film songs playlist"),
+
+    // Pack 6
+    DailyMixSpec("Heartfelt Duets", "Hindi romantic duet songs playlist"),
+    DailyMixSpec("Fresh Finds India", "new Indian music discoveries playlist"),
+    DailyMixSpec("Bollywood Unplugged", "Bollywood unplugged acoustic covers playlist"),
+    DailyMixSpec("Marathi Superhits", "all time Marathi superhit songs playlist"),
+    DailyMixSpec("Tearjerker Tunes", "Hindi emotional tearjerker sad songs playlist"),
+    DailyMixSpec("Calm Instrumentals", "peaceful Indian instrumental music playlist"),
+    DailyMixSpec("Punjabi Beats", "Punjabi upbeat bhangra beats playlist"),
+    DailyMixSpec("Festival Dhamaka", "Indian festival celebration dance songs playlist"),
+    DailyMixSpec("Soulful Romance", "soulful Hindi romantic melody songs playlist"),
+    DailyMixSpec("Vintage Hindi Gems", "vintage old Hindi Bollywood gems playlist")
 )
 
 private val IndiaMusicContext = Context.DefaultWeb.copy(
@@ -477,10 +512,11 @@ fun QuickPicks(
         )
 
         val dailyMixDay = LocalDate.now().toEpochDay()
-        // Stable for the whole day, but a new deterministic shuffle on the next date.
-        // Pick 10 different themes from the full pool instead of cycling a fixed 3-day pack.
+        // Ten disjoint themes per day: every title changes on the next day.
+        // The six themed packs rotate as a six-day cycle, then start a fresh cycle.
+        val dailyMixPack = Math.floorMod(dailyMixDay, (DailyMixThemes.size / 10).toLong()).toInt()
         val dailyMixes = remember(dailyMixDay) {
-            DailyMixThemes.shuffled(Random(dailyMixDay)).take(10)
+            DailyMixThemes.drop(dailyMixPack * 10).take(10)
         }
 
         BasicText(
