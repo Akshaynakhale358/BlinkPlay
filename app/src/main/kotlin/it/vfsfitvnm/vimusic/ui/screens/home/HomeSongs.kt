@@ -28,6 +28,7 @@ import it.vfsfitvnm.vimusic.utils.forcePlay
 @ExperimentalAnimationApi
 @Composable
 fun HomeSongs(onSearchClick: () -> Unit) {
+    val (colorPalette) = it.vfsfitvnm.vimusic.ui.styling.LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
     val thumbnailSizeDp = Dimensions.thumbnails.song
@@ -51,7 +52,7 @@ fun HomeSongs(onSearchClick: () -> Unit) {
         emptyItemsText = "No online songs found. Try Search.",
         headerContent = {
             Header(title = "Songs") {
-                HeaderIconButton(icon = R.drawable.search, onClick = onSearchClick)
+                HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
             }
         },
         itemContent = { song ->
