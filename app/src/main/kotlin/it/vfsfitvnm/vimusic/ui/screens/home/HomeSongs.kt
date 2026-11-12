@@ -152,7 +152,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                     items(categories, key = { it.first }) { category ->
                         BasicText(
                             text = category.first.uppercase(),
-                            style = if (selectedCategory == category.first) typography.m.semiBold else typography.m,
+                            style = typography.m.semiBold,
                             modifier = Modifier
                                 .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 12.dp)
                                 .background(
