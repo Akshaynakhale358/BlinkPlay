@@ -264,6 +264,9 @@ private fun CategoryPublicPlaylists(
         playlists = withContext(Dispatchers.IO) {
             Innertube.searchPage(
                 body = SearchBody(
+                    context = Context.DefaultWeb.copy(
+                        client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+                    ),
                     query = "$query $category playlists",
                     params = Innertube.SearchFilter.CommunityPlaylist.value
                 ),
