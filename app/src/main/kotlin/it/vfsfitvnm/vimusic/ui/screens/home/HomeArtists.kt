@@ -138,7 +138,6 @@ fun HomeArtistList(
     Box(modifier = Modifier.fillMaxSize()) {
     Column(modifier = Modifier.fillMaxSize()) {
         Header(title = "Artists") {
-            HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
         }
         BasicText(
             text = "Explore artists",
