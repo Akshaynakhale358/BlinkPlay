@@ -10,6 +10,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.compose.persist.persist
@@ -26,6 +29,7 @@ import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
+import it.vfsfitvnm.vimusic.ui.items.PlaylistItem
 import it.vfsfitvnm.vimusic.ui.items.SongItem
 import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
@@ -35,11 +39,13 @@ import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.semiBold
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
-fun HomeSongs(onSearchClick: () -> Unit) {
+fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     val (colorPalette, typography) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
@@ -104,6 +110,11 @@ fun HomeSongs(onSearchClick: () -> Unit) {
                         )
                     }
                 }
+                CategoryPublicPlaylists(
+                    category = selectedCategory,
+                    query = selectedQuery,
+                    onPlaylistClick = onPlaylistClick
+                )
                 BasicText(
                     text = selectedCategory,
                     style = typography.m.semiBold,
@@ -137,4 +148,58 @@ fun HomeSongs(onSearchClick: () -> Unit) {
             SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
         }
     )
+}
+
+
+@Composable
+private fun CategoryPublicPlaylists(
+    category: String,
+    query: String,
+    onPlaylistClick: (String) -> Unit
+) {
+    val (colorPalette, typography) = LocalAppearance.current
+    val playlistThumbnailSizeDp = 108.dp
+    val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
+    var playlists by remember(category) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
+
+    LaunchedEffect(category, query) {
+        playlists = withContext(Dispatchers.IO) {
+            Innertube.searchPage(
+                body = SearchBody(
+                    query = "$query $category playlists",
+                    params = Innertube.SearchFilter.CommunityPlaylist.value
+                ),
+                fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+            )?.getOrNull()?.items.orEmpty()
+        }
+    }
+
+    BasicText(
+        text = "$category Public Playlists",
+        style = typography.m.semiBold,
+        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
+    )
+
+    if (playlists == null) {
+        LazyRow {
+            items(3) {
+                PlaylistItemPlaceholder(
+                    thumbnailSizeDp = playlistThumbnailSizeDp,
+                    alternative = true
+                )
+            }
+        }
+    } else {
+        LazyRow {
+            items(playlists.orEmpty(), key = Innertube.PlaylistItem::key) { playlist ->
+                PlaylistItem(
+                    playlist = playlist,
+                    thumbnailSizePx = playlistThumbnailSizePx,
+                    thumbnailSizeDp = playlistThumbnailSizeDp,
+                    alternative = true,
+                    modifier = Modifier.clickable { onPlaylistClick(playlist.key) }
+                )
+            }
+        }
+    }
 }
