@@ -60,7 +60,7 @@ fun HomeArtistList(
 ) {
     val (colorPalette, typography) = LocalAppearance.current
     val categories = listOf(
-        "All" to listOf("Indian music artists", "Bollywood singers", "Hindi singers", "Marathi singers", "Punjabi singers", "Tamil singers", "Telugu singers", "Malayalam singers", "Kannada singers", "Bengali singers", "English pop artists", "international music artists"),
+        "All" to listOf("Hindi singers", "Bollywood playback singers", "Marathi singers", "Punjabi singers", "Tamil singers", "Telugu singers", "Bengali singers", "Kannada singers", "Malayalam singers", "English pop artists", "international music artists"),
         "Bollywood" to listOf("Bollywood singers", "Hindi film playback singers", "Bollywood music artists"),
         "Marathi" to listOf("Marathi singers", "Marathi music artists", "Marathi playback singers"),
         "Hindi" to listOf("Hindi singers", "Hindi music artists", "Indian playback singers"),
