@@ -100,14 +100,15 @@ fun HomeArtistList(
                             finished = true
                             break
                         }
-                        val result = if (continuation == null) {
+                        val token = continuation
+                        val result = if (token == null) {
                             Innertube.searchPage(
                                 body = SearchBody(context = indiaContext, query = query, params = Innertube.SearchFilter.Artist.value),
                                 fromMusicShelfRendererContent = Innertube.ArtistItem::from
                             )
                         } else {
                             Innertube.searchPage(
-                                body = ContinuationBody(context = indiaContext, continuation = continuation!!),
+                                body = ContinuationBody(context = indiaContext, continuation = token),
                                 fromMusicShelfRendererContent = Innertube.ArtistItem::from
                             )
                         }
