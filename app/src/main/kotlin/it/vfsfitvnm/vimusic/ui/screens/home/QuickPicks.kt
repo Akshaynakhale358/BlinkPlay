@@ -515,11 +515,6 @@ fun QuickPicks(
         )
 
     }
-        PrimaryButton(
-            iconId = R.drawable.search,
-            onClick = onSearchClick,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 88.dp)
-        )
     }
     }
 }
