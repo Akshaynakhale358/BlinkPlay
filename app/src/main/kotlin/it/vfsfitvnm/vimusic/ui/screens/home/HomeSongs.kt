@@ -89,7 +89,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 val hindiPage = Innertube.searchPage(
                     body = SearchBody(
                         context = indiaHindiContext,
-                        query = "Hindi songs $selectedQuery",
+                        query = "Hindi Bollywood film songs India $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
@@ -97,7 +97,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 val otherLanguagesPage = Innertube.searchPage(
                     body = SearchBody(
                         context = indiaHindiContext,
-                        query = "Indian language songs $selectedQuery",
+                        query = "Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
@@ -105,7 +105,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 val englishPage = Innertube.searchPage(
                     body = SearchBody(
                         context = indiaHindiContext,
-                        query = "English songs $selectedQuery",
+                        query = "English language songs international $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
