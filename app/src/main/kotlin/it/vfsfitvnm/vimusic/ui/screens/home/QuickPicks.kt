@@ -338,9 +338,7 @@ fun QuickPicks(
                         )
                     }
                 }
-
-
-
+            }
 
         OnlineSongShelf(
             title = "Top song",
@@ -500,7 +498,6 @@ fun QuickPicks(
             sectionTextModifier = sectionTextModifier,
             refreshKey = refreshToken
         )
-        }
 
         FloatingActionsContainerWithScrollToTop(
             scrollState = scrollState,
