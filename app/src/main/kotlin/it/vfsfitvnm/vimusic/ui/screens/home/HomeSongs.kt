@@ -61,7 +61,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     // Each shelf has a distinct intent so search results match the selected category.
     // Keep these as discovery phrases rather than generic "popular songs" queries.
     val categories = listOf(
-        "Podcast" to "Indian podcast episodes spoken audio conversations",
+        "Podcast" to "podcast episodes full episodes interviews conversations",
         "Workout" to "gym workout running fitness motivation high energy songs",
         "Feel Good" to "happy uplifting positive feel good mood songs",
         "Romance" to "romantic love songs Bollywood romance",
@@ -89,11 +89,22 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 )
                 // Fetch each language separately to preserve the requested order:
                 // Hindi first, Marathi second, other Indian languages next, English last.
+                val isPodcastCategory = selectedCategory == "Podcast"
+                val categoryFilter = if (isPodcastCategory) {
+                    Innertube.SearchFilter.Video.value
+                } else {
+                    Innertube.SearchFilter.Song.value
+                }
+
                 suspend fun fetchSongs(languageQuery: String) = Innertube.searchPage(
                     body = SearchBody(
                         context = indiaHindiContext,
-                        query = "$languageQuery $selectedQuery",
-                        params = Innertube.SearchFilter.Song.value
+                        query = if (isPodcastCategory) {
+                            "$languageQuery podcast episodes full episodes interviews conversations"
+                        } else {
+                            "$languageQuery $selectedQuery"
+                        },
+                        params = categoryFilter
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
                 )?.getOrNull()
@@ -133,14 +144,14 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                     HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
                 }
                 BasicText(
-                    text = "Explore categories",
+                    text = "EXPLORE CATEGORIES",
                     style = typography.m.semiBold,
                     modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp)
                 )
                 LazyRow {
                     items(categories, key = { it.first }) { category ->
                         BasicText(
-                            text = category.first,
+                            text = category.first.uppercase(),
                             style = if (selectedCategory == category.first) typography.m.semiBold else typography.m,
                             modifier = Modifier
                                 .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 12.dp)
@@ -159,7 +170,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                     onPlaylistClick = onPlaylistClick
                 )
                 BasicText(
-                    text = selectedCategory,
+                    text = selectedCategory.uppercase(),
                     style = typography.m.semiBold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
@@ -224,7 +235,7 @@ private fun CategoryPublicPlaylists(
     }
 
     BasicText(
-        text = "$category Public Playlists",
+        text = "${category.uppercase()} PUBLIC PLAYLISTS",
         style = typography.m.semiBold,
         modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
     )
