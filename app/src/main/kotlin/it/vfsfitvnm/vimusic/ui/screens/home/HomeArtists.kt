@@ -206,7 +206,7 @@ fun HomeArtistList(
             iconId = R.drawable.search,
             onClick = onSearchClick,
             transparentBackground = true,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 88.dp)
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 88.dp)
         )
     }
     }
