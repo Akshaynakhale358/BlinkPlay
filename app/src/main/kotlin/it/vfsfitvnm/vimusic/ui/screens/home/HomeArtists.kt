@@ -149,7 +149,7 @@ fun HomeArtistList(
             rowItems(categories, key = { it.first }) { category ->
                 BasicText(
                     text = category.first,
-                    style = if (selectedCategory == category.first) typography.m.semiBold else typography.m,
+                    style = typography.s.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                     modifier = Modifier
                         .padding(horizontal = 4.dp, vertical = 8.dp)
                         .clickable {
