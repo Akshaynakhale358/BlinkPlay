@@ -177,6 +177,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     private var volumeNormalizationJob: Job? = null
 
     private var isPersistentQueueEnabled = false
+    private var isQueueRestored = false
     private var isShowingThumbnailInLockscreen = true
     override var isInvincibilityEnabled = false
 
@@ -446,7 +447,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     }
 
     private fun maybeSavePlayerQueue() {
-        if (!isPersistentQueueEnabled) return
+        if (!isPersistentQueueEnabled || !isQueueRestored) return
 
         val mediaItems = player.currentTimeline.mediaItems
         val mediaItemIndex = player.currentMediaItemIndex
@@ -470,7 +471,10 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
         coroutineScope.launch {
             val queuedSong = withContext(Dispatchers.IO) { Database.queue() }
-            if (queuedSong.isEmpty()) return@launch
+            if (queuedSong.isEmpty()) {
+                withContext(Dispatchers.Main) { isQueueRestored = true }
+                return@launch
+            }
 
             val index = queuedSong.indexOfFirst { it.position != null }.coerceAtLeast(0)
 
@@ -488,6 +492,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                     queuedSong[index].position ?: C.TIME_UNSET
                 )
                 player.prepare()
+                isQueueRestored = true
 
                 isNotificationStarted = true
                 startForegroundService(this@PlayerService, intent<PlayerService>())
