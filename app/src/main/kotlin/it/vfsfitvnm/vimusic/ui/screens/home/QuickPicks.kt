@@ -533,32 +533,26 @@ private suspend fun loadLanguageOrderedRelatedPage(
         .takeIf { it.isNotBlank() }
         ?: "popular"
 
-    val hindi = Innertube.searchPage(
+    suspend fun fetchRelatedSongs(languageQuery: String) = Innertube.searchPage(
         body = SearchBody(
-            query = "Hindi songs similar to $seedContext",
+            query = "$languageQuery similar to $seedContext",
             params = Innertube.SearchFilter.Song.value
         ),
         fromMusicShelfRendererContent = Innertube.SongItem::from
     )?.getOrNull()?.items.orEmpty()
 
-    val otherIndianLanguages = Innertube.searchPage(
-        body = SearchBody(
-            query = "Indian regional language songs Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam similar to $seedContext",
-            params = Innertube.SearchFilter.Song.value
-        ),
-        fromMusicShelfRendererContent = Innertube.SongItem::from
-    )?.getOrNull()?.items.orEmpty()
+    // Keep the exact language priority requested across recommendation shelves.
+    val hindi = fetchRelatedSongs("Hindi Bollywood songs")
+    val marathi = fetchRelatedSongs("Marathi songs")
+        .filterNot { song -> hindi.any { it.key == song.key } }
+    val otherIndianLanguages = fetchRelatedSongs(
+        "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs"
+    )
+    val indianSongs = (hindi + marathi + otherIndianLanguages).distinctBy { it.key }
+    val english = fetchRelatedSongs("English international songs")
+        .filterNot { song -> indianSongs.any { it.key == song.key } }
 
-    val english = Innertube.searchPage(
-        body = SearchBody(
-            query = "English songs similar to $seedContext international",
-            params = Innertube.SearchFilter.Song.value
-        ),
-        fromMusicShelfRendererContent = Innertube.SongItem::from
-    )?.getOrNull()?.items.orEmpty()
-
-    val orderedSongs = (hindi + otherIndianLanguages + english)
-        .distinctBy { it.key }
+    val orderedSongs = indianSongs + english
 
     // If language-specific search is temporarily unavailable, retain YouTube's
     // personalized recommendations instead of showing only the starred seed song.
@@ -590,50 +584,35 @@ private fun OnlineSongShelf(
                 DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
             )
             val isNewRelease = title == "New release"
-            val hindiQuery = if (isNewRelease) {
-                "latest new Hindi songs released $releasePeriod official"
+            fun languageQuery(language: String): String = if (isNewRelease) {
+                "latest new $language songs released $releasePeriod official"
             } else {
-                "Hindi songs India $query"
-            }
-            val regionalQuery = if (isNewRelease) {
-                "latest new Indian regional language songs Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam released $releasePeriod"
-            } else {
-                "Indian regional language songs Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam $query"
-            }
-            val englishQuery = if (isNewRelease) {
-                "latest new English songs released $releasePeriod official"
-            } else {
-                "English language songs international $query"
+                "$language songs India $query"
             }
 
-            val hindi = Innertube.searchPage(
+            suspend fun fetchSongs(searchQuery: String) = Innertube.searchPage(
                 body = SearchBody(
-                    query = hindiQuery,
+                    query = searchQuery,
                     params = Innertube.SearchFilter.Song.value
                 ),
                 fromMusicShelfRendererContent = Innertube.SongItem::from
             )?.getOrNull()?.items.orEmpty()
 
-            val otherIndianLanguages = Innertube.searchPage(
-                body = SearchBody(
-                    query = regionalQuery,
-                    params = Innertube.SearchFilter.Song.value
-                ),
-                fromMusicShelfRendererContent = Innertube.SongItem::from
-            )?.getOrNull()?.items.orEmpty()
+            val hindi = fetchSongs(languageQuery("Hindi Bollywood"))
+            val marathi = fetchSongs(languageQuery("Marathi"))
+                .filterNot { song -> hindi.any { it.key == song.key } }
+            val otherIndianLanguages = fetchSongs(
+                if (isNewRelease) {
+                    "latest new Punjabi Tamil Telugu Bengali Kannada Malayalam songs released $releasePeriod official"
+                } else {
+                    "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs $query"
+                }
+            )
+            val indianSongs = (hindi + marathi + otherIndianLanguages).distinctBy { it.key }
+            val english = fetchSongs(languageQuery("English international"))
+                .filterNot { song -> indianSongs.any { it.key == song.key } }
 
-            val english = Innertube.searchPage(
-                body = SearchBody(
-                    query = englishQuery,
-                    params = Innertube.SearchFilter.Song.value
-                ),
-                fromMusicShelfRendererContent = Innertube.SongItem::from
-            )?.getOrNull()?.items.orEmpty()
-
-            val nonEnglish = (hindi + otherIndianLanguages).distinctBy { it.key }
-            nonEnglish + english.distinctBy { it.key }.filterNot { song ->
-                nonEnglish.any { it.key == song.key }
-            }
+            indianSongs + english
         }
     }
 
