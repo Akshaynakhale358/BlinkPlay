@@ -108,6 +108,9 @@ fun OnlineSearch(
     var suggestionsResult by persist<Result<Innertube.SearchSuggestions?>?>("search/online/suggestionsResult")
 
     LaunchedEffect(textFieldValue.text) {
+        // Never keep suggestions from the previous query visible while the new
+        // request is debouncing, and clear them when the search field is empty.
+        suggestionsResult = null
         if (textFieldValue.text.isNotEmpty()) {
             delay(200)
             suggestionsResult =
