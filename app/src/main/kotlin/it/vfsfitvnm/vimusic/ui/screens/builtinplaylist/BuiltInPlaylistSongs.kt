@@ -56,7 +56,7 @@ fun BuiltInPlaylistSongs(builtInPlaylist: BuiltInPlaylist) {
 
     var songs by persistList<Song>("${builtInPlaylist.name}/songs")
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(builtInPlaylist) {
         when (builtInPlaylist) {
             BuiltInPlaylist.Favorites -> Database
                 .favorites()
