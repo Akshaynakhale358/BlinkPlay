@@ -30,6 +30,7 @@ import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItem
+import it.vfsfitvnm.vimusic.ui.items.PlaylistItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.items.SongItem
 import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
@@ -157,7 +158,7 @@ private fun CategoryPublicPlaylists(
     query: String,
     onPlaylistClick: (String) -> Unit
 ) {
-    val (colorPalette, typography) = LocalAppearance.current
+    val (_, typography) = LocalAppearance.current
     val playlistThumbnailSizeDp = 108.dp
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
     var playlists by remember(category) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
