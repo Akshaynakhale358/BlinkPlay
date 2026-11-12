@@ -75,7 +75,7 @@ fun PlaylistSongList(
 
     var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage")
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(browseId) {
         if (playlistPage != null && playlistPage?.songsPage?.continuation == null) return@LaunchedEffect
 
         playlistPage = withContext(Dispatchers.IO) {
