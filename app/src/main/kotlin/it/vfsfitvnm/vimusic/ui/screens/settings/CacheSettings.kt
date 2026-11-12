@@ -78,8 +78,8 @@ fun CacheSettings() {
             isEnabled = binder?.player?.isPlaying != true,
             onClick = {
                 runCatching {
-                    binder?.cache?.keys?.toList()?.forEach { key ->
-                        binder.cache.removeResource(key)
+                    binder?.cache?.let { cache ->
+                        cache.keys.toList().forEach(cache::removeResource)
                     }
                     context.cacheDir.resolve("coil").deleteRecursively()
                 }.onSuccess {
