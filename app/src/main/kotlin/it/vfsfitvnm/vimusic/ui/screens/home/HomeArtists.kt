@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items as rowItems
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,19 +68,20 @@ fun HomeArtistList(
         "English" to listOf("English pop artists", "English rock artists", "international music artists")
     )
     var selectedCategory by remember { mutableStateOf("All") }
+    var refreshToken by remember { mutableStateOf(0) }
     val queries = categories.first { it.first == selectedCategory }.second
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     val thumbnailSizeDp = (Dimensions.thumbnails.song * 1.35f).coerceAtLeast(64.dp)
     val thumbnailSizePx = thumbnailSizeDp.px
 
-    var artists by remember(selectedCategory) { mutableStateOf<List<Innertube.ArtistItem>>(emptyList()) }
-    var continuation by remember(selectedCategory) { mutableStateOf<String?>(null) }
-    var queryIndex by remember(selectedCategory) { mutableStateOf(0) }
-    var loading by remember(selectedCategory) { mutableStateOf(false) }
-    var finished by remember(selectedCategory) { mutableStateOf(false) }
+    var artists by remember(selectedCategory, refreshToken) { mutableStateOf<List<Innertube.ArtistItem>>(emptyList()) }
+    var continuation by remember(selectedCategory, refreshToken) { mutableStateOf<String?>(null) }
+    var queryIndex by remember(selectedCategory, refreshToken) { mutableStateOf(0) }
+    var loading by remember(selectedCategory, refreshToken) { mutableStateOf(false) }
+    var finished by remember(selectedCategory, refreshToken) { mutableStateOf(false) }
 
-    LaunchedEffect(selectedCategory, gridState) {
+    LaunchedEffect(selectedCategory, refreshToken, gridState) {
         snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
             .collect { lastVisible ->
                 if (loading || finished || lastVisible < artists.size - 4) return@collect
@@ -123,6 +126,12 @@ fun HomeArtistList(
             }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
+    PullToRefreshBox(
+        isRefreshing = loading && artists.isEmpty(),
+        onRefresh = { refreshToken += 1 },
+        modifier = Modifier.fillMaxSize()
+    ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Header(title = "Artists") {
             HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
@@ -188,5 +197,6 @@ fun HomeArtistList(
                 }
             }
         }
+    }
     }
 }
