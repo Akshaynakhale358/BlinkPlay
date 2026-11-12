@@ -40,8 +40,6 @@ import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
-import it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton
-import it.vfsfitvnm.vimusic.ui.components.themed.MiniPlayerActionButton
 import it.vfsfitvnm.vimusic.ui.items.ArtistItem
 import it.vfsfitvnm.vimusic.ui.items.ArtistItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
@@ -144,17 +142,6 @@ fun HomeArtistList(
     Column(modifier = Modifier.fillMaxSize()) {
         Header(title = "Artists") {
         }
-                androidx.compose.foundation.layout.Row(
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(start = 0.dp, top = 4.dp, bottom = 8.dp)
-                ) {
-                    PrimaryButton(
-                        iconId = R.drawable.search,
-                        onClick = onSearchClick,
-                        transparentBackground = true
-                    )
-                    MiniPlayerActionButton()
-                }
 
         BasicText(
             text = "Explore artists",
