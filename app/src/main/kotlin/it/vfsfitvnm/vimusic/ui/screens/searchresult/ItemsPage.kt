@@ -13,8 +13,12 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -54,6 +58,7 @@ inline fun <T : Innertube.Item> ItemsPage(
     val lazyListState = rememberLazyListState()
 
     var itemsPage by persist<Innertube.ItemsPage<T>?>(tag)
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(lazyListState, updatedItemsPageProvider) {
         if (refreshOnEnter) itemsPage = null
@@ -89,10 +94,22 @@ inline fun <T : Innertube.Item> ItemsPage(
                             }
                         }
                 }
+                isRefreshing = false
             }
     }
 
-    Box {
+    @OptIn(ExperimentalMaterial3Api::class)
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            if (!isRefreshing) {
+                isRefreshing = true
+                itemsPage = null
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Box {
         LazyColumn(
             state = lazyListState,
             contentPadding = LocalPlayerAwareWindowInsets.current
@@ -143,5 +160,6 @@ inline fun <T : Innertube.Item> ItemsPage(
         }
 
         FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
+        }
     }
 }
