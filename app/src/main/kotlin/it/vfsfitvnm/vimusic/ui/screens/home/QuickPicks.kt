@@ -338,7 +338,7 @@ fun QuickPicks(
                         )
                     }
                 }
-            }
+
 
 
 
@@ -487,6 +487,7 @@ fun QuickPicks(
                     }
                 }
 
+            }
 
         OnlinePlaylistShelf(
             title = "Trending community playlist",
