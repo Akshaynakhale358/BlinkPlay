@@ -500,10 +500,8 @@ fun QuickPicks(
             refreshKey = refreshToken
         )
 
-        OnlinePlaylistShelf(
-            title = "MIX FOR YOU",
-            query = "${trending?.artistsText.orEmpty()} Hindi Marathi Indian regional language personalized music mix",
-            filter = Innertube.SearchFilter.FeaturedPlaylist.value,
+        MixForYouShelf(
+            seedArtists = trending?.artistsText.orEmpty(),
             thumbnailSizeDp = playlistThumbnailSizeDp,
             thumbnailSizePx = playlistThumbnailSizePx,
             onPlaylistClick = onPlaylistClick,
@@ -721,6 +719,79 @@ private fun OnlineSongShelf(
                             )
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MixForYouShelf(
+    seedArtists: String,
+    thumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    thumbnailSizePx: Int,
+    onPlaylistClick: (String) -> Unit,
+    sectionTextModifier: Modifier,
+    refreshKey: Int
+) {
+    val (_, typography) = LocalAppearance.current
+    var playlists by remember(seedArtists, refreshKey) {
+        mutableStateOf<List<Innertube.PlaylistItem>?>(null)
+    }
+
+    LaunchedEffect(seedArtists, refreshKey) {
+        playlists = withContext(Dispatchers.IO) {
+            val seed = seedArtists.takeIf { it.isNotBlank() } ?: "popular Indian music"
+            val languageQueries = listOf(
+                "$seed Hindi Bollywood songs playlist mix",
+                "$seed Marathi songs playlist mix",
+                "$seed Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional playlist mix",
+                "$seed English international songs playlist mix"
+            )
+
+            suspend fun fetch(query: String) = Innertube.searchPage(
+                body = SearchBody(
+                    context = IndiaMusicContext,
+                    query = query,
+                    params = Innertube.SearchFilter.FeaturedPlaylist.value
+                ),
+                fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+            )?.getOrNull()?.items.orEmpty()
+
+            val languageOrdered = languageQueries.flatMap { fetch(it) }
+                .distinctBy { it.key }
+
+            if (languageOrdered.isNotEmpty()) {
+                languageOrdered
+            } else {
+                Innertube.searchPage(
+                    body = SearchBody(
+                        context = IndiaMusicContext,
+                        query = "$seed Indian Hindi Marathi regional music mix playlist",
+                        params = Innertube.SearchFilter.CommunityPlaylist.value
+                    ),
+                    fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+                )?.getOrNull()?.items.orEmpty()
+            }
+        }
+    }
+
+    BasicText(text = "MIX FOR YOU", style = typography.s.semiBold, modifier = sectionTextModifier)
+    if (playlists == null) {
+        ShimmerHost {
+            repeat(2) {
+                PlaylistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true)
+            }
+        }
+    } else {
+        LazyRow {
+            items(playlists.orEmpty(), key = Innertube.PlaylistItem::key) { playlist ->
+                PlaylistItem(
+                    playlist = playlist,
+                    thumbnailSizePx = thumbnailSizePx,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    alternative = true,
+                    modifier = Modifier.clickable { onPlaylistClick(playlist.key) }
+                )
             }
         }
     }
