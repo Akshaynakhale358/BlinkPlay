@@ -453,9 +453,13 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     }
 
     private fun maybeSavePlayerQueue() {
-        if (!isPersistentQueueEnabled || !isQueueRestored) return
+        if (!isPersistentQueueEnabled) return
 
         val mediaItems = player.currentTimeline.mediaItems
+        // If restoration has not completed and the player is still empty, preserve the
+        // saved database queue. If the user has already started a new queue, save that instead.
+        if (!isQueueRestored && mediaItems.isEmpty()) return
+
         val mediaItemIndex = player.currentMediaItemIndex
         val mediaItemPosition = player.currentPosition
 
