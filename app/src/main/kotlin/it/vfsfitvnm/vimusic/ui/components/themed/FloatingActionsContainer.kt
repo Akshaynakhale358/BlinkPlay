@@ -125,8 +125,17 @@ fun BoxScope.FloatingActions(
         verticalAlignment = Alignment.Bottom,
         modifier = modifier
             .align(alignment)
-            .padding(if (alignment == Alignment.BottomStart) Modifier.padding(start = 16.dp) else Modifier.padding(end = 16.dp))
-            .padding(if (alignment == Alignment.BottomStart) windowInsets.only(WindowInsetsSides.Start).asPaddingValues() else windowInsets.only(WindowInsetsSides.End).asPaddingValues())
+            .then(
+                if (alignment == Alignment.BottomStart) Modifier.padding(start = 16.dp)
+                else Modifier.padding(end = 16.dp)
+            )
+            .padding(
+                if (alignment == Alignment.BottomStart) {
+                    windowInsets.only(WindowInsetsSides.Start).asPaddingValues()
+                } else {
+                    windowInsets.only(WindowInsetsSides.End).asPaddingValues()
+                }
+            )
     ) {
         onScrollToTop?.let {
             transition.AnimatedVisibility(
