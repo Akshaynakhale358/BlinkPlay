@@ -80,9 +80,8 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
         tag = "home/category-songs-$selectedCategory",
         itemsPageProvider = { continuation ->
             if (continuation == null) {
-                // Seed recommendations with Hindi first, every other Indian language next,
-                // and English last. Regional languages such as Marathi and Punjabi are included
-                // together without forcing Marathi into a separate position.
+                // Keep Hindi recommendations first. Mix all remaining languages together
+                // so no regional language, including Marathi, is forced into a fixed position.
                 val indiaHindiContext = Context.DefaultWeb.copy(
                     client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
                 )
@@ -111,11 +110,12 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                     fromMusicShelfRendererContent = Innertube.SongItem::from
                 )?.getOrNull()
 
-                val prioritizedSongs = (
-                    hindiPage?.items.orEmpty() +
+                val hindiSongs = hindiPage?.items.orEmpty()
+                val allOtherLanguageSongs = (
                     otherLanguagesPage?.items.orEmpty() +
                     englishPage?.items.orEmpty()
-                ).distinctBy { it.key }
+                ).distinctBy { it.key }.shuffled()
+                val prioritizedSongs = hindiSongs.distinctBy { it.key } + allOtherLanguageSongs
 
                 Result.success(
                     Innertube.ItemsPage(
