@@ -80,7 +80,6 @@ fun HomeAlbums(
         headerContent = {
             Column {
                 Header(title = "Albums") {
-                    HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
                 }
                 BasicText(
                     text = "EXPLORE ALBUM CATEGORIES",
