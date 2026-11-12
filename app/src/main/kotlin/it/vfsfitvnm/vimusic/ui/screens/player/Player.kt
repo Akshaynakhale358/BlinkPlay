@@ -114,7 +114,24 @@ fun Player(
         }
     }
 
-    val mediaItem = nullableMediaItem ?: return
+    val mediaItem = nullableMediaItem
+    if (mediaItem == null) {
+        BottomSheet(
+            state = layoutState,
+            modifier = modifier,
+            onDismiss = {},
+            collapsedContent = {},
+            content = {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    BasicText(text = "No song playing")
+                }
+            }
+        )
+        return
+    }
 
     val positionAndDuration by binder.player.positionAndDurationState()
 
