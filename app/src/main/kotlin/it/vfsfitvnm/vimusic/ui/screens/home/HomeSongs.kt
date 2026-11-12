@@ -80,8 +80,9 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
         tag = "home/category-songs-$selectedCategory",
         itemsPageProvider = { continuation ->
             if (continuation == null) {
-                // Seed each category with language-prioritized results. Keep all languages:
-                // Hindi first, Marathi next, other regional languages, and English last.
+                // Seed recommendations with Hindi first, every other Indian language next,
+                // and English last. Regional languages such as Marathi and Punjabi are included
+                // together without forcing Marathi into a separate position.
                 val indiaHindiContext = Context.DefaultWeb.copy(
                     client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
                 )
@@ -89,14 +90,6 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                     body = SearchBody(
                         context = indiaHindiContext,
                         query = "Hindi songs $selectedQuery",
-                        params = Innertube.SearchFilter.Song.value
-                    ),
-                    fromMusicShelfRendererContent = Innertube.SongItem::from
-                )?.getOrNull()
-                val marathiPage = Innertube.searchPage(
-                    body = SearchBody(
-                        context = indiaHindiContext,
-                        query = "Marathi songs $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
@@ -120,7 +113,6 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
 
                 val prioritizedSongs = (
                     hindiPage?.items.orEmpty() +
-                    marathiPage?.items.orEmpty() +
                     otherLanguagesPage?.items.orEmpty() +
                     englishPage?.items.orEmpty()
                 ).distinctBy { it.key }
