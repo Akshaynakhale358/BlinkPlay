@@ -91,7 +91,7 @@ fun HomeArtistList(
                 loading = true
                 withContext(Dispatchers.IO) {
                     var attempts = 0
-                    while (attempts < 4 && !finished) {
+                    while (attempts < 20 && !finished) {
                         val query = queries.getOrNull(queryIndex)
                         if (query == null) {
                             finished = true
