@@ -145,14 +145,14 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 }
                 BasicText(
                     text = "EXPLORE CATEGORIES",
-                    style = typography.m.semiBold,
+                    style = typography.s.semiBold,
                     modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp)
                 )
                 LazyRow {
                     items(categories, key = { it.first }) { category ->
                         BasicText(
                             text = category.first.uppercase(),
-                            style = typography.m.semiBold,
+                            style = typography.s.semiBold,
                             modifier = Modifier
                                 .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 12.dp)
                                 .background(
@@ -171,7 +171,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 )
                 BasicText(
                     text = selectedCategory.uppercase(),
-                    style = typography.m.semiBold,
+                    style = typography.s.semiBold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
@@ -236,7 +236,7 @@ private fun CategoryPublicPlaylists(
 
     BasicText(
         text = "${category.uppercase()} PUBLIC PLAYLISTS",
-        style = typography.m.semiBold,
+        style = typography.s.semiBold,
         modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
     )
 
