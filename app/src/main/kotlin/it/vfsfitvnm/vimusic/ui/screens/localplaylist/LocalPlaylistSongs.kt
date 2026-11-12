@@ -189,6 +189,7 @@ fun LocalPlaylistSongs(
                                                         Innertube.playlistPage(BrowseBody(browseId = browseId))
                                                             ?.completed()
                                                             ?.getOrNull()
+                                                            ?.takeIf { it.songsPage?.continuation == null && it.songsPage != null }
                                                     } ?: return@launch
 
                                                     // Fetch remotely first; hold the database transaction
