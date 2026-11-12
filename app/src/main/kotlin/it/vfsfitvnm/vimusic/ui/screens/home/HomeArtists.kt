@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
@@ -38,7 +39,7 @@ import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
-import it.vfsfitvnm.vimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
+import it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton
 import it.vfsfitvnm.vimusic.ui.items.ArtistItem
 import it.vfsfitvnm.vimusic.ui.items.ArtistItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
@@ -201,10 +202,10 @@ fun HomeArtistList(
             }
         }
     }
-        FloatingActionsContainerWithScrollToTop(
-            lazyGridState = gridState,
+        PrimaryButton(
             iconId = R.drawable.search,
-            onClick = onSearchClick
+            onClick = onSearchClick,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 88.dp)
         )
     }
     }
