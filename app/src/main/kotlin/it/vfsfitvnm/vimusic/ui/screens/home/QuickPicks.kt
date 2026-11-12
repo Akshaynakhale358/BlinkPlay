@@ -481,7 +481,8 @@ fun QuickPicks(
                     NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
                 }
             },
-            sectionTextModifier = sectionTextModifier
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
         )
 
         OnlinePlaylistShelf(
@@ -491,7 +492,8 @@ fun QuickPicks(
             thumbnailSizeDp = playlistThumbnailSizeDp,
             thumbnailSizePx = playlistThumbnailSizePx,
             onPlaylistClick = onPlaylistClick,
-            sectionTextModifier = sectionTextModifier
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
         )
         }
 
