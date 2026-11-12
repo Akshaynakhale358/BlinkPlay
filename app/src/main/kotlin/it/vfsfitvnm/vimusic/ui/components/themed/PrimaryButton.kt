@@ -89,16 +89,33 @@ fun MiniPlayerActionButton(
                 return@PrimaryButton
             }
 
-            val currentItem = player.currentMediaItem
+            // Prefer the active item, then recover the current item from the queue.
+            // A paused player can briefly expose a null currentMediaItem while its timeline
+            // still contains the paused song; do not start a random song in that case.
+            val queuedItem = if (player.mediaItemCount > 0) {
+                val index = player.currentMediaItemIndex
+                    .takeIf { it in 0 until player.mediaItemCount } ?: 0
+                player.getMediaItemAt(index)
+            } else {
+                null
+            }
+            val currentItem = player.currentMediaItem ?: queuedItem
+
             if (currentItem != null) {
-                // Resume the same paused track; never replace a track that is already playing.
                 if (!player.isPlaying) {
-                    if (player.playbackState == Media3Player.STATE_IDLE) player.prepare()
+                    if (player.currentMediaItem == null && player.mediaItemCount > 0) {
+                        val index = player.currentMediaItemIndex
+                            .takeIf { it in 0 until player.mediaItemCount } ?: 0
+                        player.seekToDefaultPosition(index)
+                    }
+                    if (player.playbackState == Media3Player.STATE_IDLE ||
+                        player.playbackState == Media3Player.STATE_ENDED
+                    ) player.prepare()
                     player.play()
                 }
                 playerSheetState.expandSoft()
             } else {
-                // No current track: choose a random previously played song first.
+                // Only when the queue is truly empty, choose a random song.
                 coroutineScope.launch {
                     val mediaItem = withContext(Dispatchers.IO) {
                         Database.trending(20).first().randomOrNull()?.asMediaItem
