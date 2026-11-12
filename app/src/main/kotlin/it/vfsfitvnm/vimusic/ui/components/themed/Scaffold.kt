@@ -25,6 +25,7 @@ fun Scaffold(
     tabIndex: Int,
     onTabChanged: (Int) -> Unit,
     tabColumnContent: @Composable ColumnScope.(@Composable (Int, String, Int) -> Unit) -> Unit,
+    bottomContent: @Composable ColumnScope.() -> Unit = {},
     modifier: Modifier = Modifier,
     content: @Composable AnimatedVisibilityScope.(Int) -> Unit
 ) {
@@ -40,7 +41,8 @@ fun Scaffold(
             onTopIconButtonClick = onTopIconButtonClick,
             tabIndex = tabIndex,
             onTabIndexChanged = onTabChanged,
-            content = tabColumnContent
+            content = tabColumnContent,
+            bottomContent = bottomContent
         )
 
         AnimatedContent(
