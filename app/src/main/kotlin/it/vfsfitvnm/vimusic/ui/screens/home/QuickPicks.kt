@@ -147,17 +147,16 @@ fun QuickPicks(
     }
 
     // Fetch the next YouTube Music page automatically as the user approaches the end.
-    LaunchedEffect(selectedCategory, categoryListState, categoryContinuation, categorySongs.size, categoryLoading) {
-        if (categoryContinuation == null || categoryLoading || categorySongs.isEmpty()) return@LaunchedEffect
+    LaunchedEffect(selectedCategory, categoryListState) {
         snapshotFlow {
             val lastVisible = categoryListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisible >= categorySongs.size - 3
-        }.collect { nearEnd ->
-            if (nearEnd && !categoryLoading && categoryContinuation != null) {
+            Triple(lastVisible >= categorySongs.size - 3, categoryContinuation, categoryLoading)
+        }.collect { (nearEnd, continuation, loading) ->
+            if (nearEnd && continuation != null && !loading && categorySongs.isNotEmpty()) {
                 categoryLoading = true
                 val nextPage = withContext(Dispatchers.IO) {
                     Innertube.searchPage(
-                        body = ContinuationBody(continuation = categoryContinuation!!),
+                        body = ContinuationBody(continuation = continuation),
                         fromMusicShelfRendererContent = Innertube.SongItem.Companion::from
                     )
                 }
