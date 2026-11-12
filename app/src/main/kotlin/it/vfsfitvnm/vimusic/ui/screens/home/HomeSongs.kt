@@ -81,60 +81,92 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     ItemsPage(
         tag = "home/category-songs-$selectedCategory",
         itemsPageProvider = { continuation ->
-            if (continuation == null) {
-                // Keep English recommendations at the end so they never appear first.
-                // Mix Hindi and other-language recommendations together for variety.
-                val indiaHindiContext = Context.DefaultWeb.copy(
-                    client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
-                )
-                // Fetch each language separately to preserve the requested order:
-                // Hindi first, Marathi second, other Indian languages next, English last.
-                val isPodcastCategory = selectedCategory == "Podcast"
-                val categoryFilter = if (isPodcastCategory) {
-                    Innertube.SearchFilter.Video.value
-                } else {
-                    Innertube.SearchFilter.Song.value
-                }
-
-                suspend fun fetchSongs(languageQuery: String) = Innertube.searchPage(
-                    body = SearchBody(
-                        context = indiaHindiContext,
-                        query = if (isPodcastCategory) {
-                            "$languageQuery podcast episodes full episodes interviews conversations"
-                        } else {
-                            "$languageQuery $selectedQuery"
-                        },
-                        params = categoryFilter
-                    ),
-                    fromMusicShelfRendererContent = Innertube.SongItem::from
-                )?.getOrNull()
-
-                val hindiPage = fetchSongs("Hindi Bollywood songs")
-                val marathiPage = fetchSongs("Marathi songs")
-                val otherIndianPage = fetchSongs("Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs")
-                val englishPage = fetchSongs("English language songs international")
-
-                val hindiSongs = hindiPage?.items.orEmpty()
-                val marathiSongs = marathiPage?.items.orEmpty()
-                    .filterNot { song -> hindiSongs.any { it.key == song.key } }
-                val indianSongs = (hindiSongs + marathiSongs + otherIndianPage?.items.orEmpty())
-                    .distinctBy { it.key }
-                val englishSongs = englishPage?.items.orEmpty()
-                    .distinctBy { it.key }
-                    .filterNot { song -> indianSongs.any { it.key == song.key } }
-
-                Result.success(
-                    Innertube.ItemsPage(
-                        items = indianSongs + englishSongs,
-                        continuation = englishPage?.continuation
-                    )
-                )
+            // Fetch every language group independently. Keep a continuation token for
+            // each group so later pages preserve Hindi -> Marathi -> other Indian -> English.
+            val indiaHindiContext = Context.DefaultWeb.copy(
+                client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+            )
+            val isPodcastCategory = selectedCategory == "Podcast"
+            val categoryFilter = if (isPodcastCategory) {
+                Innertube.SearchFilter.Video.value
             } else {
-                Innertube.searchPage(
-                    body = ContinuationBody(continuation = continuation),
-                    fromMusicShelfRendererContent = Innertube.SongItem::from
-                )
+                Innertube.SearchFilter.Song.value
             }
+            val languageQueries = listOf(
+                "Hindi Bollywood songs",
+                "Marathi songs",
+                "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs",
+                "English language songs international"
+            )
+            val previousTokens = continuation?.split('\u001F')
+            val nextTokens = mutableListOf<String?>()
+            val combinedItems = mutableListOf<Innertube.SongItem>()
+
+            languageQueries.forEachIndexed { index, languageQuery ->
+                val token = previousTokens?.getOrNull(index)?.takeIf { it.isNotBlank() }
+                val result = if (token == null) {
+                    Innertube.searchPage(
+                        body = SearchBody(
+                            context = indiaHindiContext,
+                            query = if (isPodcastCategory) {
+                                "$languageQuery podcast episodes full episodes interviews conversations"
+                            } else {
+                                "$languageQuery $selectedQuery"
+                            },
+                            params = categoryFilter
+                        ),
+                        fromMusicShelfRendererContent = { content ->
+                            if (isPodcastCategory) {
+                                Innertube.VideoItem.from(content)?.let { video ->
+                                    Innertube.SongItem(
+                                        info = video.info,
+                                        authors = video.authors,
+                                        album = null,
+                                        durationText = video.durationText,
+                                        thumbnail = video.thumbnail
+                                    )
+                                }
+                            } else {
+                                Innertube.SongItem.from(content)
+                            }
+                        }
+                    )
+                } else {
+                    Innertube.searchPage(
+                        body = ContinuationBody(continuation = token),
+                        fromMusicShelfRendererContent = { content ->
+                            if (isPodcastCategory) {
+                                Innertube.VideoItem.from(content)?.let { video ->
+                                    Innertube.SongItem(
+                                        info = video.info,
+                                        authors = video.authors,
+                                        album = null,
+                                        durationText = video.durationText,
+                                        thumbnail = video.thumbnail
+                                    )
+                                }
+                            } else {
+                                Innertube.SongItem.from(content)
+                            }
+                        }
+                    )
+                }
+                val page = result?.getOrNull()
+                combinedItems += page?.items.orEmpty()
+                nextTokens += page?.continuation
+            }
+
+            val orderedItems = combinedItems.distinctBy { it.key }
+            val nextContinuation = nextTokens
+                .takeIf { tokens -> tokens.any { it != null } }
+                ?.joinToString("\u001F") { it.orEmpty() }
+
+            Result.success(
+                Innertube.ItemsPage(
+                    items = orderedItems,
+                    continuation = nextContinuation
+                )
+            )
         },
         emptyItemsText = "No online songs found. Try Search.",
         refreshOnEnter = true,
