@@ -60,7 +60,7 @@ fun AlbumScreen(browseId: String) {
 
     PersistMapCleanup(tagPrefix = "album/$browseId/")
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(browseId) {
         Database
             .album(browseId)
             .combine(snapshotFlow { tabIndex }) { album, tabIndex -> album to tabIndex }
