@@ -412,7 +412,8 @@ fun QuickPicks(
             sectionTextModifier = sectionTextModifier,
             refreshKey = refreshToken
         )
-                related.playlists?.let { playlists ->
+        relatedPageResult?.getOrNull()?.let { related ->
+            related.playlists?.let { playlists ->
                     BasicText(
                         text = "Playlists you might like",
                         style = typography.m.semiBold,
