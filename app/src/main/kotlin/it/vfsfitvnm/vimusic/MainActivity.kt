@@ -65,6 +65,7 @@ import it.vfsfitvnm.vimusic.enums.ColorPaletteName
 import it.vfsfitvnm.vimusic.enums.ThumbnailRoundness
 import it.vfsfitvnm.vimusic.service.PlayerService
 import it.vfsfitvnm.vimusic.ui.components.BottomSheetMenu
+import it.vfsfitvnm.vimusic.ui.components.BottomSheetState
 import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.rememberBottomSheetState
 import it.vfsfitvnm.vimusic.ui.screens.albumRoute
@@ -332,6 +333,7 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
                     LocalIndication provides rippleIndication,
                     LocalShimmerTheme provides shimmerTheme,
                     LocalPlayerServiceBinder provides binder,
+                    LocalPlayerBottomSheetState provides playerBottomSheetState,
                     LocalPlayerAwareWindowInsets provides playerAwareWindowInsets,
                     LocalLayoutDirection provides LayoutDirection.Ltr
                 ) {
@@ -473,5 +475,6 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
 }
 
 val LocalPlayerServiceBinder = staticCompositionLocalOf<PlayerService.Binder?> { null }
+val LocalPlayerBottomSheetState = staticCompositionLocalOf<BottomSheetState?> { null }
 
 val LocalPlayerAwareWindowInsets = staticCompositionLocalOf<WindowInsets> { TODO() }
