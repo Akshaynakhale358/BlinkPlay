@@ -204,7 +204,8 @@ fun HomePlaylists(
         FloatingActionsContainerWithScrollToTop(
             lazyGridState = lazyGridState,
             iconId = R.drawable.search,
-            onClick = onSearchClick
+            onClick = onSearchClick,
+            transparentIconBackground = true
         )
     }
 }
