@@ -201,11 +201,11 @@ fun HomePlaylists(
             }
         }
 
-        FloatingActionsContainerWithScrollToTop(
-            lazyGridState = lazyGridState,
+        PrimaryButton(
             iconId = R.drawable.search,
             onClick = onSearchClick,
-            transparentIconBackground = true
+            transparentBackground = true,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 88.dp)
         )
     }
 }
