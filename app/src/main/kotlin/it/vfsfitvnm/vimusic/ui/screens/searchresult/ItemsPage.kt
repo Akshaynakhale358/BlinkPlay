@@ -85,7 +85,17 @@ inline fun <T : Innertube.Item> ItemsPage(
                                 itemsPage = itemsPage?.copy(continuation = null)
                                     ?: Innertube.ItemsPage(null, null)
                             } else {
-                                itemsPage += page
+                                val previousContinuation = itemsPage?.continuation
+                                val safePage = if (
+                                    previousContinuation != null &&
+                                    page.continuation == previousContinuation
+                                ) {
+                                    // Stop if the server repeats the same continuation token.
+                                    page.copy(continuation = null)
+                                } else {
+                                    page
+                                }
+                                itemsPage += safePage
                             }
                         }
                         .onFailure {
