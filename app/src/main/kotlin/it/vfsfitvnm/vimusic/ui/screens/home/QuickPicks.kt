@@ -191,13 +191,13 @@ fun QuickPicks(
                 )
         ) {
             Header(
-                title = "Quick picks",
+                title = "QUICK PICKS",
                 modifier = Modifier
                     .padding(endPaddingValues)
             )
 
             BasicText(
-                text = "Song for me",
+                text = "SONG FOR ME",
                 style = typography.m.semiBold,
                 modifier = sectionTextModifier
             )
@@ -351,7 +351,7 @@ fun QuickPicks(
         // One combined shelf: merge top-chart and trending discovery intent.
         // YouTube Music search does not expose a guaranteed live chart rank here.
         OnlineSongShelf(
-            title = "Trending music",
+            title = "TRENDING SONG",
             query = "trending top chart popular hit songs India Hindi Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam English 2026",
             thumbnailSizeDp = songThumbnailSizeDp,
             thumbnailSizePx = songThumbnailSizePx,
@@ -371,7 +371,7 @@ fun QuickPicks(
         )
 
         OnlineSongShelf(
-            title = "New release",
+            title = "NEW RELEASE",
             query = "new Hindi Marathi Indian regional English music releases",
             thumbnailSizeDp = songThumbnailSizeDp,
             thumbnailSizePx = songThumbnailSizePx,
@@ -391,7 +391,7 @@ fun QuickPicks(
         )
 
         OnlinePlaylistShelf(
-            title = "Mix for me",
+            title = "MIX FOR ME",
             query = "${trending?.artistsText.orEmpty()} Hindi Marathi Indian regional language personalized music mix",
             filter = Innertube.SearchFilter.FeaturedPlaylist.value,
             thumbnailSizeDp = playlistThumbnailSizeDp,
@@ -403,7 +403,7 @@ fun QuickPicks(
         relatedPageResult?.getOrNull()?.let { related ->
             related.playlists?.let { playlists ->
                     BasicText(
-                        text = "Playlists you might like",
+                        text = "PLAYLISTS YOU MIGHT LIKE",
                         style = typography.m.semiBold,
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
@@ -430,7 +430,7 @@ fun QuickPicks(
 
                 related.albums?.let { albums ->
                     BasicText(
-                        text = "Related albums",
+                        text = "RELATED ALBUMS",
                         style = typography.m.semiBold,
                         modifier = sectionTextModifier
                     )
@@ -454,7 +454,7 @@ fun QuickPicks(
 
                 related.artists?.let { artists ->
                     BasicText(
-                        text = "Similar artists",
+                        text = "SIMILAR ARTISTS",
                         style = typography.m.semiBold,
                         modifier = sectionTextModifier
                     )
@@ -479,7 +479,7 @@ fun QuickPicks(
             }
 
         OnlinePlaylistShelf(
-            title = "Trending community playlist",
+            title = "TRENDING COMMUNITY PLAYLIST",
             query = "trending Indian community music playlists Hindi Marathi Punjabi Tamil Telugu",
             filter = Innertube.SearchFilter.CommunityPlaylist.value,
             thumbnailSizeDp = playlistThumbnailSizeDp,
