@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import it.vfsfitvnm.vimusic.service.PlayerService
+import it.vfsfitvnm.vimusic.utils.autoClearCacheEnabledKey
+import it.vfsfitvnm.vimusic.utils.preferences
 
 /**
  * Clears temporary app cache once a day while music playback is stopped.
@@ -17,6 +19,10 @@ class DailyCacheCleanupWorker(
 
     @Suppress("DEPRECATION")
     override fun doWork(): Result {
+        if (!applicationContext.preferences.getBoolean(autoClearCacheEnabledKey, true)) {
+            return Result.success()
+        }
+
         val activityManager =
             applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
 
