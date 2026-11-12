@@ -39,6 +39,7 @@ fun BoxScope.FloatingActionsContainerWithScrollToTop(
     visible: Boolean = true,
     iconId: Int? = null,
     onClick: (() -> Unit)? = null,
+    transparentIconBackground: Boolean = false,
     windowInsets: WindowInsets = LocalPlayerAwareWindowInsets.current
 ) {
     val transitionState = remember {
@@ -50,6 +51,7 @@ fun BoxScope.FloatingActionsContainerWithScrollToTop(
         onScrollToTop = lazyGridState::smoothScrollToTop,
         iconId = iconId,
         onClick = onClick,
+        transparentIconBackground = transparentIconBackground,
         windowInsets = windowInsets,
         modifier = modifier
     )
@@ -110,7 +112,8 @@ fun BoxScope.FloatingActions(
     modifier: Modifier = Modifier,
     onScrollToTop: (suspend () -> Unit)? = null,
     iconId: Int? = null,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    transparentIconBackground: Boolean = false
 ) {
     val transition = updateTransition(transitionState, "")
 
@@ -158,6 +161,7 @@ fun BoxScope.FloatingActions(
                         iconId = iconId,
                         onClick = onClick,
                         enabled = transition.targetState?.isScrollingDown == false,
+                        transparentBackground = transparentIconBackground,
                         modifier = Modifier
                             .padding(bottom = 16.dp)
                             .padding(bottomPaddingValues)
