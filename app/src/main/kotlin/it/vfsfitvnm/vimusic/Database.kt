@@ -495,7 +495,7 @@ interface Database {
     fun insert(mediaItem: MediaItem, block: (Song) -> Song = { it }) {
         val song = Song(
             id = mediaItem.mediaId,
-            title = mediaItem.mediaMetadata.title!!.toString(),
+            title = mediaItem.mediaMetadata.title?.toString()?.takeIf { it.isNotBlank() } ?: "Unknown title",
             artistsText = mediaItem.mediaMetadata.artist?.toString(),
             durationText = mediaItem.mediaMetadata.extras?.getString("durationText"),
             thumbnailUrl = mediaItem.mediaMetadata.artworkUri?.toString()
