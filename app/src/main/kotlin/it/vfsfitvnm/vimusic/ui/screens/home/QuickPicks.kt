@@ -290,6 +290,33 @@ fun QuickPicks(
                     }
                 }
 
+                related.playlists?.let { playlists ->
+                    BasicText(
+                        text = "Playlists you might like",
+                        style = typography.m.semiBold,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 24.dp, bottom = 8.dp)
+                    )
+
+                    LazyRow(contentPadding = endPaddingValues) {
+                        items(
+                            items = playlists,
+                            key = Innertube.PlaylistItem::key,
+                        ) { playlist ->
+                            PlaylistItem(
+                                playlist = playlist,
+                                thumbnailSizePx = playlistThumbnailSizePx,
+                                thumbnailSizeDp = playlistThumbnailSizeDp,
+                                alternative = true,
+                                modifier = Modifier
+                                    .clickable(onClick = { onPlaylistClick(playlist.key) })
+                            )
+                        }
+                    }
+                }
+
+
                 related.albums?.let { albums ->
                     BasicText(
                         text = "Related albums",
@@ -333,32 +360,6 @@ fun QuickPicks(
                                 alternative = true,
                                 modifier = Modifier
                                     .clickable(onClick = { onArtistClick(artist.key) })
-                            )
-                        }
-                    }
-                }
-
-                related.playlists?.let { playlists ->
-                    BasicText(
-                        text = "Playlists you might like",
-                        style = typography.m.semiBold,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 24.dp, bottom = 8.dp)
-                    )
-
-                    LazyRow(contentPadding = endPaddingValues) {
-                        items(
-                            items = playlists,
-                            key = Innertube.PlaylistItem::key,
-                        ) { playlist ->
-                            PlaylistItem(
-                                playlist = playlist,
-                                thumbnailSizePx = playlistThumbnailSizePx,
-                                thumbnailSizeDp = playlistThumbnailSizeDp,
-                                alternative = true,
-                                modifier = Modifier
-                                    .clickable(onClick = { onPlaylistClick(playlist.key) })
                             )
                         }
                     }
@@ -413,17 +414,6 @@ fun QuickPicks(
                     }
                 }
             }
-
-        OnlinePlaylistShelf(
-            title = "Mix for me",
-            query = "personalized music mix",
-            filter = Innertube.SearchFilter.FeaturedPlaylist.value,
-            thumbnailSizeDp = playlistThumbnailSizeDp,
-            thumbnailSizePx = playlistThumbnailSizePx,
-            onPlaylistClick = onPlaylistClick,
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
 
         OnlineSongShelf(
             title = "Top song",
@@ -481,6 +471,17 @@ fun QuickPicks(
                     NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
                 }
             },
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
+        )
+
+        OnlinePlaylistShelf(
+            title = "Mix for me",
+            query = "personalized music mix",
+            filter = Innertube.SearchFilter.FeaturedPlaylist.value,
+            thumbnailSizeDp = playlistThumbnailSizeDp,
+            thumbnailSizePx = playlistThumbnailSizePx,
+            onPlaylistClick = onPlaylistClick,
             sectionTextModifier = sectionTextModifier,
             refreshKey = refreshToken
         )
