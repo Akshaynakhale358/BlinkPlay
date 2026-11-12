@@ -791,7 +791,7 @@ private fun DailyMixPlaylistCard(
         else -> {
             BasicText(
                 text = "${mix.title} unavailable",
-                style = LocalAppearance.current.second.xs,
+                style = LocalAppearance.current.typography.xs,
                 modifier = Modifier.padding(12.dp)
             )
         }
