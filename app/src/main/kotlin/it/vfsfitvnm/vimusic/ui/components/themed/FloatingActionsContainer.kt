@@ -40,7 +40,6 @@ fun BoxScope.FloatingActionsContainerWithScrollToTop(
     iconId: Int? = null,
     onClick: (() -> Unit)? = null,
     transparentIconBackground: Boolean = false,
-    alignment: Alignment = Alignment.BottomEnd,
     windowInsets: WindowInsets = LocalPlayerAwareWindowInsets.current
 ) {
     val transitionState = remember {
@@ -53,7 +52,6 @@ fun BoxScope.FloatingActionsContainerWithScrollToTop(
         iconId = iconId,
         onClick = onClick,
         transparentIconBackground = transparentIconBackground,
-        alignment = alignment,
         windowInsets = windowInsets,
         modifier = modifier
     )
@@ -115,8 +113,7 @@ fun BoxScope.FloatingActions(
     onScrollToTop: (suspend () -> Unit)? = null,
     iconId: Int? = null,
     onClick: (() -> Unit)? = null,
-    transparentIconBackground: Boolean = false,
-    alignment: Alignment = Alignment.BottomEnd
+    transparentIconBackground: Boolean = false
 ) {
     val transition = updateTransition(transitionState, "")
 
@@ -126,18 +123,9 @@ fun BoxScope.FloatingActions(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.Bottom,
         modifier = modifier
-            .align(alignment)
-            .then(
-                if (alignment == Alignment.BottomStart) Modifier.padding(start = 16.dp)
-                else Modifier.padding(end = 16.dp)
-            )
-            .padding(
-                if (alignment == Alignment.BottomStart) {
-                    windowInsets.only(WindowInsetsSides.Start).asPaddingValues()
-                } else {
-                    windowInsets.only(WindowInsetsSides.End).asPaddingValues()
-                }
-            )
+            .align(Alignment.BottomEnd)
+            .padding(end = 16.dp)
+            .padding(windowInsets.only(WindowInsetsSides.End).asPaddingValues())
     ) {
         onScrollToTop?.let {
             transition.AnimatedVisibility(
