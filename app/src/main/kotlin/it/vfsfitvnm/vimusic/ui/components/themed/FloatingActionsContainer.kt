@@ -40,6 +40,7 @@ fun BoxScope.FloatingActionsContainerWithScrollToTop(
     iconId: Int? = null,
     onClick: (() -> Unit)? = null,
     transparentIconBackground: Boolean = false,
+    alignment: Alignment = Alignment.BottomEnd,
     windowInsets: WindowInsets = LocalPlayerAwareWindowInsets.current
 ) {
     val transitionState = remember {
@@ -52,6 +53,7 @@ fun BoxScope.FloatingActionsContainerWithScrollToTop(
         iconId = iconId,
         onClick = onClick,
         transparentIconBackground = transparentIconBackground,
+        alignment = alignment,
         windowInsets = windowInsets,
         modifier = modifier
     )
