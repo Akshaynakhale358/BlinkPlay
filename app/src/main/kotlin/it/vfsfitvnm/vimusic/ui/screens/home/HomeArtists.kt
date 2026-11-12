@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.innertube.Innertube
+import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.searchPage
@@ -77,6 +78,9 @@ fun HomeArtistList(
     val scope = rememberCoroutineScope()
     val thumbnailSizeDp = (Dimensions.thumbnails.song * 1.35f).coerceAtLeast(64.dp)
     val thumbnailSizePx = thumbnailSizeDp.px
+    val indiaContext = Context.DefaultWeb.copy(
+        client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+    )
 
     var artists by remember(selectedCategory, refreshToken) { mutableStateOf<List<Innertube.ArtistItem>>(emptyList()) }
     var continuation by remember(selectedCategory, refreshToken) { mutableStateOf<String?>(null) }
@@ -99,12 +103,12 @@ fun HomeArtistList(
                         }
                         val result = if (continuation == null) {
                             Innertube.searchPage(
-                                body = SearchBody(query = query, params = Innertube.SearchFilter.Artist.value),
+                                body = SearchBody(context = indiaContext, query = query, params = Innertube.SearchFilter.Artist.value),
                                 fromMusicShelfRendererContent = Innertube.ArtistItem::from
                             )
                         } else {
                             Innertube.searchPage(
-                                body = ContinuationBody(continuation = continuation!!),
+                                body = ContinuationBody(context = indiaContext, continuation = continuation!!),
                                 fromMusicShelfRendererContent = Innertube.ArtistItem::from
                             )
                         }
