@@ -179,7 +179,6 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
         headerContent = {
             androidx.compose.foundation.layout.Column {
                 Header(title = "Songs") {
-                    HeaderIconButton(icon = R.drawable.search, color = colorPalette.text, onClick = onSearchClick)
                 }
                 BasicText(
                     text = "EXPLORE CATEGORIES",
