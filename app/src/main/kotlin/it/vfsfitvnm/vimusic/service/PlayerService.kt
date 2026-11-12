@@ -118,6 +118,7 @@ import it.vfsfitvnm.vimusic.utils.volumeNormalizationKey
 import kotlin.math.roundToInt
 import kotlin.system.exitProcess
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
@@ -307,6 +308,8 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
     override fun onDestroy() {
         maybeSavePlayerQueue()
+        // Stop warm-up, radio, timer, and metadata jobs before releasing player resources.
+        coroutineScope.cancel()
 
         preferences.unregisterOnSharedPreferenceChangeListener(this)
 
