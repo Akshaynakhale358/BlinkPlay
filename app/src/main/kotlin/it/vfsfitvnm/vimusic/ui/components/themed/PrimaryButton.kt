@@ -60,7 +60,7 @@ fun MiniPlayerActionButton(
     val playerSheetState = LocalPlayerBottomSheetState.current
 
     // The rail button is only an entry point. Hide it while the Mini Player is expanded.
-    if (player?.currentMediaItem == null || playerSheetState?.isExpanded != false) return
+    if (player?.currentMediaItem == null || playerSheetState?.isDismissed != true) return
 
     PrimaryButton(
         iconId = R.drawable.play,
