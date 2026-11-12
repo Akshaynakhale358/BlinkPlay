@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ fun HomeAlbums(
     val selectedQuery = categories.firstOrNull { it.first == selectedCategory }?.second
         ?: "popular music albums"
 
+    key(selectedCategory) {
     ItemsPage(
         tag = "home/online-albums-$selectedCategory",
         itemsPageProvider = { continuation ->
@@ -114,4 +116,5 @@ fun HomeAlbums(
             AlbumItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
         }
     )
+    }
 }
