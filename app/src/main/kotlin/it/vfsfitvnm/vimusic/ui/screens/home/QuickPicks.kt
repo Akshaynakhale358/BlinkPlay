@@ -112,9 +112,11 @@ fun QuickPicks(
     var relatedPageResult by persist<Result<Innertube.RelatedPage?>?>(tag = "home/relatedPageResult")
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
+    var hasLoadedFreshRecommendations by remember { mutableStateOf(false) }
 
     LaunchedEffect(refreshToken) {
         if (refreshToken > 0) {
+            relatedPageResult = null
             relatedPageResult = loadLanguageOrderedRelatedPage(trending)
             isRefreshing = false
         }
@@ -133,8 +135,11 @@ fun QuickPicks(
             val seed = current?.takeIf { song -> candidates.any { it.id == song.id } }
                 ?: candidates.randomOrNull()
 
-            if (relatedPageResult == null || seed?.id != current?.id) {
+            if (!hasLoadedFreshRecommendations || seed?.id != current?.id) {
+                // Discard recommendations persisted by older builds; they may start with English.
+                relatedPageResult = null
                 relatedPageResult = loadLanguageOrderedRelatedPage(seed)
+                hasLoadedFreshRecommendations = true
             }
             trending = seed
         }
@@ -536,11 +541,9 @@ private suspend fun loadLanguageOrderedRelatedPage(
 
     val orderedSongs = indianSongs + english
 
-    // If language-specific search is temporarily unavailable, retain YouTube's
-    // personalized recommendations instead of showing only the starred seed song.
-    val songs = orderedSongs.ifEmpty { base.songs.orEmpty() }
-
-    return Result.success(base.copy(songs = songs))
+    // Never fall back to the unfiltered related list: it can put English tracks first.
+    // An empty language search is preferable to violating the requested language order.
+    return Result.success(base.copy(songs = orderedSongs))
 }
 
 @Composable
