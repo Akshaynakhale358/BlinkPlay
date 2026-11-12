@@ -16,7 +16,6 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.vimusic.LocalPlayerBottomSheetState
-import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
 import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.primaryButton
@@ -55,19 +54,17 @@ fun MiniPlayerActionButton(
     modifier: Modifier = Modifier,
     circle: Boolean = false,
 ) {
-    val binder = LocalPlayerServiceBinder.current
-    val player = binder?.player
     val playerSheetState = LocalPlayerBottomSheetState.current
 
-    // The rail button is only an entry point. Hide it while the Mini Player is expanded.
-    if (player?.currentMediaItem == null || playerSheetState?.isDismissed != true) return
+    // Show the launcher only while the player sheet is dismissed.
+    if (playerSheetState?.isDismissed != true) return
 
     PrimaryButton(
         iconId = R.drawable.play,
         enabled = true,
         transparentBackground = true,
         circle = circle,
-        onClick = { playerSheetState?.expandSoft() },
+        onClick = { playerSheetState.expandSoft() },
         modifier = modifier
     )
 }
