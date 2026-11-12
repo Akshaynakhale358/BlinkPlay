@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import it.vfsfitvnm.innertube.Innertube
+import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.searchPage
@@ -81,30 +82,37 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             if (continuation == null) {
                 // Seed each category with language-prioritized results. Keep all languages:
                 // Hindi first, Marathi next, other regional languages, and English last.
+                val indiaHindiContext = Context.DefaultWeb.copy(
+                    client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+                )
                 val hindiPage = Innertube.searchPage(
                     body = SearchBody(
-                        query = "Hindi $selectedQuery",
+                        context = indiaHindiContext,
+                        query = "Hindi songs $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
                 )?.getOrNull()
                 val marathiPage = Innertube.searchPage(
                     body = SearchBody(
-                        query = "Marathi $selectedQuery",
+                        context = indiaHindiContext,
+                        query = "Marathi songs $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
                 )?.getOrNull()
                 val otherLanguagesPage = Innertube.searchPage(
                     body = SearchBody(
-                        query = "Indian regional languages $selectedQuery",
+                        context = indiaHindiContext,
+                        query = "Indian language songs $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
                 )?.getOrNull()
                 val englishPage = Innertube.searchPage(
                     body = SearchBody(
-                        query = "English $selectedQuery",
+                        context = indiaHindiContext,
+                        query = "English songs $selectedQuery",
                         params = Innertube.SearchFilter.Song.value
                     ),
                     fromMusicShelfRendererContent = Innertube.SongItem::from
