@@ -4,6 +4,13 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import it.vfsfitvnm.compose.persist.PersistMapCleanup
 import it.vfsfitvnm.compose.routing.RouteHandler
@@ -18,6 +25,8 @@ import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.models.SearchQuery
 import it.vfsfitvnm.vimusic.query
 import it.vfsfitvnm.vimusic.ui.components.themed.Scaffold
+import it.vfsfitvnm.vimusic.ui.components.themed.PrimaryButton
+import it.vfsfitvnm.vimusic.ui.components.themed.MiniPlayerActionButton
 import it.vfsfitvnm.vimusic.ui.screens.albumRoute
 import it.vfsfitvnm.vimusic.ui.screens.artistRoute
 import it.vfsfitvnm.vimusic.ui.screens.builtInPlaylistRoute
@@ -127,6 +136,18 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                     Item(2, "Playlists", R.drawable.playlist)
                     Item(3, "Artists", R.drawable.person)
                     Item(4, "Albums", R.drawable.disc)
+                },
+                bottomContent = {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    PrimaryButton(
+                        iconId = R.drawable.search,
+                        onClick = { searchRoute("") },
+                        transparentBackground = true,
+                        circle = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    MiniPlayerActionButton(circle = true)
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
