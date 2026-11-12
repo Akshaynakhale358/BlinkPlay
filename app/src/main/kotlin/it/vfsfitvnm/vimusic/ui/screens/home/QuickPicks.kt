@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
+import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.relatedPage
@@ -79,6 +81,7 @@ import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.snapshotFlow
 import kotlinx.coroutines.withContext
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
@@ -120,13 +123,17 @@ fun QuickPicks(
     )
     var selectedCategory by persist("home/quickPickCategory", "Workout")
     var categorySongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var categoryContinuation by remember { mutableStateOf<String?>(null) }
     var categoryLoading by remember { mutableStateOf(false) }
+    val categoryListState = rememberLazyListState()
 
     LaunchedEffect(selectedCategory) {
         val query = quickPickCategories.firstOrNull { it.first == selectedCategory }?.second
             ?: "workout motivation songs"
         categoryLoading = true
         categorySongs = emptyList()
+        categoryContinuation = null
+        categoryListState.scrollToItem(0)
         withContext(Dispatchers.IO) {
             Innertube.searchPage(
                 body = SearchBody(query = query, params = Innertube.SearchFilter.Song.value),
@@ -134,8 +141,34 @@ fun QuickPicks(
             )
         }?.onSuccess { page ->
             categorySongs = page?.items.orEmpty()
+            categoryContinuation = page?.continuation
         }
         categoryLoading = false
+    }
+
+    // Fetch the next YouTube Music page automatically as the user approaches the end.
+    LaunchedEffect(selectedCategory, categoryListState, categoryContinuation, categorySongs.size, categoryLoading) {
+        if (categoryContinuation == null || categoryLoading || categorySongs.isEmpty()) return@LaunchedEffect
+        snapshotFlow {
+            val lastVisible = categoryListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisible >= categorySongs.size - 3
+        }.collect { nearEnd ->
+            if (nearEnd && !categoryLoading && categoryContinuation != null) {
+                categoryLoading = true
+                val nextPage = withContext(Dispatchers.IO) {
+                    Innertube.searchPage(
+                        body = ContinuationBody(continuation = categoryContinuation!!),
+                        fromMusicShelfRendererContent = Innertube.SongItem.Companion::from
+                    )
+                }
+                nextPage?.onSuccess { page ->
+                    val incoming = page?.items.orEmpty()
+                    categorySongs = (categorySongs + incoming).distinctBy { it.key }
+                    categoryContinuation = page?.continuation
+                }
+                categoryLoading = false
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -242,7 +275,7 @@ fun QuickPicks(
                     repeat(3) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) }
                 }
             } else if (categorySongs.isNotEmpty()) {
-                LazyRow(contentPadding = endPaddingValues) {
+                LazyRow(state = categoryListState, contentPadding = endPaddingValues) {
                     items(categorySongs, key = Innertube.SongItem::key) { song ->
                         SongItem(
                             song = song,
@@ -267,6 +300,9 @@ fun QuickPicks(
                                 )
                                 .width(itemInHorizontalGridWidth)
                         )
+                    }
+                    if (categoryLoading && categorySongs.isNotEmpty()) {
+                        item { ShimmerHost { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) } }
                     }
                 }
             } else if (!categoryLoading) {
