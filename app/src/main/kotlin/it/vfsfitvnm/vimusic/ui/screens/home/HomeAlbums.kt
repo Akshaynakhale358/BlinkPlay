@@ -4,10 +4,13 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +26,7 @@ import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
+import it.vfsfitvnm.vimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import it.vfsfitvnm.vimusic.ui.items.AlbumItem
 import it.vfsfitvnm.vimusic.ui.items.AlbumItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
@@ -50,6 +54,7 @@ fun HomeAlbums(
     val selectedQuery = categories.firstOrNull { it.first == selectedCategory }?.second
         ?: "popular music albums"
 
+    Box(modifier = Modifier.fillMaxSize()) {
     ItemsPage(
         tag = "home/online-albums-$selectedCategory",
         itemsPageProvider = { continuation ->
@@ -114,4 +119,10 @@ fun HomeAlbums(
             AlbumItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
         }
     )
+        FloatingActionsContainerWithScrollToTop(
+            scrollState = rememberScrollState(),
+            iconId = R.drawable.search,
+            onClick = onSearchClick
+        )
+    }
 }
