@@ -81,7 +81,6 @@ import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
@@ -109,7 +108,6 @@ fun QuickPicks(
     var relatedPageResult by persist<Result<Innertube.RelatedPage?>?>(tag = "home/relatedPageResult")
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
-    val refreshScope = androidx.compose.runtime.rememberCoroutineScope()
 
     LaunchedEffect(refreshToken) {
         if (refreshToken > 0) {
@@ -463,7 +461,8 @@ fun QuickPicks(
                     NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
                 }
             },
-            sectionTextModifier = sectionTextModifier
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
         )
 
         OnlineSongShelf(
