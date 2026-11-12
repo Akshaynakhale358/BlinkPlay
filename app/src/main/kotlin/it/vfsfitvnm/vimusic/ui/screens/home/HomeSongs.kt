@@ -5,9 +5,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +31,7 @@ import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
+import it.vfsfitvnm.vimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItem
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItemPlaceholder
@@ -69,6 +73,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     val selectedQuery = categories.firstOrNull { it.first == selectedCategory }?.second
         ?: "workout motivation songs"
 
+    Box(modifier = Modifier.fillMaxSize()) {
     ItemsPage(
         tag = "home/category-songs-$selectedCategory",
         itemsPageProvider = { continuation ->
@@ -150,6 +155,12 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
         }
     )
+        FloatingActionsContainerWithScrollToTop(
+            scrollState = rememberScrollState(),
+            iconId = R.drawable.search,
+            onClick = onSearchClick
+        )
+    }
 }
 
 
