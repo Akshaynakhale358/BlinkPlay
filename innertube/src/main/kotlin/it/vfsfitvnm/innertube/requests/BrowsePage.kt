@@ -90,8 +90,8 @@ suspend fun Innertube.musicDiscovery(context: Context = IndiaMusicBrowseContext)
         coroutineScope {
             val homeRequest = async { musicHomePage(context) }
             val exploreRequest = async { musicExplorePage(context) }
-            val homePage = homeRequest.await().getOrNull()
-            val explorePage = exploreRequest.await().getOrNull()
+            val homePage = homeRequest.await()?.getOrNull()
+            val explorePage = exploreRequest.await()?.getOrNull()
             check(homePage != null || explorePage != null) {
                 "YouTube Music Home and Explore feeds are both unavailable"
             }
@@ -107,7 +107,7 @@ suspend fun Innertube.browseSection(
     val browseId = section.browseId ?: return Result.success(null)
     return browsePage(
         BrowseBody(context = context, browseId = browseId, params = section.params)
-    ).map { it }
+    )?.map { it } ?: Result.success(null)
 }
 
 private fun toBrowseSection(content: SectionListRenderer.Content): MusicBrowseSection? {
