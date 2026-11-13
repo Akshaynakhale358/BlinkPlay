@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +40,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
@@ -542,20 +545,58 @@ private fun QuickPicksLongListenShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
+    val firstSong = songs.firstOrNull()
+
     Column(
         modifier = Modifier
             .width(340.dp)
             .clip(RoundedCornerShape(26.dp))
             .background(Color(0xFF29231B))
-            .padding(16.dp)
+            .padding(12.dp)
     ) {
-        BasicText(
-            text = category.title,
-            style = typography.s.semiBold,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
+        // Bundle cover: use the first eligible track's artwork as the collection thumbnail.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(156.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color(0xFF40372C))
+                .clickable { firstSong?.let(onSongClick) }
+        ) {
+            AsyncImage(
+                model = firstSong?.thumbnail?.size(320.px),
+                contentDescription = category.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.48f))
+                    .padding(14.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Bottom
+            ) {
+                BasicText(
+                    text = category.title,
+                    style = typography.s.semiBold
+                )
+                BasicText(
+                    text = "▶  PLAY BUNDLE",
+                    style = typography.xs.semiBold,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.18f))
+                        .clickable { firstSong?.let(onSongClick) }
+                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                )
+            }
+        }
+
         if (songs.isEmpty()) {
-            ShimmerHost { repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
+            ShimmerHost {
+                repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
+            }
         } else {
             songs.take(5).forEach { song ->
                 SongItem(
