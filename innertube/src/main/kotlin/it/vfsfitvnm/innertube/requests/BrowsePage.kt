@@ -10,7 +10,6 @@ import it.vfsfitvnm.innertube.models.GridRenderer
 import it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
-import it.vfsfitvnm.innertube.models.SectionListRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
@@ -161,7 +160,9 @@ private fun parseBrowseSections(root: JsonElement): List<MusicBrowseSection> {
         }
 
         null
-    }.distinctBy { listOf(it.title, it.browseId, it.params) }
+    }
+        .filter { it.items.isNotEmpty() }
+        .distinctBy { listOf(it.title, it.browseId, it.params) }
 }
 
 /** Fetch and parse one server-defined browse feed. */
@@ -214,13 +215,21 @@ suspend fun Innertube.musicDiscovery(
             }
             val home = homeResult?.getOrNull()
             val explore = exploreResult?.getOrNull()
-            if (home != null || explore != null) {
-                val fresh = MusicDiscovery(home = home, explore = explore)
+            val validHome = home?.takeIf { it.sections.isNotEmpty() }
+            val validExplore = explore?.takeIf { it.sections.isNotEmpty() }
+            if (validHome != null || validExplore != null) {
+                val previous = cachedMusicDiscovery
+                val fresh = MusicDiscovery(
+                    home = validHome ?: previous?.home,
+                    explore = validExplore ?: previous?.explore
+                )
                 cachedMusicDiscovery = fresh
                 cachedMusicDiscoveryAt = System.currentTimeMillis()
                 return@withLock fresh
             }
-            lastError = homeResult?.exceptionOrNull() ?: exploreResult?.exceptionOrNull()
+            lastError = homeResult?.exceptionOrNull()
+                ?: exploreResult?.exceptionOrNull()
+                ?: IllegalStateException("YouTube Music returned no supported shelves")
             if (attempt == 0) delay(350L)
         }
 
