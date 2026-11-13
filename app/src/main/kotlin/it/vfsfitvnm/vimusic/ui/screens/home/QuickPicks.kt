@@ -123,14 +123,14 @@ private suspend fun searchPlaylistItems(searchQuery: String): List<Innertube.Pla
 private suspend fun searchPlaylistCategories(
     queries: List<String>,
     limit: Int = 20
-): List<Innertube.PlaylistItem> = coroutineScope {
-    queries.distinct()
-        .map { query -> async { searchPlaylistItems(query) } }
-        .awaitAll()
-        .flatten()
-        .distinctBy(Innertube.PlaylistItem::key)
-        .take(limit)
-
+): List<Innertube.PlaylistItem> {
+    // Try category-specific phrases in order and stop as soon as a real result set
+    // arrives. Running every fallback query at once made Quick Picks slow to populate.
+    for (query in queries.distinct()) {
+        val items = searchPlaylistItems(query)
+        if (items.isNotEmpty()) return items.distinctBy(Innertube.PlaylistItem::key).take(limit)
+    }
+    return emptyList()
 }
 
 
