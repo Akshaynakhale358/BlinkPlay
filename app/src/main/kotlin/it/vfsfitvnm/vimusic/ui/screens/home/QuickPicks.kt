@@ -121,7 +121,7 @@ fun QuickPicks(
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
-    var calmSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
     var discoveryDailyToken by remember { mutableStateOf(0) }
 
@@ -152,14 +152,9 @@ fun QuickPicks(
         isRefreshing = false
     }
 
-    // Calm listening rail: focused searches for lo-fi, sleep and meditation.
+    // Calm category cards stay in a fixed order; only their song lists rotate daily.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
-        calmSongs = withContext(Dispatchers.IO) {
-            val fetchedCalmSongs = fetchSearchAndRelatedBundle(
-                listOf("lofi music", "sleep music relaxing", "meditation music instrumental", "ambient relaxing music")
-            )
-            personalizeAndDiversify(fetchedCalmSongs).take(40)
-        }
+        calmCategorySongs = withContext(Dispatchers.IO) { fetchCalmMusicCategories() }
     }
 
     // Songs For You and New Releases use the same YouTube Music song-search
@@ -378,8 +373,7 @@ fun QuickPicks(
                             },
                             onViewAll = { selectedDiscoveryCategory = category },
                             onPlayBundle = {
-                                val bundleMediaItems = discoverySongs[category.key]
-                                    .orEmpty()
+                                val bundleMediaItems = (discoverySongs[category.key] ?: calmCategorySongs[category.key]).orEmpty()
                                     .map(Innertube.SongItem::asMediaItem)
                                 if (bundleMediaItems.isNotEmpty()) {
                                     binder?.stopRadio()
@@ -396,23 +390,43 @@ fun QuickPicks(
                 }
             }
 
-            QuickPicksSimpleSongRail(
-                title = "LO-FI · SLEEP · MEDITATION",
-                songs = calmSongs,
-                thumbnailSizePx = songThumbnailSizePx,
-                thumbnailSizeDp = songThumbnailSizeDp,
-                onSongClick = { song ->
-                    val mediaItem = song.asMediaItem
-                    binder?.stopRadio()
-                    binder?.player?.forcePlay(mediaItem)
-                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-                },
-                onSongLongClick = { song ->
-                    menuState.display {
-                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                    }
-                }
+            BasicText(
+                text = "CALM",
+                style = typography.s.semiBold,
+                modifier = sectionTextModifier
             )
+            LazyRow(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                lazyRowItems(items = calmMusicCategories(), key = DiscoverySubcategory::key) { category ->
+                    QuickPicksDiscoveryShelf(
+                        category = category,
+                        songs = calmCategorySongs[category.key].orEmpty(),
+                        onSongClick = { song ->
+                            val mediaItem = song.asMediaItem
+                            binder?.stopRadio()
+                            binder?.player?.forcePlay(mediaItem)
+                            binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                        },
+                        onViewAll = { selectedDiscoveryCategory = category },
+                        onPlayBundle = {
+                            val mediaItems = calmCategorySongs[category.key].orEmpty()
+                                .map(Innertube.SongItem::asMediaItem)
+                            if (mediaItems.isNotEmpty()) {
+                                binder?.stopRadio()
+                                binder?.player?.forcePlayFromBeginning(mediaItems)
+                            }
+                        },
+                        onSongLongClick = { song ->
+                            menuState.display {
+                                NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                            }
+                        }
+                    )
+                }
+            }
 
         when {
             serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
@@ -455,7 +469,7 @@ fun QuickPicks(
                 Header(title = category.parentTitle.uppercase() + " · " + category.title.uppercase())
                 QuickPicksSongShelf(
                     title = category.title.uppercase() + " SONGS",
-                    songs = discoverySongs[category.key].orEmpty(),
+                    songs = discoverySongs[category.key] ?: calmCategorySongs[category.key].orEmpty(),
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
                     itemWidth = itemInHorizontalGridWidth,
@@ -584,6 +598,23 @@ private data class DiscoveryBundle(
     val title: String,
     val categories: List<DiscoverySubcategory>
 )
+
+/** Fixed Calm card order. Daily rotation applies to songs inside each card, not cards. */
+private fun calmMusicCategories(): List<DiscoverySubcategory> = listOf(
+    DiscoverySubcategory("calm_alpha", "Calm", "Alpha Music", "calm", "alpha waves music 8hz relaxing focus"),
+    DiscoverySubcategory("calm_beta", "Calm", "Beta Music", "calm", "beta waves music focus concentration"),
+    DiscoverySubcategory("calm_gamma", "Calm", "Gama Music", "calm", "gamma waves music meditation focus"),
+    DiscoverySubcategory("calm_meditation", "Calm", "Meditation Music", "calm", "meditation music peaceful instrumental")
+)
+
+private suspend fun fetchCalmMusicCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
+    calmMusicCategories().map { category ->
+        async {
+            val categorySongs = fetchSearchAndRelatedBundle(listOf(category.query))
+            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(categorySongs))
+        }
+    }.awaitAll().toMap()
+}
 
 private fun discoveryBundles(): List<DiscoveryBundle> {
     val day = ((System.currentTimeMillis() + 19_800_000L) / 86_400_000L).toInt()
