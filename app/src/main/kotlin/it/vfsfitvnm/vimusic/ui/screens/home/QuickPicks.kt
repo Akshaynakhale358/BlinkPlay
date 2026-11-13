@@ -52,6 +52,7 @@ import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.searchPage
+import it.vfsfitvnm.innertube.requests.searchPlaylistPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
@@ -110,11 +111,9 @@ private suspend fun searchPlaylistItems(searchQuery: String): List<Innertube.Pla
             ""
         )
         for (filter in filters) {
-            val items = Innertube.searchPage(
-                body = SearchBody(context = IndiaMusicContext, query = searchQuery, params = filter),
-                fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
-                fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
-            )?.getOrNull()?.items.orEmpty().distinctBy(Innertube.PlaylistItem::key)
+            val items = Innertube.searchPlaylistPage(
+                body = SearchBody(context = IndiaMusicContext, query = searchQuery, params = filter)
+            )?.getOrNull().orEmpty().distinctBy(Innertube.PlaylistItem::key)
             if (items.isNotEmpty()) return@withPermit items
         }
         emptyList()
