@@ -82,13 +82,15 @@ fun PlaylistSongList(
     val menuState = LocalMenuState.current
 
     // Bump the persisted cache key so empty pages saved by the old parser are fetched again.
-    var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/${params.orEmpty()}/playlistPage-v4")
+    var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/${params.orEmpty()}/playlistPage-v5")
     var playlistLoadError by rememberSaveable(browseId) { mutableStateOf(false) }
     var isLoadingPlaylist by rememberSaveable(browseId) { mutableStateOf(false) }
     var retryKey by rememberSaveable(browseId) { mutableStateOf(0) }
 
     LaunchedEffect(browseId, params, retryKey) {
-        if (playlistPage?.songsPage == null) {
+        if (playlistPage?.songsPage?.items.isNullOrEmpty() != false &&
+            playlistPage?.songsPage?.continuation == null
+        ) {
             isLoadingPlaylist = true
             // New playlist loader: use India Music WEB context first, then the
             // default WEB context. Try both canonical and VL-prefixed playlist ids.
@@ -123,10 +125,15 @@ fun PlaylistSongList(
                 }
                 loaded
             }
-            if (page?.songsPage != null) {
+            if (page?.songsPage?.items.isNullOrEmpty() == false ||
+                page?.songsPage?.continuation != null
+            ) {
                 playlistPage = page
                 playlistLoadError = false
             } else {
+                // An empty parsed page is not treated as a successful playlist load.
+                // Keep the retry affordance visible rather than showing a false empty playlist.
+                playlistPage = null
                 playlistLoadError = true
             }
             isLoadingPlaylist = false
