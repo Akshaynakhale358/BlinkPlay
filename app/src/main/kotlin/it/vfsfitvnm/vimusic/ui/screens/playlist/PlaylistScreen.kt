@@ -14,6 +14,9 @@ import it.vfsfitvnm.vimusic.ui.screens.globalRoutes
 @ExperimentalAnimationApi
 @Composable
 fun PlaylistScreen(browseId: String) {
+    val parts = browseId.split("|||BLINK_PARAMS|||", limit = 2)
+    val actualBrowseId = parts.first()
+    val browseParams = parts.getOrNull(1)
     val saveableStateHolder = rememberSaveableStateHolder()
     PersistMapCleanup(tagPrefix = "playlist/$browseId")
 
@@ -32,7 +35,7 @@ fun PlaylistScreen(browseId: String) {
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
                     when (currentTabIndex) {
-                        0 -> PlaylistSongList(browseId = browseId)
+                        0 -> PlaylistSongList(browseId = actualBrowseId, params = browseParams)
                     }
                 }
             }
