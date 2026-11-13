@@ -584,7 +584,7 @@ private fun ServerDrivenMusicShelves(
                 modifier = sectionTextModifier.clickable {
                     section.browseId?.let { id ->
                         val route = if (section.params.isNullOrBlank()) id
-                            else "$id|||BLINK_PARAMS|||\u0024{section.params}"
+                            else "$id|||BLINK_PARAMS|||${section.params}"
                         onPlaylistClick(route)
                     }
                 }
