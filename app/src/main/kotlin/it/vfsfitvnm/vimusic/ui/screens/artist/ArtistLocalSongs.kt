@@ -55,7 +55,7 @@ fun ArtistLocalSongs(
 
     var songs by persist<List<Song>?>("artist/$browseId/localSongs")
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(browseId) {
         Database.artistSongs(browseId).collect { songs = it }
     }
 
