@@ -47,7 +47,6 @@ import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
 import it.vfsfitvnm.innertube.models.bodies.NextBody
-import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.albumPage
 import it.vfsfitvnm.innertube.requests.browsePage
 import it.vfsfitvnm.innertube.requests.indiaChartSongs
@@ -56,8 +55,6 @@ import it.vfsfitvnm.innertube.requests.MusicDiscovery
 import it.vfsfitvnm.innertube.requests.musicDiscovery
 import it.vfsfitvnm.innertube.requests.musicExplorePage
 import it.vfsfitvnm.innertube.requests.playlistPage
-import it.vfsfitvnm.innertube.requests.searchPage
-import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
 import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
@@ -452,10 +449,6 @@ private suspend fun fetchIndiaDirectSongShelves(): Triple<
     List<Innertube.SongItem>,
     List<Innertube.SongItem>
 > = coroutineScope {
-    val endDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
-        .minusDays(1)
-        .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
-
     // YouTube Charts WEB_MUSIC_ANALYTICS query used for India's weekly chart.
     // The response contains both Top Videos and Trending Videos groups, plus Top Songs.
     val chartQuery =
