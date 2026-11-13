@@ -85,12 +85,12 @@ fun BrowseCategoryScreen(
                 if (songItems.isNotEmpty() && songItems.size == section.items.size) {
                     section.copy(
                         items = prioritizeIndianLanguageSongs(
-                            songItems, musicPage.title ?: "popular", context
+                            songItems, section.title, context
                         )
                     )
                 } else section
             }
-            musicPage.copy(sections = orderedSections)
+            musicPage.copy(sections = personalizeSongSections(orderedSections))
         }
 
         page = loadedPage ?: page
