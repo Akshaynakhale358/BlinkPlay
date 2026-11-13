@@ -57,7 +57,7 @@ private fun JsonElement.playlistShelfSongs(): List<Innertube.SongItem> {
 
     return shelves
         .map { it.songRenderers() }
-        .maxByOrNull(List<Innertube.SongItem>::size)
+        .maxByOrNull { it.size }
         .orEmpty()
 }
 
