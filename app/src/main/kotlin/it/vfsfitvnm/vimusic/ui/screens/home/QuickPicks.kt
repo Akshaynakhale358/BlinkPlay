@@ -592,8 +592,7 @@ fun QuickPicks(
 
 private suspend fun loadLanguageOrderedRelatedPage(
     seed: Song?
-): Result<Innertube.RelatedPage?> {
-    try {
+): Result<Innertube.RelatedPage?> = try {
     val baseResult = Innertube.relatedPage(
         NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
     ) ?: return Result.failure(IllegalStateException("Related recommendations are unavailable"))
@@ -634,8 +633,8 @@ private suspend fun loadLanguageOrderedRelatedPage(
 
     // Never fall back to the unfiltered related list: it can put English tracks first.
     // An empty language search is preferable to violating the requested language order.
-    return Result.success(base.copy(songs = orderedSongs))
-    } catch (cancelled: CancellationException) {
+    Result.success(base.copy(songs = orderedSongs))
+} catch (cancelled: CancellationException) {
         throw cancelled
     } catch (error: Exception) {
         Result.failure(error)
