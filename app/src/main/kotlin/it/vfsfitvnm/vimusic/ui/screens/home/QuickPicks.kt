@@ -645,7 +645,17 @@ private suspend fun loadLanguageOrderedRelatedPage(
     val english = fetchRelatedSongs("English international songs")
         .filterNot { song -> indianSongs.any { it.key == song.key } }
 
-    val orderedSongs = indianSongs + english
+    val orderedSongs = (indianSongs + english).distinctBy { song ->
+        // Limit each recommendation batch to one result per lead artist so a single
+        // artist cannot occupy the whole shelf.
+        song.authors
+            ?.firstOrNull()
+            ?.name
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() }
+            ?: song.key
+    }
 
     // Never fall back to the unfiltered related list: it can put English tracks first.
     // An empty language search is preferable to violating the requested language order.
