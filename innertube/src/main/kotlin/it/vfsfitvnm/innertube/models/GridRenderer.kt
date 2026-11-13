@@ -4,10 +4,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class GridRenderer(
-    val items: List<Item>?,
+    val items: List<Item>? = null,
 ) {
     @Serializable
     data class Item(
-        val musicTwoRowItemRenderer: MusicTwoRowItemRenderer?
+        val musicTwoRowItemRenderer: MusicTwoRowItemRenderer? = null
     )
 }
