@@ -277,21 +277,44 @@ private fun CategoryPublicPlaylists(
     val playlistThumbnailSizeDp = 108.dp
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
     var playlists by remember(category, refreshKey) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
-    var retryKey by remember(category, refreshKey) { mutableStateOf(0) }
-
-    LaunchedEffect(category, query, refreshKey, retryKey) {
+    LaunchedEffect(category, query, refreshKey) {
         playlists = withContext(Dispatchers.IO) {
-            Innertube.searchPage(
-                body = SearchBody(
-                    context = Context.DefaultWeb.copy(
-                        client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+            val searchContext = Context.DefaultWeb.copy(
+                client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+            )
+
+            suspend fun fetch(searchQuery: String, filter: String) =
+                Innertube.searchPage(
+                    body = SearchBody(
+                        context = searchContext,
+                        query = searchQuery,
+                        params = filter
                     ),
-                    query = "$query $category playlists",
-                    params = Innertube.SearchFilter.CommunityPlaylist.value
-                ),
-                fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
-                fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
-            )?.getOrNull()?.items.orEmpty()
+                    fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
+                    fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
+                )?.getOrNull()?.items.orEmpty()
+
+            // Keep each shelf tied to its selected category. Search both playlist
+            // types, just like the working Quick Picks playlist discovery flow.
+            val categoryQueries = listOf(
+                "$query playlist",
+                "$category music playlist India",
+                "$category songs mix playlist"
+            )
+            val featured = categoryQueries
+                .flatMap { searchQuery ->
+                    fetch(searchQuery, Innertube.SearchFilter.FeaturedPlaylist.value)
+                }
+                .distinctBy { it.key }
+
+            val matching = if (featured.isNotEmpty()) featured else {
+                categoryQueries
+                    .flatMap { searchQuery ->
+                        fetch(searchQuery, Innertube.SearchFilter.CommunityPlaylist.value)
+                    }
+                    .distinctBy { it.key }
+            }
+            matching.take(20)
         }
     }
 
@@ -311,13 +334,15 @@ private fun CategoryPublicPlaylists(
             }
         }
     } else if (playlists.isNullOrEmpty()) {
-        BasicText(
-            text = "Playlists could not load. Tap to retry.",
-            style = typography.xs.secondary,
-            modifier = Modifier
-                .clickable { retryKey += 1 }
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        )
+        // Keep the shelf in its loading state instead of showing a dead-end retry action.
+        LazyRow {
+            items(3) {
+                PlaylistItemPlaceholder(
+                    thumbnailSizeDp = playlistThumbnailSizeDp,
+                    alternative = true
+                )
+            }
+        }
     } else {
         LazyRow {
             items(playlists.orEmpty(), key = Innertube.PlaylistItem::key) { playlist ->
