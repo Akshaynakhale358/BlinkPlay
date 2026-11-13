@@ -605,12 +605,14 @@ private fun QuickPicksLongListenShelf(
             }
         }
 
-        if (songs.size != 5) {
+        if (songs.isEmpty()) {
             ShimmerHost {
                 repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
             }
         } else {
-            songs.forEach { song ->
+            // Never hide songs that have already loaded just because this category
+            // returned fewer than five eligible long tracks.
+            songs.take(5).forEach { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = 64.dp.px,
@@ -622,6 +624,11 @@ private fun QuickPicksLongListenShelf(
                             onLongClick = { onSongLongClick(song) }
                         )
                 )
+            }
+            if (songs.size < 5) {
+                ShimmerHost {
+                    repeat(5 - songs.size) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
+                }
             }
         }
     }
