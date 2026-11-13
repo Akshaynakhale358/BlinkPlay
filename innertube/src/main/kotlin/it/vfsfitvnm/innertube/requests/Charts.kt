@@ -40,10 +40,19 @@ private fun JsonElement.stringAt(vararg keys: String): String? {
     return null
 }
 
-private fun JsonElement.arrayFor(key: String): List<JsonElement> =
+private fun JsonElement.analyticsSection(): JsonObject? =
     walkJson().mapNotNull { it as? JsonObject }
-        .flatMap { (it[key] as? JsonArray)?.toList().orEmpty() }
-        .toList()
+        .firstOrNull { it.containsKey("videos") && it.containsKey("trackTypes") }
+
+private fun JsonObject.chartItems(
+    groupKey: String,
+    groupIndex: Int,
+    viewKey: String
+): List<JsonElement> {
+    val groups = this[groupKey] as? JsonArray ?: return emptyList()
+    val group = groups.getOrNull(groupIndex) as? JsonObject ?: return emptyList()
+    return (group[viewKey] as? JsonArray)?.toList().orEmpty()
+}
 
 private fun chartSong(element: JsonElement): Innertube.SongItem? {
     val videoId = element.stringAt("encryptedVideoId", "videoId", "id")
@@ -78,22 +87,31 @@ private fun chartSong(element: JsonElement): Innertube.SongItem? {
  * Fetches an India chart from YouTube Charts. This endpoint is undocumented;
  * callers should retain their regular YouTube Music search/browse fallback.
  */
-suspend fun Innertube.indiaChartSongs(chartQuery: String, arrayKey: String): List<Innertube.SongItem> =
+suspend fun Innertube.indiaChartSongs(
+    chartQuery: String,
+    groupKey: String,
+    groupIndex: Int,
+    viewKey: String
+): List<Innertube.SongItem> =
     runCatching {
         val requestBody = buildJsonObject {
             put("context", buildJsonObject {
                 put("client", buildJsonObject {
                     put("clientName", "WEB_MUSIC_ANALYTICS")
-                    put("clientVersion", "2.0")
+                    put("clientVersion", "0.2")
                     put("hl", "en")
                     put("gl", "IN")
                     put("theme", "MUSIC")
                 })
             })
             put("browseId", "FEmusic_analytics_charts_home")
+            put("capabilities", buildJsonObject {})
+            put("request", buildJsonObject { put("internalExperimentFlags", JsonArray(emptyList())) })
             put("query", chartQuery)
         }
-        val raw = Innertube.client.post("https://charts.youtube.com/youtubei/v1/browse?alt=json") {
+        val raw = Innertube.client.post(
+            "https://charts.youtube.com/youtubei/v1/browse?alt=json&key=AIzaSyCzEW7JUJdSql0-2V4tHUb6laYm4iAE_dM"
+        ) {
             contentType(ContentType.Application.Json)
             headers {
                 append("X-YouTube-Client-Name", "67")
@@ -101,7 +119,9 @@ suspend fun Innertube.indiaChartSongs(chartQuery: String, arrayKey: String): Lis
             }
             setBody(requestBody)
         }.body<String>()
-        chartJson.parseToJsonElement(raw).arrayFor(arrayKey)
+        val section = chartJson.parseToJsonElement(raw).analyticsSection()
+            ?: return@runCatching emptyList()
+        section.chartItems(groupKey, groupIndex, viewKey)
             .mapNotNull(::chartSong)
             .distinctBy(Innertube.SongItem::key)
     }.getOrDefault(emptyList())
