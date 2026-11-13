@@ -560,26 +560,41 @@ private fun QuickPicksSongShelf(
             .padding(endPaddingValues)
     )
 
+    val shelfGridState = rememberLazyGridState()
     if (songs.isEmpty()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            repeat(5) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) }
-        }
-    } else {
-        // Opened category pages show a normal vertical song list, never a
-        // horizontally scrolling shelf or multi-column grid.
-        Column(
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(5),
+            contentPadding = endPaddingValues,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                .height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
         ) {
-            songs.distinctBy(Innertube.SongItem::key).forEach { song ->
+            items(5) {
+                SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
+            }
+        }
+    } else {
+        // Restore the original five-row horizontal shelf: five songs stack
+        // vertically in each column, and the user scrolls sideways for more.
+        LazyHorizontalGrid(
+            state = shelfGridState,
+            rows = GridCells.Fixed(5),
+            contentPadding = endPaddingValues,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
+        ) {
+            items(
+                items = songs.distinctBy(Innertube.SongItem::key),
+                key = Innertube.SongItem::key
+            ) { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = thumbnailSizePx,
                     thumbnailSizeDp = thumbnailSizeDp,
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .width(itemWidth)
                         .combinedClickable(
                             onLongClick = { onSongLongClick(song) },
                             onClick = { onSongClick(song) }
