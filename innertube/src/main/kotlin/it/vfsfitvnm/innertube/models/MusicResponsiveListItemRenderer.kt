@@ -7,19 +7,19 @@ import kotlinx.serialization.json.JsonNames
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class MusicResponsiveListItemRenderer(
-    val fixedColumns: List<FlexColumn>?,
-    val flexColumns: List<FlexColumn>,
-    val thumbnail: ThumbnailRenderer?,
-    val navigationEndpoint: NavigationEndpoint?,
+    val fixedColumns: List<FlexColumn>? = null,
+    val flexColumns: List<FlexColumn> = emptyList(),
+    val thumbnail: ThumbnailRenderer? = null,
+    val navigationEndpoint: NavigationEndpoint? = null,
 ) {
     @Serializable
     data class FlexColumn(
         @JsonNames("musicResponsiveListItemFixedColumnRenderer")
-        val musicResponsiveListItemFlexColumnRenderer: MusicResponsiveListItemFlexColumnRenderer?
+        val musicResponsiveListItemFlexColumnRenderer: MusicResponsiveListItemFlexColumnRenderer? = null
     ) {
         @Serializable
         data class MusicResponsiveListItemFlexColumnRenderer(
-            val text: Runs?
+            val text: Runs? = null
         )
     }
 }
