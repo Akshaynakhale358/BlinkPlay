@@ -159,13 +159,14 @@ inline fun <T : Innertube.Item> ItemsPage(
                     items = itemsPage?.items.orEmpty().chunked(itemsPerRow),
                     key = { row -> row.first().key }
                 ) { row ->
+                    val itemScope = this
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         row.forEach { item ->
                             Box(modifier = Modifier.weight(1f)) {
-                                itemContent(item)
+                                itemScope.itemContent(item)
                             }
                         }
                         repeat(itemsPerRow - row.size) {
