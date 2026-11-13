@@ -8,11 +8,11 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class TwoColumnBrowseResults(
-    val secondaryContents: SecondaryContents?,
-    val tabs: List<Tabs.Tab>?
+    val secondaryContents: SecondaryContents? = null,
+    val tabs: List<Tabs.Tab>? = null
 ) {
     @Serializable
     data class SecondaryContents(
-        val sectionListRenderer: SectionListRenderer?
+        val sectionListRenderer: SectionListRenderer? = null
     )
 }
