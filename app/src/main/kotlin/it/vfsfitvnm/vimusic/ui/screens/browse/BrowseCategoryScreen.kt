@@ -1,5 +1,7 @@
 package it.vfsfitvnm.vimusic.ui.screens.browse
 
+import androidx.compose.animation.ExperimentalAnimationApi
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,7 +43,7 @@ import it.vfsfitvnm.vimusic.utils.secondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalAnimationApi::class)
 @Composable
 fun BrowseCategoryScreen(
     browseId: String,
