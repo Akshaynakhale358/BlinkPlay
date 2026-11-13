@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class PlayerBody(
-    val context: Context = Context.DefaultAndroid,
+    val context: Context = Context.DefaultAndroidVr,
     val videoId: String,
     val playlistId: String? = null
 )
