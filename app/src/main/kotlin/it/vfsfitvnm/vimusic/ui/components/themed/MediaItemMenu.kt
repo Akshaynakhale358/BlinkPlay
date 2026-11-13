@@ -278,13 +278,13 @@ fun MediaItemMenu(
         mutableStateOf(0.dp)
     }
 
-    var albumInfo by remember {
+    var albumInfo by remember(mediaItem.mediaId) {
         mutableStateOf(mediaItem.mediaMetadata.extras?.getString("albumId")?.let { albumId ->
             Info(albumId, null)
         })
     }
 
-    var artistsInfo by remember {
+    var artistsInfo by remember(mediaItem.mediaId) {
         mutableStateOf(
             mediaItem.mediaMetadata.extras?.getStringArrayList("artistNames")?.let { artistNames ->
                 mediaItem.mediaMetadata.extras?.getStringArrayList("artistIds")?.let { artistIds ->
@@ -296,11 +296,11 @@ fun MediaItemMenu(
         )
     }
 
-    var likedAt by remember {
+    var likedAt by remember(mediaItem.mediaId) {
         mutableStateOf<Long?>(null)
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(mediaItem.mediaId) {
         withContext(Dispatchers.IO) {
             if (albumInfo == null) albumInfo = Database.songAlbumInfo(mediaItem.mediaId)
             if (artistsInfo == null) artistsInfo = Database.songArtistInfo(mediaItem.mediaId)
