@@ -693,7 +693,7 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
             )
 
             fun relevanceScore(song: Innertube.SongItem): Int {
-                val searchable = "${song.title} ${song.artistsText.orEmpty()}".lowercase()
+                val searchable = "${song.info?.name.orEmpty()} ${song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }}".lowercase()
                 val categoryScore = categoryTerms.count { term -> searchable.contains(term) } * 10
                 val longFormScore = longFormTerms.count { term -> searchable.contains(term) } * 3
                 return categoryScore + longFormScore
