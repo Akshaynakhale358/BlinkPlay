@@ -1212,7 +1212,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                 endpoint?.params
             ).let {
                 isLoadingRadio = true
-                radioJob = coroutineScope.launch(Dispatchers.Main) {
+                val job = coroutineScope.launch(Dispatchers.Main) {
                     try {
                         val items = it.process()
                         if (justAdd) {
@@ -1225,7 +1225,11 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                         throw cancelled
                     } catch (error: Exception) {
                         Log.w(TAG, "radio start failed: ${error.message}", error)
-                    } finally {
+                    }
+                }
+                radioJob = job
+                job.invokeOnCompletion {
+                    handler.post {
                         // A superseded request must not hide the loading state of a newer one.
                         if (radioRequestId == requestId) isLoadingRadio = false
                     }
