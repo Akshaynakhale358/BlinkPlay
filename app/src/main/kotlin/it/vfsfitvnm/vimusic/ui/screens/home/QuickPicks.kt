@@ -512,14 +512,20 @@ private suspend fun fetchIndiaDirectSongShelves(): Triple<
             fromMusicShelfRendererContent = Innertube.SongItem::from
         )?.getOrNull()?.items.orEmpty()
 
-    // Prefer official direct chart roots; fall back to BlinkPlay's proven Music Search path.
+    // Prefer official direct chart roots, but treat a tiny partial response as an
+    // incomplete feed too. The chart endpoint sometimes returns only one row.
+    // Merge search results to fill the shelf, while keeping chart ranking first.
     val trendingDeferred = async {
-        Innertube.indiaChartSongs(trendingQuery, "videos")
-            .ifEmpty { searchSongs("trending popular Indian songs Hindi Marathi Punjabi Tamil Telugu") }
+        val chart = Innertube.indiaChartSongs(trendingQuery, "videos")
+        if (chart.size >= 10) chart else
+            (chart + searchSongs("trending popular Indian songs Hindi Marathi Punjabi Tamil Telugu"))
+                .distinctBy(Innertube.SongItem::key)
     }
     val topDeferred = async {
-        Innertube.indiaChartSongs(topQuery, "trackViews")
-            .ifEmpty { searchSongs("India top chart hit songs Hindi Marathi Punjabi Tamil Telugu") }
+        val chart = Innertube.indiaChartSongs(topQuery, "trackViews")
+        if (chart.size >= 10) chart else
+            (chart + searchSongs("India top chart hit songs Hindi Marathi Punjabi Tamil Telugu"))
+                .distinctBy(Innertube.SongItem::key)
     }
 
     // New releases are fetched from YouTube Music's own dedicated browse root, not Explore text matching.
@@ -542,8 +548,10 @@ private suspend fun fetchIndiaDirectSongShelves(): Triple<
             )?.getOrNull()
             songs += albumPage?.songsPage?.items.orEmpty()
         }
-        songs.distinctBy(Innertube.SongItem::key)
-            .ifEmpty { searchSongs("latest new Indian songs official releases") }
+        val releases = songs.distinctBy(Innertube.SongItem::key)
+        if (releases.size >= 10) releases else
+            (releases + searchSongs("latest new Indian songs official releases"))
+                .distinctBy(Innertube.SongItem::key)
     }
 
     Triple(trendingDeferred.await(), topDeferred.await(), releasesDeferred.await())
