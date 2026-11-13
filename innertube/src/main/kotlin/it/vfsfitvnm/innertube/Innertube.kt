@@ -25,37 +25,31 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 object Innertube {
-    // YouTube rotates its public InnerTube API key. Read it from the live Music
-    // web configuration instead of baking a stale key into BlinkPlay.
-    private val apiKeyMutex = Mutex()
-    @Volatile private var cachedApiKey: String? = null
-    @Volatile private var cachedApiKeyAt: Long = 0L
+    // Resolve the current WEB_REMIX version from YouTube Music's live page config.
+    // The InnerTube API key is optional for anonymous browse requests; omitting it avoids
+    // stale/rotated keys causing otherwise valid feed requests to fail.
+    private val clientVersionMutex = Mutex()
     @Volatile private var cachedWebClientVersion: String? = null
+    @Volatile private var cachedWebClientVersionAt: Long = 0L
 
-    suspend fun currentApiKey(): String = apiKeyMutex.withLock {
-        val cached = cachedApiKey
-        if (cached != null && System.currentTimeMillis() - cachedApiKeyAt < 6 * 60 * 60 * 1000L) {
+    suspend fun currentWebClientVersion(): String = clientVersionMutex.withLock {
+        val cached = cachedWebClientVersion
+        if (cached != null && System.currentTimeMillis() - cachedWebClientVersionAt < 60 * 60 * 1000L) {
             return@withLock cached
         }
 
         val html = client.get("/").body<String>()
-        val key = Regex("""["']?INNERTUBE_API_KEY["']?\s*:\s*["']([^"']+)["']""")
+        val version = Regex("""["']?INNERTUBE_CONTEXT_CLIENT_VERSION["']?\s*:\s*["']([^"']+)["']""")
             .find(html)?.groupValues?.getOrNull(1)
-            ?: Regex("""INNERTUBE_API_KEY\s*[:=]\s*["']([^"']+)["']""")
+            ?: Regex("""(?s)["']?INNERTUBE_CONTEXT["']?\s*:\s*\{.{0,12000}?["']clientVersion["']\s*:\s*["']([^"']+)["']""")
                 .find(html)?.groupValues?.getOrNull(1)
-            ?: throw IllegalStateException("YouTube Music API key was not found in web configuration")
+            ?: Regex("""["']?INNERTUBE_CLIENT_VERSION["']?\s*:\s*["']([^"']+)["']""")
+                .find(html)?.groupValues?.getOrNull(1)
+            ?: Context.DefaultWeb.client.clientVersion
 
-        cachedApiKey = key
-        cachedWebClientVersion = Regex("""["']?INNERTUBE_CLIENT_VERSION["']?\s*:\s*["']([^"']+)["']""")
-            .find(html)?.groupValues?.getOrNull(1)
-            ?: cachedWebClientVersion
-        cachedApiKeyAt = System.currentTimeMillis()
-        key
-    }
-
-    suspend fun currentWebClientVersion(): String {
-        currentApiKey()
-        return cachedWebClientVersion ?: Context.DefaultWeb.client.clientVersion
+        cachedWebClientVersion = version
+        cachedWebClientVersionAt = System.currentTimeMillis()
+        version
     }
 
     val client = HttpClient(OkHttp) {
