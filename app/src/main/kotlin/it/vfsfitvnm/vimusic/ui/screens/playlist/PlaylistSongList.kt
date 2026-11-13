@@ -83,6 +83,7 @@ fun PlaylistSongList(
     // Bump the persisted cache key so empty pages saved by the old parser are fetched again.
     var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage-v2")
     var playlistLoadError by rememberSaveable(browseId) { mutableStateOf(false) }
+    var playlistLoadErrorDetail by rememberSaveable(browseId) { mutableStateOf("") }
     var isLoadingPlaylist by rememberSaveable(browseId) { mutableStateOf(false) }
     var retryKey by rememberSaveable(browseId) { mutableStateOf(0) }
 
@@ -101,10 +102,17 @@ fun PlaylistSongList(
                 }.distinct()
 
                 var lastPage: Innertube.PlaylistOrAlbumPage? = null
+                var lastError: String? = null
                 for (candidateId in candidateIds) {
-                    val candidate = Innertube.playlistPage(
+                    val result = Innertube.playlistPage(
                         BrowseBody(browseId = candidateId)
-                    )?.getOrNull()
+                    )
+                    val candidate = result?.getOrNull()
+                    if (candidate == null) {
+                        lastError = result?.exceptionOrNull()?.let { error ->
+                            "${error::class.simpleName}: ${error.message.orEmpty()}"
+                        } ?: "No response from YouTube Music"
+                    }
 
                     if (candidate?.songsPage?.items?.isNotEmpty() == true ||
                         candidate?.songsPage?.continuation != null
@@ -115,11 +123,13 @@ fun PlaylistSongList(
 
                     if (candidate != null) lastPage = candidate
                 }
+                if (lastPage == null) playlistLoadErrorDetail = lastError.orEmpty()
                 lastPage
             }
             if (page?.songsPage != null) {
                 playlistPage = page
                 playlistLoadError = false
+                playlistLoadErrorDetail = ""
             } else {
                 playlistLoadError = true
             }
@@ -303,7 +313,7 @@ fun PlaylistSongList(
                     item(key = "playlist-loading") {
                         if (playlistLoadError) {
                             BasicText(
-                                text = "Playlist could not load. Tap to retry.",
+                                text = "Playlist could not load. Tap to retry. ${playlistLoadErrorDetail.take(180)}",
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { playlistLoadError = false; retryKey += 1 }
