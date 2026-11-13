@@ -83,6 +83,8 @@ import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
@@ -779,17 +781,25 @@ private suspend fun loadLanguageOrderedRelatedPage(
         )?.getOrNull()?.items.orEmpty()
 
         // Keep the exact language priority requested across recommendation shelves.
-        val hindi = fetchRelatedSongs("Hindi Bollywood songs")
-        val marathi = fetchRelatedSongs("Marathi songs")
-            .filterNot { song -> hindi.any { it.key == song.key } }
-        val otherIndianLanguages = fetchRelatedSongs(
-            "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs"
-        )
-        val indianSongs = (hindi + marathi + otherIndianLanguages).distinctBy { it.key }
-        val english = fetchRelatedSongs("English international songs")
-            .filterNot { song -> indianSongs.any { it.key == song.key } }
-
-        val orderedSongs = indianSongs + english
+        val (hindi, marathi, otherIndianLanguages, english) = coroutineScope {
+            val hindiRequest = async { fetchRelatedSongs("Hindi Bollywood songs") }
+            val marathiRequest = async { fetchRelatedSongs("Marathi songs") }
+            val regionalRequest = async {
+                fetchRelatedSongs("Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs")
+            }
+            val englishRequest = async { fetchRelatedSongs("English international songs") }
+            listOf(
+                hindiRequest.await(),
+                marathiRequest.await(),
+                regionalRequest.await(),
+                englishRequest.await()
+            )
+        }
+        val hindiAndMarathi = (hindi + marathi).distinctBy { it.key }
+        val indianSongs = (hindiAndMarathi + otherIndianLanguages).distinctBy { it.key }
+        val orderedSongs = indianSongs + english.filterNot { song ->
+            indianSongs.any { it.key == song.key }
+        }
 
         // Never fall back to the unfiltered related list: it can put English tracks first.
         // An empty language search is preferable to violating the requested language order.
@@ -840,21 +850,26 @@ private fun OnlineSongShelf(
                 fromMusicShelfRendererContent = Innertube.SongItem::from
             )?.getOrNull()?.items.orEmpty()
 
-            val hindi = fetchSongs(languageQuery("Hindi Bollywood"))
-            val marathi = fetchSongs(languageQuery("Marathi"))
-                .filterNot { song -> hindi.any { it.key == song.key } }
-            val otherIndianLanguages = fetchSongs(
-                if (isNewRelease) {
+            val (hindi, marathi, otherIndianLanguages, english) = coroutineScope {
+                val hindiRequest = async { fetchSongs(languageQuery("Hindi Bollywood")) }
+                val marathiRequest = async { fetchSongs(languageQuery("Marathi")) }
+                val regionalQuery = if (isNewRelease) {
                     "latest new Punjabi Tamil Telugu Bengali Kannada Malayalam songs released $releasePeriod official"
                 } else {
                     "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs $query"
                 }
-            )
-            val indianSongs = (hindi + marathi + otherIndianLanguages).distinctBy { it.key }
-            val english = fetchSongs(languageQuery("English international"))
-                .filterNot { song -> indianSongs.any { it.key == song.key } }
-
-            indianSongs + english
+                val regionalRequest = async { fetchSongs(regionalQuery) }
+                val englishRequest = async { fetchSongs(languageQuery("English international")) }
+                listOf(
+                    hindiRequest.await(),
+                    marathiRequest.await(),
+                    regionalRequest.await(),
+                    englishRequest.await()
+                )
+            }
+            val hindiAndMarathi = (hindi + marathi).distinctBy { it.key }
+            val indianSongs = (hindiAndMarathi + otherIndianLanguages).distinctBy { it.key }
+            indianSongs + english.filterNot { song -> indianSongs.any { it.key == song.key } }
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -931,11 +946,12 @@ private fun MixForYouShelf(
                 fromMusicShelfRendererContent = Innertube.PlaylistItem::from
             )?.getOrNull()?.items.orEmpty()
 
-            val languageOrdered = mutableListOf<Innertube.PlaylistItem>()
-            for (query in languageQueries) {
-                languageOrdered += fetch(query)
+            val languageResults = coroutineScope {
+                languageQueries.map { query ->
+                    async { fetch(query) }
+                }.map { request -> request.await() }
             }
-            val uniqueLanguageOrdered = languageOrdered.distinctBy { it.key }
+            val uniqueLanguageOrdered = languageResults.flatten().distinctBy { it.key }
 
             if (uniqueLanguageOrdered.isNotEmpty()) {
                 uniqueLanguageOrdered
@@ -1060,11 +1076,9 @@ private fun DailyMixPlaylistCard(
 
             // Featured playlists are preferred, but category searches often return better
             // matches from community playlists. Try that filter before marking a mix unavailable.
-            val results = fetch(mix.query, Innertube.SearchFilter.FeaturedPlaylist.value)
+            val results = fetch(mix.query, Innertube.SearchFilter.CommunityPlaylist.value)
                 .ifEmpty {
-                    fetch(mix.query, Innertube.SearchFilter.CommunityPlaylist.value)
-                }.ifEmpty {
-                    fetch("${mix.query} official music", Innertube.SearchFilter.CommunityPlaylist.value)
+                    fetch(mix.query, Innertube.SearchFilter.FeaturedPlaylist.value)
                 }
             if (results.isEmpty()) null else {
                 val index = Math.floorMod(dayKey, results.size.toLong()).toInt()
