@@ -656,7 +656,7 @@ fun QuickPicks(
 }
 
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalAnimationApi::class)
 @Composable
 private fun PodcastTopicShelf(
     title: String,
