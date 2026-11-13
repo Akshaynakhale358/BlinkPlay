@@ -1,5 +1,7 @@
 package it.vfsfitvnm.vimusic.ui.screens.home
 
+import androidx.activity.compose.BackHandler
+
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -123,6 +125,12 @@ fun QuickPicks(
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
+
+    // A category's VIEW ALL page is an in-screen destination. Consume system
+    // Back here so Android does not finish MainActivity while that page is open.
+    BackHandler(enabled = selectedDiscoveryCategory != null) {
+        selectedDiscoveryCategory = null
+    }
     var discoveryDailyToken by remember { mutableStateOf(0) }
 
     // Refresh only the three discovery bundles at Indian midnight so their songs
