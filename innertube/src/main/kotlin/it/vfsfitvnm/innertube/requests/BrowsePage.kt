@@ -167,7 +167,14 @@ private fun parseBrowseSections(root: JsonElement): List<MusicBrowseSection> {
 
 /** Fetch and parse one server-defined browse feed. */
 suspend fun Innertube.browsePage(body: BrowseBody) = runCatchingNonCancellable {
-    val raw = client.post(browse) { setBody(body) }.body<String>()
+    val apiKey = currentApiKey()
+    val raw = client.post(browse) {
+        url.parameters.append("key", apiKey)
+        setBody(body)
+        // Ask for the complete browse tree; nested masks are fragile when YouTube
+        // changes renderer fields and can make a valid feed look empty.
+        mask("*")
+    }.body<String>()
     val root = browseResponseJson.parseToJsonElement(raw)
     val response = runCatching {
         browseResponseJson.decodeFromJsonElement(BrowseResponse.serializer(), root)
