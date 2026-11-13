@@ -824,7 +824,7 @@ private fun filterDiscoverySongs(
         value.any { it.code in first..last }
 
     return candidates.distinctBy(Innertube.SongItem::key).filter { song ->
-        val metadata = (song.title + " " + song.artistsText.orEmpty()).lowercase()
+        val metadata = (song.info?.name.orEmpty() + " " + song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
         val hasTamil = containsScript(metadata, 0x0B80, 0x0BFF)
         val hasTelugu = containsScript(metadata, 0x0C00, 0x0C7F)
         val hasKannada = containsScript(metadata, 0x0C80, 0x0CFF)
