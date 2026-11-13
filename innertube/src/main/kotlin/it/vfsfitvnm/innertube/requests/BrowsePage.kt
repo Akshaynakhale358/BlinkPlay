@@ -146,7 +146,10 @@ private fun parseBrowseSections(root: JsonElement): List<MusicBrowseSection> {
                 }.getOrNull()?.musicCarouselShelfBasicHeaderRenderer?.title?.text
             } ?: return@mapNotNull null
             val items = grid?.items.orEmpty()
-                .mapNotNull { it.musicTwoRowItemRenderer?.let(::toMusicItem) }
+                .mapNotNull { item ->
+                    item.musicResponsiveListItemRenderer?.let(Innertube.SongItem::from)
+                        ?: item.musicTwoRowItemRenderer?.let(::toMusicItem)
+                }
                 .distinctBy(Innertube.Item::key)
             return@mapNotNull MusicBrowseSection(
                 title = title,
