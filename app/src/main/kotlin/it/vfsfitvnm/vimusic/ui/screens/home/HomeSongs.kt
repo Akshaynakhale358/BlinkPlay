@@ -108,6 +108,9 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             val previousTokens = continuation?.split('\u001F')
             val nextTokens = mutableListOf<String?>()
             val combinedItems = mutableListOf<Innertube.SongItem>()
+            // Keep each language batch separate so Hindi stays first, while personalizing
+            // the order of songs inside each language using listening history and favorites.
+            val languageGroups = mutableListOf<List<Innertube.SongItem>>()
             val failedLanguageSearches = mutableListOf<String>()
 
             languageQueries.forEachIndexed { index, languageQuery ->
@@ -170,7 +173,9 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                     failedLanguageSearches += languageQuery
                     nextTokens += token
                 } else {
-                    combinedItems += page.items.orEmpty()
+                    val languageItems = page.items.orEmpty()
+                    languageGroups += languageItems
+                    combinedItems += languageItems
                     nextTokens += page.continuation
                 }
             }
@@ -180,7 +185,12 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                     IllegalStateException("Some language searches failed: " + failedLanguageSearches.joinToString())
                 )
             } else {
-                val orderedItems = combinedItems.distinctBy { it.key }
+                // Apply the same personal ranking to every language group separately.
+                // Flattening only after ranking preserves Hindi -> Marathi -> other Indian
+                // languages -> English, without allowing another language to jump ahead.
+                val orderedItems = personalizeSongLists(languageGroups)
+                    .flatten()
+                    .distinctBy { it.key }
                 val nextContinuation = nextTokens
                     .takeIf { tokens -> tokens.any { it != null } }
                     ?.joinToString("\u001F") { it.orEmpty() }
