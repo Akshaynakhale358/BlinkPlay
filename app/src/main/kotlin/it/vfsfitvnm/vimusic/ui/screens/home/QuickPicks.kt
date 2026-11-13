@@ -520,54 +520,6 @@ fun QuickPicks(
             refreshKey = refreshToken
         )
 
-        // Podcast discovery is deliberately separated from music shelves. These searches use
-        // YouTube's Video filter so full talks and podcast episodes are not mixed with songs.
-        BasicText(
-            text = "PODCASTS FOR YOU",
-            style = typography.s.semiBold,
-            modifier = sectionTextModifier
-        )
-        PodcastTopicShelf(
-            title = "OSHO DISCOURSES",
-            query = "Osho full discourse podcast Hindi English official talk",
-            thumbnailSizeDp = songThumbnailSizeDp,
-            thumbnailSizePx = songThumbnailSizePx,
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
-        PodcastTopicShelf(
-            title = "SPIRITUALITY & MEDITATION",
-            query = "spirituality meditation mindfulness philosophy podcast Hindi Marathi",
-            thumbnailSizeDp = songThumbnailSizeDp,
-            thumbnailSizePx = songThumbnailSizePx,
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
-        PodcastTopicShelf(
-            title = "MOTIVATION & SELF IMPROVEMENT",
-            query = "motivation self improvement discipline success podcast Hindi Marathi",
-            thumbnailSizeDp = songThumbnailSizeDp,
-            thumbnailSizePx = songThumbnailSizePx,
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
-        PodcastTopicShelf(
-            title = "KNOWLEDGE & INTERVIEWS",
-            query = "educational knowledge science history technology long form podcast India",
-            thumbnailSizeDp = songThumbnailSizeDp,
-            thumbnailSizePx = songThumbnailSizePx,
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
-        PodcastTopicShelf(
-            title = "MARATHI PODCASTS",
-            query = "Marathi podcast मुलाखत विचार ज्ञान गप्पा full episode",
-            thumbnailSizeDp = songThumbnailSizeDp,
-            thumbnailSizePx = songThumbnailSizePx,
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
-
         var dailyMixDay by remember { mutableStateOf(LocalDate.now().toEpochDay()) }
         LaunchedEffect(Unit) {
             // Keep the shelf current even if Quick Picks stays open across midnight.
@@ -1058,12 +1010,22 @@ private fun DailyMixPlaylistCard(
     thumbnailSizePx: Int,
     onPlaylistClick: (String) -> Unit
 ) {
-    var playlist by remember(mix.query, dayKey, refreshKey) {
-        mutableStateOf<Innertube.PlaylistItem?>(null)
+    // Keep a successful daily mix between Quick Picks visits. A pull-to-refresh
+    // retries only mixes that have not loaded, instead of firing ten new searches.
+    var playlist by persist<Innertube.PlaylistItem?>(
+        tag = "home/dailyMix/$dayKey/${mix.title}"
+    )
+    var retryKey by remember(mix.query, dayKey) { mutableStateOf(0) }
+    var loaded by remember(mix.query, dayKey, refreshKey, retryKey) {
+        mutableStateOf(playlist != null)
     }
-    var loaded by remember(mix.query, dayKey, refreshKey) { mutableStateOf(false) }
 
-    LaunchedEffect(mix.query, dayKey, refreshKey) {
+    LaunchedEffect(mix.query, dayKey, refreshKey, retryKey) {
+        if (playlist != null) {
+            loaded = true
+            return@LaunchedEffect
+        }
+        loaded = false
         playlist = try {
             withContext(Dispatchers.IO) {
             suspend fun fetch(query: String, filter: String) = Innertube.searchPage(
@@ -1114,9 +1076,11 @@ private fun DailyMixPlaylistCard(
         )
         else -> {
             BasicText(
-                text = "${mix.title} unavailable",
+                text = "${mix.title} · Tap to retry",
                 style = LocalAppearance.current.typography.xs,
-                modifier = Modifier.padding(12.dp)
+                modifier = Modifier
+                    .padding(12.dp)
+                    .clickable { retryKey += 1 }
             )
         }
     }
