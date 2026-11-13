@@ -19,7 +19,10 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 ) = runCatchingNonCancellable {
     val response = client.post(search) {
         setBody(body)
-        mask("contents.tabbedSearchResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents(musicShelfRenderer(continuations,contents(musicResponsiveListItemRenderer(flexColumns,fixedColumns,thumbnail,navigationEndpoint))),musicPlaylistShelfRenderer(continuations,contents(musicResponsiveListItemRenderer(flexColumns,fixedColumns,thumbnail,navigationEndpoint))),gridRenderer(items(musicTwoRowItemRenderer(thumbnailRenderer,title,subtitle,navigationEndpoint)))))")
+        // Request the complete search response while diagnosing YouTube Music field-mask changes.
+        // A stale nested mask can make the API reject the request; callers previously swallowed
+        // that error and rendered every shelf as empty.
+        mask("*")
     }.body<SearchResponse>()
 
     // Search filters can return the requested results on a non-first tab.
