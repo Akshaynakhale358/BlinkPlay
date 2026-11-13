@@ -5,6 +5,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -15,19 +16,23 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.valentinilk.shimmer.shimmer
 import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
+import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
+import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.requests.playlistPage
 import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
@@ -54,7 +59,6 @@ import it.vfsfitvnm.vimusic.ui.styling.Dimensions
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.asMediaItem
-import it.vfsfitvnm.vimusic.utils.completed
 import it.vfsfitvnm.vimusic.utils.enqueue
 import it.vfsfitvnm.vimusic.utils.forcePlayAtIndex
 import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
@@ -74,12 +78,24 @@ fun PlaylistSongList(
     val menuState = LocalMenuState.current
 
     var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage")
+    var playlistLoadError by rememberSaveable(browseId) { mutableStateOf(false) }
+    var isLoadingPlaylist by rememberSaveable(browseId) { mutableStateOf(false) }
+    var retryKey by rememberSaveable(browseId) { mutableStateOf(0) }
 
-    LaunchedEffect(browseId) {
-        if (playlistPage != null && playlistPage?.songsPage?.continuation == null) return@LaunchedEffect
-
-        playlistPage = withContext(Dispatchers.IO) {
-            Innertube.playlistPage(BrowseBody(browseId = browseId))?.completed()?.getOrNull()
+    LaunchedEffect(browseId, retryKey) {
+        if (playlistPage == null) {
+            isLoadingPlaylist = true
+            val result = withContext(Dispatchers.IO) {
+                Innertube.playlistPage(BrowseBody(browseId = browseId))
+            }
+            val page = result?.getOrNull()
+            if (page != null) {
+                playlistPage = page
+                playlistLoadError = false
+            } else {
+                playlistLoadError = true
+            }
+            isLoadingPlaylist = false
         }
     }
 
@@ -168,6 +184,48 @@ fun PlaylistSongList(
 
     val lazyListState = rememberLazyListState()
 
+    LaunchedEffect(browseId) {
+        snapshotFlow {
+            Triple(
+                lazyListState.layoutInfo.visibleItemsInfo.any { it.key == "playlist-loading" },
+                playlistPage?.songsPage?.continuation,
+                retryKey
+            )
+        }.collect { (isFooterVisible, continuation, _) ->
+            if (!isFooterVisible || continuation == null || playlistLoadError || isLoadingPlaylist) {
+                return@collect
+            }
+
+            isLoadingPlaylist = true
+            val nextPage = withContext(Dispatchers.IO) {
+                Innertube.playlistPage(
+                    ContinuationBody(
+                        context = Context.DefaultWeb,
+                        continuation = continuation
+                    )
+                )?.getOrNull()
+            }
+
+            if (nextPage != null) {
+                val currentPage = playlistPage
+                val currentSongsPage = currentPage?.songsPage
+                val nextContinuation = nextPage.continuation
+                    ?.takeUnless { it == continuation }
+                playlistPage = currentPage?.copy(
+                    songsPage = Innertube.ItemsPage(
+                        items = (currentSongsPage?.items.orEmpty() + nextPage.items.orEmpty())
+                            .distinctBy(Innertube.SongItem::key),
+                        continuation = nextContinuation
+                    )
+                )
+                playlistLoadError = false
+            } else {
+                playlistLoadError = true
+            }
+            isLoadingPlaylist = false
+        }
+    }
+
     LayoutWithAdaptiveThumbnail(thumbnailContent = thumbnailContent) {
         Box {
             LazyColumn(
@@ -214,13 +272,53 @@ fun PlaylistSongList(
                 }
 
                 if (playlistPage == null) {
-                    item(key = "loading") {
-                        ShimmerHost(
+                    item(key = "playlist-loading") {
+                        if (playlistLoadError) {
+                            BasicText(
+                                text = "Playlist could not load. Tap to retry.",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { playlistLoadError = false; retryKey += 1 }
+                                    .padding(24.dp)
+                            )
+                        } else {
+                            ShimmerHost(
+                                modifier = Modifier.fillParentMaxSize()
+                            ) {
+                                repeat(4) {
+                                    SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp)
+                                }
+                            }
+                        }
+                    }
+                } else if (playlistPage?.songsPage?.items.isNullOrEmpty() &&
+                    playlistPage?.songsPage?.continuation == null
+                ) {
+                    item(key = "empty-playlist") {
+                        BasicText(
+                            text = "No songs found in this playlist.",
                             modifier = Modifier
-                                .fillParentMaxSize()
-                        ) {
-                            repeat(4) {
-                                SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp)
+                                .fillMaxWidth()
+                                .padding(24.dp)
+                        )
+                    }
+                }
+
+                if (playlistPage?.songsPage?.continuation != null) {
+                    item(key = "playlist-loading") {
+                        if (playlistLoadError) {
+                            BasicText(
+                                text = "More songs could not load. Tap to retry.",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { playlistLoadError = false; retryKey += 1 }
+                                    .padding(24.dp)
+                            )
+                        } else {
+                            ShimmerHost {
+                                repeat(2) {
+                                    SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp)
+                                }
                             }
                         }
                     }
