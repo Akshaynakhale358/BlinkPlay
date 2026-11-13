@@ -121,6 +121,7 @@ fun QuickPicks(
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
+    var calmSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
     var discoveryDailyToken by remember { mutableStateOf(0) }
 
@@ -149,6 +150,15 @@ fun QuickPicks(
         }
         serverDiscovery = discovery ?: serverDiscovery
         isRefreshing = false
+    }
+
+    // Calm listening rail: focused searches for lo-fi, sleep and meditation.
+    LaunchedEffect(refreshToken, discoveryDailyToken) {
+        calmSongs = withContext(Dispatchers.IO) {
+            fetchSearchAndRelatedBundle(
+                listOf("lofi music", "sleep music relaxing", "meditation music instrumental", "ambient relaxing music")
+            ).let(::personalizeAndDiversify).take(40)
+        }
     }
 
     // Songs For You and New Releases use the same YouTube Music song-search
@@ -385,6 +395,24 @@ fun QuickPicks(
                 }
             }
 
+            QuickPicksSimpleSongRail(
+                title = "LO-FI · SLEEP · MEDITATION",
+                songs = calmSongs,
+                thumbnailSizePx = songThumbnailSizePx,
+                thumbnailSizeDp = songThumbnailSizeDp,
+                onSongClick = { song ->
+                    val mediaItem = song.asMediaItem
+                    binder?.stopRadio()
+                    binder?.player?.forcePlay(mediaItem)
+                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                },
+                onSongLongClick = { song ->
+                    menuState.display {
+                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                    }
+                }
+            )
+
         when {
             serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
                 sections = serverDiscovery!!.sections,
@@ -451,6 +479,41 @@ fun QuickPicks(
 
 
 
+
+@Composable
+private fun QuickPicksSimpleSongRail(
+    title: String,
+    songs: List<Innertube.SongItem>,
+    thumbnailSizePx: Int,
+    thumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    onSongClick: (Innertube.SongItem) -> Unit,
+    onSongLongClick: (Innertube.SongItem) -> Unit
+) {
+    val (_, typography) = LocalAppearance.current
+    BasicText(text = title, style = typography.s.semiBold,
+        modifier = Modifier.padding(horizontal = 16.dp).padding(top = 24.dp, bottom = 8.dp))
+    if (songs.isEmpty()) {
+        ShimmerHost { repeat(4) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) } }
+    } else {
+        LazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            lazyRowItems(items = songs.distinctBy(Innertube.SongItem::key), key = Innertube.SongItem::key) { song ->
+                SongItem(
+                    song = song,
+                    thumbnailSizePx = thumbnailSizePx,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    modifier = Modifier.width(260.dp).combinedClickable(
+                        onClick = { onSongClick(song) },
+                        onLongClick = { onSongLongClick(song) }
+                    )
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun QuickPicksSongShelf(
@@ -705,8 +768,9 @@ private suspend fun fetchPersonalizedMixCategory(query: String): List<Innertube.
 }
 
 private suspend fun fetchSearchAndRelatedBundle(queries: List<String>): List<Innertube.SongItem> = coroutineScope {
+    // Retry empty shelves with a simpler query using the same Song Search root.
     val searchResults = queries.map { query ->
-        async { runCatching { fetchSongsByCategory(query) }.getOrDefault(emptyList()) }
+        async { fetchSongsByCategoryWithFallback(query) }
     }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
 
     val relatedResults = searchResults.take(5).map { seed ->
@@ -757,6 +821,21 @@ private fun rotateDiscoverySongsDaily(
     val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
     val offset = (indiaDay % songs.size).toInt()
     return songs.drop(offset) + songs.take(offset)
+}
+
+private suspend fun fetchSongsByCategoryWithFallback(query: String): List<Innertube.SongItem> {
+    val cleaned = query
+        .replace(Regex("\\b(popular|trending|viral|latest|new|India|Indian|songs|song)\\b", RegexOption.IGNORE_CASE), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+    val attempts = listOf(query, cleaned.takeIf { it.isNotBlank() }?.let { "$it songs" })
+        .filterNotNull().distinct()
+    val collected = mutableListOf<Innertube.SongItem>()
+    for (attempt in attempts) {
+        collected += runCatching { fetchSongsByCategory(attempt) }.getOrDefault(emptyList())
+        if (collected.distinctBy(Innertube.SongItem::key).size >= 8) break
+    }
+    return collected.distinctBy(Innertube.SongItem::key)
 }
 
 private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem> =
