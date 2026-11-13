@@ -34,6 +34,7 @@ import it.vfsfitvnm.vimusic.ui.components.themed.FloatingActionsContainerWithScr
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.utils.center
 import it.vfsfitvnm.vimusic.utils.secondary
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -69,8 +70,16 @@ inline fun <T : Innertube.Item> ItemsPage(
             .collect { shouldLoadMore ->
                 if (!shouldLoadMore) return@collect
 
-                val result = withContext(Dispatchers.IO) {
-                    currentItemsPageProvider(itemsPage?.continuation)
+                val result = try {
+                    withContext(Dispatchers.IO) {
+                        currentItemsPageProvider(itemsPage?.continuation)
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // A provider/network exception should end this page attempt instead of
+                    // leaving the loading row and refresh indicator spinning forever.
+                    null
                 }
 
                 if (result == null) {
