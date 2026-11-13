@@ -5,6 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
@@ -31,12 +34,9 @@ import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.components.themed.TextPlaceholder
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
-import it.vfsfitvnm.vimusic.ui.styling.Dimensions
-import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.secondary
-import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -76,10 +76,11 @@ fun BrowseCategoryScreen(
             .background(colorPalette.background0)
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(LocalPlayerAwareWindowInsets.current)
+            .padding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Vertical).asPaddingValues())
     ) {
         Header(title = page?.title ?: "BROWSE")
-        page?.let { browsePage ->
+        if (page?.sections?.isNotEmpty() == true) {
+            val browsePage = page!!
             MusicBrowseShelves(
                 sections = browsePage.sections,
                 sectionTextModifier = Modifier
@@ -106,7 +107,7 @@ fun BrowseCategoryScreen(
                     onPlaylistClick(browseCategoryRoute(id, nextParams))
                 }
             )
-        } ?: if (loading) {
+        } else if (loading) {
             ShimmerHost {
                 repeat(3) { TextPlaceholder(modifier = Modifier.padding(16.dp)) }
                 androidx.compose.foundation.layout.Row {
