@@ -27,7 +27,7 @@ fun Innertube.SongItem.Companion.from(renderer: PlaylistPanelVideoRenderer): Inn
         thumbnail = renderer
             .thumbnail
             ?.thumbnails
-            ?.getOrNull(0),
+            ?.maxByOrNull { (it.width ?: 0) * (it.height ?: 0) },
         durationText = renderer
             .lengthText
             ?.text
