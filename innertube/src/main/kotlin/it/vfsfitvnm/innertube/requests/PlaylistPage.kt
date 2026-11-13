@@ -81,7 +81,23 @@ private fun JsonElement.playlistSongs(): List<Innertube.SongItem> {
         }
         .toList()
 
-    return (shelfSongs + panelSongs)
+    // Some browse variants place responsive list rows under a different container.
+    // If neither known playlist shape produced rows, accept valid song renderers directly.
+    val fallbackSongs = if (shelfSongs.isEmpty() && panelSongs.isEmpty()) {
+        descendants()
+            .mapNotNull { node ->
+                val renderer = (node as? JsonObject)?.get("musicResponsiveListItemRenderer")
+                    ?: return@mapNotNull null
+                runCatching {
+                    playlistResponseJson.decodeFromJsonElement<MusicResponsiveListItemRenderer>(renderer)
+                }.getOrNull()?.let(Innertube.SongItem::from)
+            }
+            .toList()
+    } else {
+        emptyList()
+    }
+
+    return (shelfSongs + panelSongs + fallbackSongs)
         .distinctBy(Innertube.SongItem::key)
 }
 
