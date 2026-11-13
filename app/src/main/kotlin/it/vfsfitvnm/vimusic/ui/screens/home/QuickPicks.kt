@@ -155,49 +155,23 @@ fun QuickPicks(
             .filter { it.key != currentVideoId && it.key !in playedIds }
             .distinctBy(Innertube.SongItem::key)
 
-        val title = binder?.player?.currentMediaItem?.mediaMetadata?.title?.toString().orEmpty()
-        val artist = binder?.player?.currentMediaItem?.mediaMetadata?.artist?.toString().orEmpty()
-        val relatedSearch = if (currentVideoId != null && title.isNotBlank()) {
-            withContext(Dispatchers.IO) {
-                val searchContext = Context.DefaultWeb.copy(
-                    client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
-                )
-                val queries = listOf(
-                    "$title $artist similar songs",
-                    "songs like $title $artist"
-                )
-                queries.flatMap { query ->
-                    Innertube.searchPage(
-                        body = SearchBody(
-                            context = searchContext,
-                            query = query,
-                            params = Innertube.SearchFilter.Song.value
-                        ),
-                        fromMusicShelfRendererContent = Innertube.SongItem::from
-                    )?.getOrNull()?.items.orEmpty()
-                }.distinctBy(Innertube.SongItem::key)
-            }
-        } else emptyList()
-        val recommendationSongs = if (currentVideoId == null) fetchAutomaticSongsForYou()
-            else (recommendations + relatedSearch)
-                .filter { it.key != currentVideoId && it.key !in playedIds }
-                .distinctBy(Innertube.SongItem::key)
-        songsForYou = withContext(Dispatchers.IO) {
-            prioritizeIndianLanguageSongs(
-                recommendationSongs, "popular", IndiaExploreContext
-            )
+        // Use YouTube Music's related-track feed as the primary recommendation source.
+        // When nothing is playing (or the related feed is empty), use the Explore feed.
+        // Avoid broad generic searches here: they can return unrelated songs and make
+        // this shelf appear to load indefinitely while several searches run in sequence.
+        val recommendationSongs = if (recommendations.isNotEmpty()) {
+            recommendations
+        } else {
+            fetchAutomaticSongsForYou()
         }
+        songsForYou = recommendationSongs.distinctBy(Innertube.SongItem::key)
 
         val shelves = withContext(Dispatchers.IO) { fetchIndiaDirectSongShelves() }
-        trendingSongs = withContext(Dispatchers.IO) {
-            prioritizeIndianLanguageSongs(shelves.first, "trending", IndiaExploreContext)
-        }
-        topSongs = withContext(Dispatchers.IO) {
-            prioritizeIndianLanguageSongs(shelves.second, "top chart", IndiaExploreContext)
-        }
-        newReleases = withContext(Dispatchers.IO) {
-            prioritizeIndianLanguageSongs(shelves.third, "latest new", IndiaExploreContext)
-        }
+        // Keep the exact order and membership returned by each dedicated category root.
+        // Do not run additional sequential language searches that delay rendering or mix feeds.
+        trendingSongs = shelves.first.distinctBy(Innertube.SongItem::key)
+        topSongs = shelves.second.distinctBy(Innertube.SongItem::key)
+        newReleases = shelves.third.distinctBy(Innertube.SongItem::key)
         isRefreshing = false
     }
 
@@ -461,25 +435,13 @@ private fun QuickPicksSongShelf(
 }
 
 private suspend fun fetchAutomaticSongsForYou(): List<Innertube.SongItem> {
+    // YouTube Music Explore is the fallback when no current-track related feed exists.
+    // Do not append broad search results to a recommendation shelf.
     val explore = Innertube.musicExplorePage()?.getOrNull()
-    val exploreSongs = explore?.sections.orEmpty()
+    return explore?.sections.orEmpty()
         .flatMap { it.items }
         .filterIsInstance<Innertube.SongItem>()
         .distinctBy(Innertube.SongItem::key)
-    if (exploreSongs.size >= 5) return exploreSongs
-
-    val searchFallback = Innertube.searchPage(
-        body = SearchBody(
-            context = Context.DefaultWeb.copy(
-                client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
-            ),
-            query = "popular new songs India Hindi Marathi Punjabi Tamil Telugu Kannada Malayalam",
-            params = Innertube.SearchFilter.Song.value
-        ),
-        fromMusicShelfRendererContent = Innertube.SongItem::from
-    )?.getOrNull()?.items.orEmpty()
-
-    return (exploreSongs + searchFallback).distinctBy(Innertube.SongItem::key)
 }
 
 private val IndiaExploreContext = Context.DefaultWeb.copy(
