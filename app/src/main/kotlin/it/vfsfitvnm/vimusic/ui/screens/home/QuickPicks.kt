@@ -82,6 +82,9 @@ import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -603,18 +606,14 @@ fun QuickPicks(
 private suspend fun loadLanguageOrderedRelatedPage(
     seed: Song?,
     historySeeds: List<Song> = listOfNotNull(seed)
-): Result<Innertube.RelatedPage?> {
-    val baseResult = Innertube.relatedPage(
-        NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
-    ) ?: return Result.failure(IllegalStateException("Related recommendations are unavailable"))
+): Result<Innertube.RelatedPage?> = coroutineScope {
+    // Related-page metadata is optional: a failure must not block personalized song search.
+    val baseDeferred = async {
+        Innertube.relatedPage(
+            NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
+        )?.getOrNull()
+    }
 
-    if (baseResult.isFailure) return baseResult
-
-    val base = baseResult.getOrNull()
-        ?: return Result.failure(IllegalStateException("Related recommendations are empty"))
-
-    // Keep Song for me personalized to the current listening seed, but request each
-    // language group explicitly so English results can never lead the shelf.
     val seedContext = historySeeds
         .take(6)
         .joinToString(" ") { historySong ->
@@ -634,20 +633,28 @@ private suspend fun loadLanguageOrderedRelatedPage(
         fromMusicShelfRendererContent = Innertube.SongItem::from
     )?.getOrNull()?.items.orEmpty()
 
-    // Keep the exact language priority requested across recommendation shelves.
-    val hindi = fetchRelatedSongs("Hindi Bollywood songs")
-    val marathi = fetchRelatedSongs("Marathi songs")
+    // Run language searches together, then restore the requested Hindi-first ordering.
+    val languageResults = listOf(
+        async { fetchRelatedSongs("Hindi Bollywood songs") },
+        async { fetchRelatedSongs("Marathi songs") },
+        async {
+            fetchRelatedSongs(
+                "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs"
+            )
+        },
+        async { fetchRelatedSongs("English international songs") }
+    ).awaitAll()
+
+    val hindi = languageResults[0]
+    val marathi = languageResults[1]
         .filterNot { song -> hindi.any { it.key == song.key } }
-    val otherIndianLanguages = fetchRelatedSongs(
-        "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs"
-    )
+    val otherIndianLanguages = languageResults[2]
     val indianSongs = (hindi + marathi + otherIndianLanguages).distinctBy { it.key }
-    val english = fetchRelatedSongs("English international songs")
+    val english = languageResults[3]
         .filterNot { song -> indianSongs.any { it.key == song.key } }
 
     val orderedSongs = (indianSongs + english).distinctBy { song ->
-        // Limit each recommendation batch to one result per lead artist so a single
-        // artist cannot occupy the whole shelf.
+        // Limit each recommendation batch to one result per lead artist.
         song.authors
             ?.firstOrNull()
             ?.name
@@ -657,9 +664,8 @@ private suspend fun loadLanguageOrderedRelatedPage(
             ?: song.key
     }
 
-    // Never fall back to the unfiltered related list: it can put English tracks first.
-    // An empty language search is preferable to violating the requested language order.
-    return Result.success(base.copy(songs = orderedSongs))
+    val base = baseDeferred.await() ?: Innertube.RelatedPage()
+    Result.success(base.copy(songs = orderedSongs))
 }
 
 @Composable
@@ -701,18 +707,28 @@ private fun OnlineSongShelf(
                 fromMusicShelfRendererContent = Innertube.SongItem::from
             )?.getOrNull()?.items.orEmpty()
 
-            val hindi = fetchSongs(languageQuery("Hindi Bollywood"))
-            val marathi = fetchSongs(languageQuery("Marathi"))
-                .filterNot { song -> hindi.any { it.key == song.key } }
-            val otherIndianLanguages = fetchSongs(
-                if (isNewRelease) {
-                    "latest new Punjabi Tamil Telugu Bengali Kannada Malayalam songs released $releasePeriod official"
-                } else {
-                    "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs $query"
+            val languageResults = coroutineScope {
+                val hindi = async { fetchSongs(languageQuery("Hindi Bollywood")) }
+                val marathi = async { fetchSongs(languageQuery("Marathi")) }
+                val otherIndianLanguages = async {
+                    fetchSongs(
+                        if (isNewRelease) {
+                            "latest new Punjabi Tamil Telugu Bengali Kannada Malayalam songs released $releasePeriod official"
+                        } else {
+                            "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs $query"
+                        }
+                    )
                 }
-            )
+                val english = async { fetchSongs(languageQuery("English international")) }
+                listOf(hindi.await(), marathi.await(), otherIndianLanguages.await(), english.await())
+            }
+
+            val hindi = languageResults[0]
+            val marathi = languageResults[1]
+                .filterNot { song -> hindi.any { it.key == song.key } }
+            val otherIndianLanguages = languageResults[2]
             val indianSongs = (hindi + marathi + otherIndianLanguages).distinctBy { it.key }
-            val english = fetchSongs(languageQuery("English international"))
+            val english = languageResults[3]
                 .filterNot { song -> indianSongs.any { it.key == song.key } }
 
             indianSongs + english
@@ -794,9 +810,8 @@ private fun MixForYouShelf(
                     fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
             )?.getOrNull()?.items.orEmpty()
 
-            val languageOrdered = mutableListOf<Innertube.PlaylistItem>()
-            for (query in languageQueries) {
-                languageOrdered += fetch(query)
+            val languageOrdered = coroutineScope {
+                languageQueries.map { query -> async { fetch(query) } }.awaitAll().flatten()
             }
             val uniqueLanguageOrdered = languageOrdered.distinctBy { it.key }
 
