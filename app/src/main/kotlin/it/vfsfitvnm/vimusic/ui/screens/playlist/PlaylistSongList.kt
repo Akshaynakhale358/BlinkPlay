@@ -80,7 +80,8 @@ fun PlaylistSongList(
     val context = LocalContext.current
     val menuState = LocalMenuState.current
 
-    var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage")
+    // Bump the persisted cache key so empty pages saved by the old parser are fetched again.
+    var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage-v2")
     var playlistLoadError by rememberSaveable(browseId) { mutableStateOf(false) }
     var isLoadingPlaylist by rememberSaveable(browseId) { mutableStateOf(false) }
     var retryKey by rememberSaveable(browseId) { mutableStateOf(0) }
