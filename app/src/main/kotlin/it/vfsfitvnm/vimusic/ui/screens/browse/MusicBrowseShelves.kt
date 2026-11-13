@@ -91,3 +91,8 @@ fun MusicBrowseShelves(
         }
     }
 }
+
+const val BrowseCategoryRoutePrefix = "blinkplay-browse-category:"
+
+fun browseCategoryRoute(browseId: String, params: String?): String =
+    BrowseCategoryRoutePrefix + browseId + "|||BLINK_PARAMS|||" + params.orEmpty()
