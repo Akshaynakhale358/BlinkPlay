@@ -36,6 +36,9 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
         ?.contents
         ?.firstNotNullOfOrNull(SectionListRenderer.Content::musicResponsiveHeaderRenderer)
 
+    // YouTube Music returns playlist songs in three layouts depending on the
+    // playlist type/client: two-column secondary contents, single-column tabs,
+    // or a root sectionListRenderer. Check all of them before declaring empty.
     val sectionListRendererContents = twoColumn
         ?.secondaryContents
         ?.sectionListRenderer
@@ -47,6 +50,10 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
             ?.firstOrNull()
             ?.tabRenderer
             ?.content
+            ?.sectionListRenderer
+            ?.contents
+        ?: response
+            .contents
             ?.sectionListRenderer
             ?.contents
 
