@@ -74,6 +74,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun PlaylistSongList(
     browseId: String,
+    params: String? = null,
 ) {
     val (colorPalette) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
@@ -81,12 +82,12 @@ fun PlaylistSongList(
     val menuState = LocalMenuState.current
 
     // Bump the persisted cache key so empty pages saved by the old parser are fetched again.
-    var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage-v3")
+    var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/${params.orEmpty()}/playlistPage-v4")
     var playlistLoadError by rememberSaveable(browseId) { mutableStateOf(false) }
     var isLoadingPlaylist by rememberSaveable(browseId) { mutableStateOf(false) }
     var retryKey by rememberSaveable(browseId) { mutableStateOf(0) }
 
-    LaunchedEffect(browseId, retryKey) {
+    LaunchedEffect(browseId, params, retryKey) {
         if (playlistPage?.songsPage == null) {
             isLoadingPlaylist = true
             // New playlist loader: use India Music WEB context first, then the
@@ -106,7 +107,7 @@ fun PlaylistSongList(
                 for (requestContext in contexts) {
                     for (candidateId in candidateIds) {
                         val candidate = Innertube.playlistPage(
-                            BrowseBody(context = requestContext, browseId = candidateId)
+                            BrowseBody(context = requestContext, browseId = candidateId, params = params)
                         )?.getOrNull()
                         if (candidate?.songsPage?.items?.isNotEmpty() == true ||
                             candidate?.songsPage?.continuation != null
