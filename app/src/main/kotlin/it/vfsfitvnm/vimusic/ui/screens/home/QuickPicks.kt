@@ -592,7 +592,8 @@ fun QuickPicks(
 
 private suspend fun loadLanguageOrderedRelatedPage(
     seed: Song?
-): Result<Innertube.RelatedPage?> = try {
+): Result<Innertube.RelatedPage?> {
+    return try {
     val baseResult = Innertube.relatedPage(
         NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
     ) ?: return Result.failure(IllegalStateException("Related recommendations are unavailable"))
@@ -636,7 +637,7 @@ private suspend fun loadLanguageOrderedRelatedPage(
     Result.success(base.copy(songs = orderedSongs))
 } catch (cancelled: CancellationException) {
         throw cancelled
-    } catch (error: Exception) {
+        } catch (error: Exception) {
         Result.failure(error)
     }
 }
