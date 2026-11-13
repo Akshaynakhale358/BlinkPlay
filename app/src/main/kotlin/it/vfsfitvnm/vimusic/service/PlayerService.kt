@@ -167,6 +167,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     private var timerJob: TimerJob? = null
 
     private var radio: YouTubeRadio? = null
+    private var radioProcessingJob: Job? = null
     private var likeStatusJob: Job? = null
     private var isCurrentSongLiked = false
 
@@ -443,10 +444,15 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     }
 
     private fun maybeProcessRadio() {
-        radio?.let { radio ->
-            if (player.mediaItemCount - player.currentMediaItemIndex <= 3) {
-                coroutineScope.launch(Dispatchers.Main) {
-                    player.addMediaItems(radio.process())
+        val activeRadio = radio ?: return
+        if (player.mediaItemCount - player.currentMediaItemIndex <= 3 &&
+            radioProcessingJob?.isActive != true
+        ) {
+            radioProcessingJob = coroutineScope.launch(Dispatchers.Main) {
+                val nextItems = activeRadio.process()
+                // A new radio may have replaced this one while the request was in flight.
+                if (radio === activeRadio && nextItems.isNotEmpty()) {
+                    player.addMediaItems(nextItems)
                 }
             }
         }
@@ -1188,6 +1194,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
         private fun startRadio(endpoint: NavigationEndpoint.Endpoint.Watch?, justAdd: Boolean) {
             radioJob?.cancel()
+            radioProcessingJob?.cancel()
             radio = null
             YouTubeRadio(
                 endpoint?.videoId,
@@ -1211,6 +1218,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         fun stopRadio() {
             isLoadingRadio = false
             radioJob?.cancel()
+            radioProcessingJob?.cancel()
             radio = null
         }
     }
