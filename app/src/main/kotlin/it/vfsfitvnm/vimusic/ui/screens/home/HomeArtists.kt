@@ -46,6 +46,7 @@ import it.vfsfitvnm.vimusic.ui.styling.Dimensions
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.semiBold
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -92,7 +93,8 @@ fun HomeArtistList(
             .collect { lastVisible ->
                 if (loading || finished || lastVisible < artists.size - 4) return@collect
                 loading = true
-                withContext(Dispatchers.IO) {
+                try {
+                    withContext(Dispatchers.IO) {
                     var attempts = 0
                     while (attempts < 20 && !finished) {
                         val query = queries.getOrNull(queryIndex)
@@ -133,8 +135,16 @@ fun HomeArtistList(
                         if (newItems.isNotEmpty()) break
                     }
                     if (queryIndex >= queries.size && continuation == null) finished = true
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // A failed request must stop this load attempt instead of leaving the
+                    // category spinner active forever. Pull-to-refresh can retry it.
+                    finished = true
+                } finally {
+                    loading = false
                 }
-                loading = false
             }
     }
 
