@@ -94,8 +94,15 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 Innertube.SearchFilter.Song.value
             }
             val languageQueries = if (isPodcastCategory) {
-                // Podcasts are videos, not language-specific music shelves.
-                listOf("podcast episodes full episodes interviews conversations India")
+                // Keep podcast discovery broad but intentional: each query targets a distinct
+                // listening interest, and Video filter below prevents music-track contamination.
+                listOf(
+                    "Osho full discourse podcast Hindi English",
+                    "spirituality meditation philosophy podcast India",
+                    "motivation self improvement success podcast Hindi",
+                    "Marathi podcast interviews knowledge full episode",
+                    "science history business comedy storytelling podcast India"
+                )
             } else {
                 listOf(
                     "Hindi Bollywood songs",
