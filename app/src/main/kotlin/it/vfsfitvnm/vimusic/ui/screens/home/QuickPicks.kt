@@ -79,8 +79,6 @@ import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import it.vfsfitvnm.vimusic.ui.screens.browse.MusicBrowseShelves
-import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeMusicDiscovery
-import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeSongLists
 import it.vfsfitvnm.vimusic.ui.screens.browse.browseCategoryRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -116,7 +114,6 @@ fun QuickPicks(
         val discovery = withContext(Dispatchers.IO) {
             Innertube.musicDiscovery(forceRefresh = refreshToken > 0)
                 ?.getOrNull()
-                ?.let { personalizeMusicDiscovery(it) }
         }
         serverDiscovery = discovery ?: serverDiscovery
         isRefreshing = false
@@ -125,20 +122,18 @@ fun QuickPicks(
     // Songs For You and New Releases use the same YouTube Music song-search
     // endpoint. Only the category query changes, so both shelves share one parser.
     LaunchedEffect(refreshToken) {
-        val (recommendations, personalizedShelves) = withContext(Dispatchers.IO) {
+        val (recommendations, fetchedShelves) = withContext(Dispatchers.IO) {
             coroutineScope {
                 val forYou = async { fetchPersonalizedSongsForYou() }
                 val shelvesDeferred = async { fetchIndiaDirectSongShelves() }
                 val (forYouSongs, shelves) = forYou.await() to shelvesDeferred.await()
-                forYouSongs to personalizeSongLists(
-                    listOf(shelves.first, shelves.second, shelves.third)
-                )
+                forYouSongs to listOf(shelves.first, shelves.second, shelves.third)
             }
         }
         songsForYou = recommendations.distinctBy(Innertube.SongItem::key)
-        trendingSongs = personalizedShelves[0].distinctBy(Innertube.SongItem::key)
-        topSongs = personalizedShelves[1].distinctBy(Innertube.SongItem::key)
-        newReleases = personalizedShelves[2].distinctBy(Innertube.SongItem::key)
+        trendingSongs = fetchedShelves[0].distinctBy(Innertube.SongItem::key)
+        topSongs = fetchedShelves[1].distinctBy(Innertube.SongItem::key)
+        newReleases = fetchedShelves[2].distinctBy(Innertube.SongItem::key)
         isRefreshing = false
     }
 
