@@ -38,9 +38,9 @@ object Innertube {
         }
 
         val html = client.get("/").body<String>()
-        val key = Regex("""["']?INNERTUBE_API_KEY["']?\\s*:\\s*["']([^"']+)["']""")
+        val key = Regex("""["']?INNERTUBE_API_KEY["']?\s*:\s*["']([^"']+)["']""")
             .find(html)?.groupValues?.getOrNull(1)
-            ?: Regex("""INNERTUBE_API_KEY\\s*[:=]\\s*["']([^"']+)["']""")
+            ?: Regex("""INNERTUBE_API_KEY\s*[:=]\s*["']([^"']+)["']""")
                 .find(html)?.groupValues?.getOrNull(1)
             ?: throw IllegalStateException("YouTube Music API key was not found in web configuration")
 
