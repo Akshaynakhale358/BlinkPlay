@@ -594,50 +594,54 @@ private suspend fun loadLanguageOrderedRelatedPage(
     seed: Song?
 ): Result<Innertube.RelatedPage?> {
     return try {
-    val baseResult = Innertube.relatedPage(
-        NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
-    ) ?: return Result.failure(IllegalStateException("Related recommendations are unavailable"))
+        val baseResult = Innertube.relatedPage(
+            NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
+        ) ?: return Result.failure(
+            IllegalStateException("Related recommendations are unavailable")
+        )
 
-    if (baseResult.isFailure) return baseResult
+        if (baseResult.isFailure) return baseResult
 
-    val base = baseResult.getOrNull()
-        ?: return Result.failure(IllegalStateException("Related recommendations are empty"))
+        val base = baseResult.getOrNull()
+            ?: return Result.failure(
+                IllegalStateException("Related recommendations are empty")
+            )
 
-    // Keep Song for me personalized to the current listening seed, but request each
-    // language group explicitly so English results can never lead the shelf.
-    val seedContext = listOfNotNull(seed?.title, seed?.artistsText)
-        .joinToString(" ")
-        .takeIf { it.isNotBlank() }
-        ?: "popular"
+        // Keep Song for me personalized to the current listening seed, but request each
+        // language group explicitly so English results can never lead the shelf.
+        val seedContext = listOfNotNull(seed?.title, seed?.artistsText)
+            .joinToString(" ")
+            .takeIf { it.isNotBlank() }
+            ?: "popular"
 
-    suspend fun fetchRelatedSongs(languageQuery: String) = Innertube.searchPage(
-        body = SearchBody(
-            context = IndiaMusicContext,
-            query = "$languageQuery similar to $seedContext",
-            params = Innertube.SearchFilter.Song.value
-        ),
-        fromMusicShelfRendererContent = Innertube.SongItem::from
-    )?.getOrNull()?.items.orEmpty()
+        suspend fun fetchRelatedSongs(languageQuery: String) = Innertube.searchPage(
+            body = SearchBody(
+                context = IndiaMusicContext,
+                query = "$languageQuery similar to $seedContext",
+                params = Innertube.SearchFilter.Song.value
+            ),
+            fromMusicShelfRendererContent = Innertube.SongItem::from
+        )?.getOrNull()?.items.orEmpty()
 
-    // Keep the exact language priority requested across recommendation shelves.
-    val hindi = fetchRelatedSongs("Hindi Bollywood songs")
-    val marathi = fetchRelatedSongs("Marathi songs")
-        .filterNot { song -> hindi.any { it.key == song.key } }
-    val otherIndianLanguages = fetchRelatedSongs(
-        "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs"
-    )
-    val indianSongs = (hindi + marathi + otherIndianLanguages).distinctBy { it.key }
-    val english = fetchRelatedSongs("English international songs")
-        .filterNot { song -> indianSongs.any { it.key == song.key } }
+        // Keep the exact language priority requested across recommendation shelves.
+        val hindi = fetchRelatedSongs("Hindi Bollywood songs")
+        val marathi = fetchRelatedSongs("Marathi songs")
+            .filterNot { song -> hindi.any { it.key == song.key } }
+        val otherIndianLanguages = fetchRelatedSongs(
+            "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs"
+        )
+        val indianSongs = (hindi + marathi + otherIndianLanguages).distinctBy { it.key }
+        val english = fetchRelatedSongs("English international songs")
+            .filterNot { song -> indianSongs.any { it.key == song.key } }
 
-    val orderedSongs = indianSongs + english
+        val orderedSongs = indianSongs + english
 
-    // Never fall back to the unfiltered related list: it can put English tracks first.
-    // An empty language search is preferable to violating the requested language order.
-    Result.success(base.copy(songs = orderedSongs))
-} catch (cancelled: CancellationException) {
+        // Never fall back to the unfiltered related list: it can put English tracks first.
+        // An empty language search is preferable to violating the requested language order.
+        Result.success(base.copy(songs = orderedSongs))
+    } catch (cancelled: CancellationException) {
         throw cancelled
-        } catch (error: Exception) {
+    } catch (error: Exception) {
         Result.failure(error)
     }
 }
