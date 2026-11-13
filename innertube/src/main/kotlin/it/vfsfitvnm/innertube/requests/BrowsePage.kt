@@ -6,6 +6,9 @@ import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.BrowseResponse
 import it.vfsfitvnm.innertube.models.Context
+import it.vfsfitvnm.innertube.models.GridRenderer
+import it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer
+import it.vfsfitvnm.innertube.models.MusicShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 import it.vfsfitvnm.innertube.models.SectionListRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
@@ -13,10 +16,17 @@ import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 /**
- * A server-discovered shelf. browseId/params come from YouTube's own "more" endpoint;
- * they are not a locally maintained list of category names.
+ * A shelf discovered from YouTube Music itself. Category names, order and destinations
+ * are deliberately not maintained in BlinkPlay.
  */
 data class MusicBrowseSection(
     val title: String,
@@ -40,66 +50,183 @@ data class MusicDiscovery(
             .distinctBy { listOf(it.title, it.browseId, it.params) }
 }
 
-/** Fetches and parses every section exposed by a YouTube Music browse feed. */
-suspend fun Innertube.browsePage(body: BrowseBody) = runCatchingNonCancellable {
-    val response = client.post(browse) { setBody(body) }.body<BrowseResponse>()
-    val sectionLists = buildList {
-        response.contents?.sectionListRenderer?.let(::add)
-        response.contents?.singleColumnBrowseResultsRenderer?.tabs.orEmpty()
-            .mapNotNull { it.tabRenderer?.content?.sectionListRenderer }
-            .forEach(::add)
-        response.contents?.twoColumnBrowseResultsRenderer?.let { twoColumn ->
-            twoColumn.tabs.orEmpty()
-                .mapNotNull { it.tabRenderer?.content?.sectionListRenderer }
-                .forEach(::add)
-            twoColumn.secondaryContents?.sectionListRenderer?.let(::add)
-        }
-    }.distinctBy { it.contents?.hashCode() }
+private val browseResponseJson = Json {
+    ignoreUnknownKeys = true
+    isLenient = true
+    explicitNulls = false
+}
 
-    val sections = sectionLists
-        .flatMap { it.contents.orEmpty() }
-        .mapNotNull(::toBrowseSection)
-        .distinctBy { listOf(it.title, it.browseId, it.params) }
+private val discoveryMutex = Mutex()
+@Volatile private var cachedMusicDiscovery: MusicDiscovery? = null
+@Volatile private var cachedMusicDiscoveryAt: Long = 0L
+private const val MUSIC_DISCOVERY_CACHE_MILLIS = 5 * 60 * 1000L
+
+private fun JsonElement.descendants(): Sequence<JsonElement> = sequence {
+    yield(this@descendants)
+    when (val node = this@descendants) {
+        is JsonObject -> node.values.forEach { yieldAll(it.descendants()) }
+        is JsonArray -> node.forEach { yieldAll(it.descendants()) }
+        else -> Unit
+    }
+}
+
+/**
+ * Parse server shelves independently. This is intentionally more tolerant than decoding the
+ * complete response into one Kotlin model: YouTube frequently adds unrelated renderer fields.
+ */
+private fun parseBrowseSections(root: JsonElement): List<MusicBrowseSection> {
+    val sectionLists = root.descendants().mapNotNull { node ->
+        val obj = node as? JsonObject ?: return@mapNotNull null
+        obj["sectionListRenderer"] as? JsonObject
+    }.toList()
+
+    val contents = sectionLists.flatMap { list ->
+        (list["contents"] as? JsonArray).orEmpty()
+    }
+
+    return contents.mapNotNull { element ->
+        val content = element as? JsonObject ?: return@mapNotNull null
+
+        val carouselElement = content["musicCarouselShelfRenderer"]
+            ?: content["musicImmersiveCarouselShelfRenderer"]
+        if (carouselElement != null) {
+            val carousel = runCatching {
+                browseResponseJson.decodeFromJsonElement<MusicCarouselShelfRenderer>(carouselElement)
+            }.getOrNull()
+            if (carousel != null) {
+                val header = carousel.header?.musicCarouselShelfBasicHeaderRenderer
+                val title = header?.title?.text
+                    ?: carousel.header?.musicTwoRowItemRenderer?.title?.text
+                    ?: return@mapNotNull null
+                val endpoint = header?.moreContentButton?.buttonRenderer
+                    ?.navigationEndpoint?.browseEndpoint
+                val items = carousel.contents.orEmpty().mapNotNull { item ->
+                    item.musicResponsiveListItemRenderer?.let(Innertube.SongItem::from)
+                        ?: item.musicTwoRowItemRenderer?.let(::toMusicItem)
+                }.distinctBy(Innertube.Item::key)
+                return@mapNotNull MusicBrowseSection(
+                    title = title,
+                    browseId = endpoint?.browseId,
+                    params = endpoint?.params,
+                    items = items,
+                    continuation = null,
+                )
+            }
+        }
+
+        val shelfElement = content["musicShelfRenderer"] ?: content["musicPlaylistShelfRenderer"]
+        if (shelfElement != null) {
+            val shelf = runCatching {
+                browseResponseJson.decodeFromJsonElement<MusicShelfRenderer>(shelfElement)
+            }.getOrNull()
+            if (shelf != null) {
+                val title = shelf.title?.text ?: return@mapNotNull null
+                val endpoint = shelf.bottomEndpoint?.browseEndpoint
+                val items = shelf.contents.orEmpty().mapNotNull { item ->
+                    item.musicResponsiveListItemRenderer?.let(Innertube.SongItem::from)
+                }.distinctBy(Innertube.Item::key)
+                return@mapNotNull MusicBrowseSection(
+                    title = title,
+                    browseId = endpoint?.browseId,
+                    params = endpoint?.params,
+                    items = items,
+                    continuation = shelf.continuations?.firstOrNull()?.nextContinuationData?.continuation,
+                )
+            }
+        }
+
+        val gridElement = content["gridRenderer"]
+        if (gridElement != null) {
+            val grid = runCatching {
+                browseResponseJson.decodeFromJsonElement<GridRenderer>(gridElement)
+            }.getOrNull()
+            val title = content["header"]?.let { header ->
+                runCatching {
+                    browseResponseJson.decodeFromJsonElement<MusicCarouselShelfRenderer.Header>(header)
+                }.getOrNull()?.musicCarouselShelfBasicHeaderRenderer?.title?.text
+            } ?: return@mapNotNull null
+            val items = grid?.items.orEmpty()
+                .mapNotNull { it.musicTwoRowItemRenderer?.let(::toMusicItem) }
+                .distinctBy(Innertube.Item::key)
+            return@mapNotNull MusicBrowseSection(
+                title = title,
+                browseId = null,
+                params = null,
+                items = items,
+                continuation = null,
+            )
+        }
+
+        null
+    }.distinctBy { listOf(it.title, it.browseId, it.params) }
+}
+
+/** Fetch and parse one server-defined browse feed. */
+suspend fun Innertube.browsePage(body: BrowseBody) = runCatchingNonCancellable {
+    val raw = client.post(browse) { setBody(body) }.body<String>()
+    val root = browseResponseJson.parseToJsonElement(raw)
+    val response = runCatching {
+        browseResponseJson.decodeFromJsonElement<BrowseResponse>(root)
+    }.getOrNull()
 
     MusicBrowsePage(
-        title = response.header?.musicDetailHeaderRenderer?.title?.text
-            ?: response.header?.musicImmersiveHeaderRenderer?.title?.text,
-        sections = sections,
+        title = response?.header?.musicDetailHeaderRenderer?.title?.text
+            ?: response?.header?.musicImmersiveHeaderRenderer?.title?.text,
+        sections = parseBrowseSections(root),
     )
 }
 
-/** Home feed. YouTube decides which shelves/categories are currently relevant. */
+/** India WEB context; this is data localization, not a hard-coded category list. */
 private val IndiaMusicBrowseContext = Context.DefaultWeb.copy(
     client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
 )
 
-/** Home feed. YouTube decides which shelves/categories are currently relevant. */
 suspend fun Innertube.musicHomePage(context: Context = IndiaMusicBrowseContext) =
     browsePage(BrowseBody(context = context, browseId = MUSIC_HOME_BROWSE_ID))
 
-/** Explore feed. The returned categories and their order are server-controlled. */
 suspend fun Innertube.musicExplorePage(context: Context = IndiaMusicBrowseContext) =
     browsePage(BrowseBody(context = context, browseId = MUSIC_EXPLORE_BROWSE_ID))
 
 /**
- * Fetch both feeds independently. A temporary failure in one feed must not discard
- * usable data from the other; fail only when both sources are unavailable.
+ * Stable feed adapter with a short cache, serialized refreshes, retry and stale-cache fallback.
+ * If one upstream feed fails, the other is still usable; if both fail, the last good feed remains
+ * available to the UI instead of leaving the page empty.
  */
-suspend fun Innertube.musicDiscovery(context: Context = IndiaMusicBrowseContext) =
-    runCatchingNonCancellable {
-        coroutineScope {
-            val homeRequest = async { musicHomePage(context) }
-            val exploreRequest = async { musicExplorePage(context) }
-            val homePage = homeRequest.await()?.getOrNull()
-            val explorePage = exploreRequest.await()?.getOrNull()
-            check(homePage != null || explorePage != null) {
-                "YouTube Music Home and Explore feeds are both unavailable"
-            }
-            MusicDiscovery(home = homePage, explore = explorePage)
-        }
-    }
+suspend fun Innertube.musicDiscovery(
+    forceRefresh: Boolean = false,
+    context: Context = IndiaMusicBrowseContext,
+) = runCatchingNonCancellable {
+    discoveryMutex.withLock {
+        val cached = cachedMusicDiscovery
+        val cacheIsFresh = cached != null &&
+            System.currentTimeMillis() - cachedMusicDiscoveryAt < MUSIC_DISCOVERY_CACHE_MILLIS
+        if (!forceRefresh && cacheIsFresh) return@withLock cached!!
 
-/** Open a shelf's own server-provided destination; no category slug is hard-coded. */
+        var lastError: Throwable? = null
+        repeat(2) { attempt ->
+            val (homeResult, exploreResult) = coroutineScope {
+                val home = async { musicHomePage(context) }
+                val explore = async { musicExplorePage(context) }
+                home.await() to explore.await()
+            }
+            val home = homeResult?.getOrNull()
+            val explore = exploreResult?.getOrNull()
+            if (home != null || explore != null) {
+                val fresh = MusicDiscovery(home = home, explore = explore)
+                cachedMusicDiscovery = fresh
+                cachedMusicDiscoveryAt = System.currentTimeMillis()
+                return@withLock fresh
+            }
+            lastError = homeResult?.exceptionOrNull() ?: exploreResult?.exceptionOrNull()
+            if (attempt == 0) delay(350L)
+        }
+
+        cachedMusicDiscovery?.let { return@withLock it }
+        throw lastError ?: IllegalStateException("YouTube Music feeds are unavailable")
+    }
+}
+
+/** Open a shelf destination exactly as supplied by YouTube Music. */
 suspend fun Innertube.browseSection(
     section: MusicBrowseSection,
     context: Context = IndiaMusicBrowseContext,
@@ -109,42 +236,6 @@ suspend fun Innertube.browseSection(
         BrowseBody(context = context, browseId = browseId, params = section.params)
     )?.map { it } ?: Result.success(null)
 }
-
-private fun toBrowseSection(content: SectionListRenderer.Content): MusicBrowseSection? {
-    val carousel = content.musicCarouselShelfRenderer
-    val shelf = content.musicShelfRenderer
-    val grid = content.gridRenderer
-
-    val title = carousel?.header?.musicCarouselShelfBasicHeaderRenderer?.title?.text
-        ?: carousel?.header?.musicTwoRowItemRenderer?.title?.text
-        ?: shelf?.title?.text
-        ?: return null
-
-    val moreEndpoint = carousel?.header
-        ?.musicCarouselShelfBasicHeaderRenderer
-        ?.moreContentButton
-        ?.buttonRenderer
-        ?.navigationEndpoint
-        ?.browseEndpoint
-
-    val carouselItems = carousel?.contents.orEmpty().mapNotNull { item ->
-        item.musicResponsiveListItemRenderer?.let(Innertube.SongItem::from)
-            ?: item.musicTwoRowItemRenderer?.let(::toMusicItem)
-    }
-    val shelfItems = shelf?.contents.orEmpty()
-        .mapNotNull { item -> item.musicResponsiveListItemRenderer?.let(Innertube.SongItem::from) }
-    val gridItems = grid?.items.orEmpty()
-        .mapNotNull { it.musicTwoRowItemRenderer?.let(::toMusicItem) }
-
-    return MusicBrowseSection(
-        title = title,
-        browseId = moreEndpoint?.browseId,
-        params = moreEndpoint?.params,
-        items = (carouselItems + shelfItems + gridItems).distinctBy(Innertube.Item::key),
-        continuation = shelf?.continuations?.firstOrNull()?.nextContinuationData?.continuation,
-    )
-}
-
 
 private fun toMusicItem(renderer: MusicTwoRowItemRenderer): Innertube.Item? =
     Innertube.PlaylistItem.from(renderer)
