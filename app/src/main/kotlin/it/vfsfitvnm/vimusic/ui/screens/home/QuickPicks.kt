@@ -817,7 +817,7 @@ private fun filterDiscoverySongs(
     }
 
     fun containsScript(value: String, first: Int, last: Int): Boolean =
-        value.codePoints().anyMatch { it in first..last }
+        value.any { it.code in first..last }
 
     return candidates.distinctBy(Innertube.SongItem::key).filter { song ->
         val metadata = (song.title + " " + song.artistsText.orEmpty()).lowercase()
