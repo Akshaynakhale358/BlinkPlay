@@ -87,6 +87,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -96,6 +98,41 @@ private const val SeedPoolSize = 20
 
 /** Used when nothing has been played yet, so the page is not empty on a fresh install. */
 private const val DefaultSeedVideoId = "J7p4bzqLvCw"
+// Quick Picks launches several shelves and daily mixes. Limit concurrent discovery
+// calls so the search endpoint is not flooded and silently left with empty shelves.
+private val PlaylistSearchSemaphore = Semaphore(3)
+
+private suspend fun searchPlaylistItems(searchQuery: String): List<Innertube.PlaylistItem> =
+    PlaylistSearchSemaphore.withPermit {
+        val filters = listOf(
+            Innertube.SearchFilter.FeaturedPlaylist.value,
+            Innertube.SearchFilter.CommunityPlaylist.value,
+            ""
+        )
+        for (filter in filters) {
+            val items = Innertube.searchPage(
+                body = SearchBody(context = IndiaMusicContext, query = searchQuery, params = filter),
+                fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
+                fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
+            )?.getOrNull()?.items.orEmpty().distinctBy(Innertube.PlaylistItem::key)
+            if (items.isNotEmpty()) return@withPermit items
+        }
+        emptyList()
+    }
+
+private suspend fun searchPlaylistCategories(
+    queries: List<String>,
+    limit: Int = 20
+): List<Innertube.PlaylistItem> = coroutineScope {
+    queries.distinct()
+        .map { query -> async { searchPlaylistItems(query) } }
+        .awaitAll()
+        .flatten()
+        .distinctBy(Innertube.PlaylistItem::key)
+        .take(limit)
+
+}
+
 
 // Each date selects a different 10-theme pack. Adjacent days never repeat a theme;
 // the 3-pack cycle keeps the daily list deterministic for everyone on that date.
@@ -790,46 +827,16 @@ private fun MixForYouShelf(
     }
     LaunchedEffect(seedArtists, refreshKey) {
         playlists = withContext(Dispatchers.IO) {
-            val seed = seedArtists.takeIf { it.isNotBlank() } ?: "popular Indian music"
-            val languageQueries = listOf(
-                "$seed Hindi Bollywood songs playlist mix",
-                "$seed Marathi songs playlist mix",
-                "$seed Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional playlist mix",
-                "$seed English international songs playlist mix"
-            )
-
-            suspend fun fetch(query: String, filter: String) = Innertube.searchPage(
-                body = SearchBody(
-                    context = IndiaMusicContext,
-                    query = query,
-                    params = filter
-                ),
-                fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
-                fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
-            )?.getOrNull()?.items.orEmpty()
-
-            // Try the same category with featured playlists first, then community
-            // playlists. A failed language query must not block the other shelves.
-            val languageOrdered = coroutineScope {
-                languageQueries.map { query ->
-                    async {
-                        fetch(query, Innertube.SearchFilter.FeaturedPlaylist.value)
-                            .ifEmpty {
-                                fetch(query, Innertube.SearchFilter.CommunityPlaylist.value)
-                            }
-                    }
-                }.awaitAll().flatten()
+            val artists = seedArtists.split(',', '•', '|').map(String::trim)
+                .filter(String::isNotBlank).take(3)
+            val queries = buildList {
+                artists.forEach { artist -> add(artist + " playlist mix") }
+                add("Hindi Bollywood hit songs mix playlist")
+                add("Marathi popular songs mix playlist")
+                add("Punjabi Tamil Telugu Indian regional songs mix playlist")
+                add("English international hit songs mix playlist")
             }
-            val uniqueLanguageOrdered = languageOrdered.distinctBy { it.key }
-
-            if (uniqueLanguageOrdered.isNotEmpty()) {
-                uniqueLanguageOrdered
-            } else {
-                fetch(
-                    "$seed Indian Hindi Marathi regional music mix playlist",
-                    Innertube.SearchFilter.CommunityPlaylist.value
-                )
-            }
+            searchPlaylistCategories(queries, limit = 24)
         }
     }
 
@@ -877,22 +884,10 @@ private fun OnlinePlaylistShelf(
 
     LaunchedEffect(query, filter, refreshKey) {
         playlists = withContext(Dispatchers.IO) {
-            suspend fun fetch(searchQuery: String, searchFilter: String) =
-                Innertube.searchPage(
-                    body = SearchBody(
-                        context = IndiaMusicContext,
-                        query = searchQuery,
-                        params = searchFilter
-                    ),
-                    fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
-                    fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
-                )?.getOrNull()?.items.orEmpty()
-
-            fetch(query, filter).ifEmpty {
-                fetch(query, Innertube.SearchFilter.FeaturedPlaylist.value)
-            }.ifEmpty {
-                fetch("$query official music mix", Innertube.SearchFilter.CommunityPlaylist.value)
-            }.distinctBy { it.key }
+            searchPlaylistCategories(
+                listOf(query, query + " playlist", query + " official music mix"),
+                limit = 24
+            )
         }
     }
 
@@ -937,24 +932,10 @@ private fun DailyMixPlaylistCard(
     var loaded by remember(mix.query, dayKey, refreshKey) { mutableStateOf(false) }
     LaunchedEffect(mix.query, dayKey, refreshKey) {
         playlist = withContext(Dispatchers.IO) {
-            suspend fun fetch(query: String, filter: String) = Innertube.searchPage(
-                body = SearchBody(
-                    context = IndiaMusicContext,
-                    query = query,
-                    params = filter
-                ),
-                fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
-                    fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
-            )?.getOrNull()?.items.orEmpty()
-
-            // Featured playlists are preferred, but category searches often return better
-            // matches from community playlists. Try that filter before marking a mix unavailable.
-            val results = fetch(mix.query, Innertube.SearchFilter.FeaturedPlaylist.value)
-                .ifEmpty {
-                    fetch(mix.query, Innertube.SearchFilter.CommunityPlaylist.value)
-                }.ifEmpty {
-                    fetch("${mix.query} official music", Innertube.SearchFilter.CommunityPlaylist.value)
-                }
+            val results = searchPlaylistCategories(
+                listOf(mix.query, mix.query + " official music", mix.query + " songs mix playlist"),
+                limit = 12
+            )
             if (results.isEmpty()) null else {
                 val index = Math.floorMod(dayKey, results.size.toLong()).toInt()
                 results[index]
