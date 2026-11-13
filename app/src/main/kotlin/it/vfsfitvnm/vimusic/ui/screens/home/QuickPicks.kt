@@ -88,6 +88,21 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
+import io.ktor.client.call.body
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
 private const val SeedPoolSize = 20
@@ -136,7 +151,7 @@ fun QuickPicks(
     // Read the real India Explore shelves supplied by YouTube Music.
     // This avoids presenting ordinary search results as official charts.
     LaunchedEffect(refreshToken) {
-        val shelves = withContext(Dispatchers.IO) { fetchIndiaExploreSongShelves() }
+        val shelves = withContext(Dispatchers.IO) { fetchIndiaDirectSongShelves() }
         trendingSongs = shelves.first
         topSongs = shelves.second
         newReleases = shelves.third
@@ -557,76 +572,139 @@ private val IndiaExploreContext = Context.DefaultWeb.copy(
     client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
 )
 
+private val chartJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
+/** Walk a response without binding to volatile wrapper renderer names. */
+private fun JsonElement.walkJson(): Sequence<JsonElement> = sequence {
+    yield(this@walkJson)
+    when (val value = this@walkJson) {
+        is JsonObject -> value.values.forEach { yieldAll(it.walkJson()) }
+        is JsonArray -> value.forEach { yieldAll(it.walkJson()) }
+        else -> Unit
+    }
+}
+
+private fun JsonElement.stringAt(vararg keys: String): String? {
+    val objects = walkJson().mapNotNull { it as? JsonObject }
+    for (key in keys) {
+        objects.forEach { obj ->
+            obj[key]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)?.let { return it }
+        }
+    }
+    return null
+}
+
+private fun JsonElement.arrayFor(key: String): List<JsonElement> =
+    walkJson().mapNotNull { it as? JsonObject }
+        .firstNotNullOfOrNull { it[key] as? JsonArray }
+        ?.toList().orEmpty()
+
+private fun chartThumbnail(element: JsonElement): Innertube.Thumbnail? {
+    val url = element.stringAt("url", "thumbnailUrl") ?: return null
+    if (!url.startsWith("https://")) return null
+    return Innertube.Thumbnail(url = url, height = null, width = null)
+}
+
+private fun chartSong(element: JsonElement): Innertube.SongItem? {
+    val videoId = element.stringAt("encryptedVideoId", "videoId", "id")
+        ?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) } ?: return null
+    val title = element.stringAt("name", "title")?.takeIf(String::isNotBlank) ?: return null
+
+    val artistNames = element.walkJson().mapNotNull { node ->
+        val obj = node as? JsonObject ?: return@mapNotNull null
+        val artist = obj["artists"] as? JsonArray ?: return@mapNotNull null
+        artist.mapNotNull { entry ->
+            val artistObj = entry as? JsonObject
+            artistObj?.get("name")?.jsonPrimitive?.contentOrNull
+                ?: entry.jsonPrimitive.contentOrNull
+        }
+    }.firstOrNull().orEmpty().distinct()
+
+    val thumbnail = chartThumbnail(element)
+    return Innertube.SongItem(
+        info = Innertube.Info(
+            name = title,
+            endpoint = NavigationEndpoint.Endpoint.Watch(videoId = videoId)
+        ),
+        authors = artistNames.map { Innertube.Info<NavigationEndpoint.Endpoint.Browse>(it, null) },
+        album = null,
+        durationText = null,
+        thumbnail = thumbnail
+    )
+}
+
 /**
- * Uses YouTube Music's own Explore feed:
- * - VLOLA playlist shelves are its trending music feed.
- * - The Top Songs shelf is used only when YouTube actually returns it.
- * - New-release albums are opened and their real track lists are collected.
+ * YouTube Charts is the source of truth for chart shelves. This endpoint is undocumented,
+ * so parsing is defensive and an empty/changed response is never replaced with search results.
  */
-private suspend fun fetchIndiaExploreSongShelves(): Triple<
+private suspend fun fetchIndiaChart(chartQuery: String, arrayKey: String): List<Innertube.SongItem> =
+    runCatching {
+        val body = buildJsonObject {
+            put("context", buildJsonObject {
+                put("client", buildJsonObject {
+                    put("clientName", "WEB_MUSIC_ANALYTICS")
+                    put("clientVersion", "2.0")
+                    put("hl", "en")
+                    put("gl", "IN")
+                    put("theme", "MUSIC")
+                })
+            })
+            put("browseId", "FEmusic_analytics_charts_home")
+            put("query", chartQuery)
+        }
+        val raw = Innertube.client.post("https://charts.youtube.com/youtubei/v1/browse?alt=json") {
+            contentType(ContentType.Application.Json)
+            headers.remove("X-YouTube-Client-Name")
+            headers.remove("X-YouTube-Client-Version")
+            headers.append("X-YouTube-Client-Name", "67")
+            headers.append("X-YouTube-Client-Version", "2.0")
+            setBody(body)
+        }.body<String>()
+        val root = chartJson.parseToJsonElement(raw)
+        root.arrayFor(arrayKey).mapNotNull(::chartSong).distinctBy(Innertube.SongItem::key)
+    }.getOrDefault(emptyList())
+
+private suspend fun fetchIndiaDirectSongShelves(): Triple<
     List<Innertube.SongItem>,
     List<Innertube.SongItem>,
     List<Innertube.SongItem>
 > = coroutineScope {
-    // Explore shelves often contain playlist/album cards, not SongItem rows.
-    // Open those YouTube-provided endpoints to obtain their actual track lists.
-    val explore = Innertube.musicExplorePage(IndiaExploreContext)?.getOrNull()
-    val sections = explore?.sections.orEmpty()
+    val endDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
+        .minusDays(1)
+        .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
 
-    suspend fun songsFromItems(items: List<Innertube.Item>): List<Innertube.SongItem> =
-        coroutineScope {
-            val directSongs = items.filterIsInstance<Innertube.SongItem>()
-            val pageSongs = items.mapNotNull { item ->
-                when (item) {
-                    is Innertube.PlaylistItem -> async {
-                        val endpoint = item.info?.endpoint
-                        val id = endpoint?.browseId
-                        if (id.isNullOrBlank()) emptyList()
-                        else Innertube.playlistPage(
-                            BrowseBody(
-                                context = IndiaExploreContext,
-                                browseId = id,
-                                params = endpoint.params
-                            )
-                        )?.getOrNull()?.songsPage?.items.orEmpty()
-                    }
-                    is Innertube.AlbumItem -> async {
-                        val endpoint = item.info?.endpoint
-                        val id = endpoint?.browseId
-                        if (id.isNullOrBlank()) emptyList()
-                        else Innertube.albumPage(
-                            BrowseBody(
-                                context = IndiaExploreContext,
-                                browseId = id,
-                                params = endpoint.params
-                            )
-                        )?.getOrNull()?.songsPage?.items.orEmpty()
-                    }
-                    else -> null
-                }
-            }.awaitAll().flatten()
-            (directSongs + pageSongs).distinctBy(Innertube.SongItem::key)
+    val trendingQuery =
+        "flags=MusicCharts__enable_apac_and_shorts_charts_expansion&perspective=CHART_DETAILS&chart_params_country_code=in&chart_params_chart_type=TRENDING_VIDEOS"
+    val topQuery =
+        "perspective=CHART_DETAILS&chart_params_country_code=in&chart_params_chart_type=TRACKS&chart_params_period_type=WEEKLY&chart_params_end_date=$endDate"
+
+    val trendingDeferred = async { fetchIndiaChart(trendingQuery, "videos") }
+    val topDeferred = async { fetchIndiaChart(topQuery, "trackViews") }
+
+    // New releases are fetched from YouTube Music's own dedicated browse root, not Explore text matching.
+    val releasesDeferred = async {
+        val page = Innertube.browsePage(
+            BrowseBody(context = IndiaExploreContext, browseId = "FEmusic_new_releases_albums")
+        )?.getOrNull()
+        val albums = page?.sections.orEmpty()
+            .flatMap { it.items }
+            .filterIsInstance<Innertube.AlbumItem>()
+            .distinctBy(Innertube.AlbumItem::key)
+            .take(12)
+
+        val songs = mutableListOf<Innertube.SongItem>()
+        for (album in albums) {
+            val endpoint = album.info?.endpoint ?: continue
+            val id = endpoint.browseId ?: continue
+            val albumPage = Innertube.albumPage(
+                BrowseBody(context = IndiaExploreContext, browseId = id, params = endpoint.params)
+            )?.getOrNull()
+            songs += albumPage?.songsPage?.items.orEmpty()
         }
-
-    val trendingSection = sections.firstOrNull {
-        it.title.contains("trending", ignoreCase = true) ||
-            it.browseId?.startsWith("VLOLA") == true
-    }
-    val topSection = sections.firstOrNull {
-        it.title.contains("top songs", ignoreCase = true) ||
-            it.title.contains("top charts", ignoreCase = true)
-    }
-    val releaseSection = sections.firstOrNull {
-        it.title.contains("new release", ignoreCase = true)
+        songs.distinctBy(Innertube.SongItem::key)
     }
 
-    val trending = trendingSection?.let { songsFromItems(it.items) }.orEmpty()
-    val topSongs = topSection?.let { songsFromItems(it.items) }.orEmpty()
-    val newReleases = releaseSection?.let { section ->
-        songsFromItems(section.items.filterIsInstance<Innertube.AlbumItem>())
-    }.orEmpty()
-
-    Triple(trending, topSongs, newReleases)
+    Triple(trendingDeferred.await(), topDeferred.await(), releasesDeferred.await())
 }
 
 private suspend fun loadLanguageOrderedRelatedPage(
