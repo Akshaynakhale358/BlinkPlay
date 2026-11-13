@@ -46,7 +46,7 @@ object Innertube {
             ?: throw IllegalStateException("YouTube Music API key was not found in web configuration")
 
         cachedApiKey = key
-        cachedWebClientVersion = Regex("""["']?INNERTUBE_CLIENT_VERSION["']?\\s*:\\s*["']([^"']+)["']""")
+        cachedWebClientVersion = Regex("""["']?INNERTUBE_CLIENT_VERSION["']?\s*:\s*["']([^"']+)["']""")
             .find(html)?.groupValues?.getOrNull(1)
             ?: cachedWebClientVersion
         cachedApiKeyAt = System.currentTimeMillis()
