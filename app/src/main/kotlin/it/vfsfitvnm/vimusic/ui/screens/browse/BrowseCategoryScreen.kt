@@ -76,46 +76,8 @@ fun BrowseCategoryScreen(
             )
         }
         var loadedPage = result?.getOrNull()
-        val loadedSongCount = loadedPage?.sections.orEmpty()
-            .sumOf { section -> section.items.count { it is Innertube.SongItem } }
-
-        // A category response with only a handful of tracks is often a partial YouTube
-        // response. Automatically try a category-title search and merge its song results.
-        if (loadedSongCount < 10) {
-            val categoryName = loadedPage?.title
-                ?.takeIf { it.isNotBlank() }
-                ?: browseId.removePrefix("FEmusic_").replace('_', ' ')
-            val searchQueries = listOf(
-                "$categoryName songs",
-                "$categoryName Hindi Marathi Punjabi Tamil Telugu songs"
-            )
-            val fallbackSongs = searchQueries.flatMap { query ->
-                Innertube.searchPage(
-                    body = SearchBody(context = context, query = query, params = Innertube.SearchFilter.Song.value),
-                    fromMusicShelfRendererContent = Innertube.SongItem::from
-                )?.getOrNull()?.items.orEmpty()
-            }.distinctBy(Innertube.SongItem::key)
-
-            if (fallbackSongs.isNotEmpty()) {
-                val existingSections = loadedPage?.sections.orEmpty()
-                val existingIds = existingSections.flatMap { section ->
-                    section.items.filterIsInstance<Innertube.SongItem>().map(Innertube.SongItem::key)
-                }.toSet()
-                val additionalSongs = fallbackSongs.filterNot { it.key in existingIds }
-                if (additionalSongs.isNotEmpty()) {
-                    loadedPage = MusicBrowsePage(
-                        title = loadedPage?.title ?: categoryName,
-                        sections = existingSections + MusicBrowseSection(
-                            title = "More $categoryName songs",
-                            browseId = null,
-                            params = null,
-                            items = additionalSongs,
-                            continuation = null
-                        )
-                    )
-                }
-            }
-        }
+        // Category pages stay bound to their own browseId/params response.
+        // Do not append generic search results that can belong to a different category.
 
         loadedPage = loadedPage?.let { musicPage ->
             val orderedSections = musicPage.sections.map { section ->
