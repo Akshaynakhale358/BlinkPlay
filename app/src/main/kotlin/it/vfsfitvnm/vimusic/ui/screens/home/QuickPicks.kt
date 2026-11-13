@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -22,12 +21,10 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -93,8 +90,7 @@ private const val SeedPoolSize = 20
 
 /** Used when nothing has been played yet, so the page is not empty on a fresh install. */
 private const val DefaultSeedVideoId = "J7p4bzqLvCw"
-// Quick Picks launches several shelves and daily mixes. Limit concurrent discovery
-// calls so the search endpoint is not flooded and silently left with empty shelves.
+// India-localized context is used only for the personalized Songs for You shelf.
 private val IndiaMusicContext = Context.DefaultWeb.copy(
     client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
 )
