@@ -409,9 +409,11 @@ private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem
  * YouTube Music's related feed matches language, artist, genre and musical style.
  */
 private suspend fun fetchPersonalizedSongsForYou(): List<Innertube.SongItem> = coroutineScope {
-    val history = Database.trending(30).first()
+    val weightedHistory = Database.trending(30).first()
+    val playTimeHistory = Database.songsByPlayTimeDesc().first()
+    val history = (weightedHistory + playTimeHistory).distinctBy { it.id }
     val favorites = Database.favorites().first()
-    val seeds = (history.take(4) + favorites.take(2)).distinctBy { it.id }.take(4)
+    val seeds = (history.take(3) + favorites.take(2)).distinctBy { it.id }.take(4)
     val listenedIds = (history + favorites).map { it.id }.toSet()
 
     // Cold start: until listening history exists, start with an India-wide discovery feed.
