@@ -122,10 +122,22 @@ fun QuickPicks(
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoveryCategory?>(null) }
+    var discoveryDailyToken by remember { mutableStateOf(0) }
 
-    // These three recommendation cards refresh with Quick Picks and use BlinkPlay's
-    // existing Song Search + Related Songs roots.
-    LaunchedEffect(refreshToken) {
+    // Refresh only the three discovery bundles at Indian midnight so their songs
+    // rotate daily without changing the other Quick Picks shelves.
+    LaunchedEffect(Unit) {
+        while (true) {
+            val dayMillis = 86_400_000L
+            val indiaOffsetMillis = 19_800_000L
+            val indiaNow = System.currentTimeMillis() + indiaOffsetMillis
+            delay(dayMillis - (indiaNow % dayMillis))
+            discoveryDailyToken += 1
+        }
+    }
+
+    // Use the existing Song Search + Related Songs roots; keep every valid result.
+    LaunchedEffect(refreshToken, discoveryDailyToken) {
         discoverySongs = withContext(Dispatchers.IO) { fetchQuickPickDiscoveryCategories() }
         isRefreshing = false
     }
@@ -346,7 +358,7 @@ fun QuickPicks(
                 lazyRowItems(items = discoveryCategories(), key = DiscoveryCategory::title) { category ->
                     QuickPicksDiscoveryShelf(
                         category = category,
-                        songs = discoverySongs[category.title].orEmpty().take(5),
+                        songs = discoverySongs[category.title].orEmpty(),
                         onSongClick = { song ->
                             val mediaItem = song.asMediaItem
                             binder?.stopRadio()
@@ -356,7 +368,6 @@ fun QuickPicks(
                         onPlayBundle = {
                             val bundleMediaItems = discoverySongs[category.title]
                                 .orEmpty()
-                                .take(5)
                                 .map(Innertube.SongItem::asMediaItem)
                             if (bundleMediaItems.isNotEmpty()) {
                                 binder?.stopRadio()
@@ -559,7 +570,7 @@ private fun QuickPicksDiscoveryShelf(
         if (songs.isEmpty()) {
             ShimmerHost { repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
         } else {
-            songs.take(5).forEach { song ->
+            songs.forEach { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = 64.dp.px,
@@ -572,9 +583,7 @@ private fun QuickPicksDiscoveryShelf(
                         )
                 )
             }
-            if (songs.size < 5) {
-                ShimmerHost { repeat(5 - songs.size) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
-            }
+
         }
     }
 }
@@ -628,7 +637,7 @@ private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innert
                     )
                 )
             }
-            category.title to personalizeAndDiversify(songs).take(5)
+            category.title to rotateDiscoverySongsDaily(personalizeAndDiversify(songs))
         }
     }.awaitAll().toMap()
 }
@@ -666,7 +675,7 @@ private suspend fun personalizeAndDiversify(
     val selected = mutableListOf<Innertube.SongItem>()
     val remaining = ranked.toMutableList()
     val artists = mutableSetOf<String>()
-    while (selected.size < 5 && remaining.isNotEmpty()) {
+    while (remaining.isNotEmpty()) {
         val index = remaining.indexOfFirst { song ->
             val artist = song.authors?.firstOrNull()?.name?.trim()?.lowercase().orEmpty()
             artist.isBlank() || artist !in artists
@@ -677,6 +686,15 @@ private suspend fun personalizeAndDiversify(
             ?.takeIf { it.isNotBlank() }?.let(artists::add)
     }
     return selected
+}
+
+private fun rotateDiscoverySongsDaily(
+    songs: List<Innertube.SongItem>
+): List<Innertube.SongItem> {
+    if (songs.size < 2) return songs
+    val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
+    val offset = (indiaDay % songs.size).toInt()
+    return songs.drop(offset) + songs.take(offset)
 }
 
 private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem> =
