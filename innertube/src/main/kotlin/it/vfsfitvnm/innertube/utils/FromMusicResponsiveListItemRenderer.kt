@@ -44,6 +44,6 @@ fun Innertube.SongItem.Companion.from(renderer: MusicResponsiveListItemRenderer)
             ?.musicThumbnailRenderer
             ?.thumbnail
             ?.thumbnails
-            ?.firstOrNull()
+            ?.maxByOrNull { (it.width ?: 0) * (it.height ?: 0) }
     ).takeIf { it.info?.endpoint?.videoId != null }
 }
