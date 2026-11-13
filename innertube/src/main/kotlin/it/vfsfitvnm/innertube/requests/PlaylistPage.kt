@@ -19,19 +19,10 @@ import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
 suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable {
     val response = client.post(browse) {
         setBody(body)
-        mask(
-            "contents(twoColumnBrowseResultsRenderer(" +
-                "tabs.tabRenderer.content.sectionListRenderer.contents.musicResponsiveHeaderRenderer" +
-                "(title,subtitle,secondSubtitle,straplineTextOne,thumbnail)," +
-                "secondaryContents.sectionListRenderer.contents(" +
-                "musicPlaylistShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask)," +
-                "musicShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask)," +
-                "musicCarouselShelfRenderer.contents.$musicTwoRowItemRendererMask))," +
-                "singleColumnBrowseResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents(" +
-                "musicPlaylistShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask)," +
-                "musicCarouselShelfRenderer.contents.$musicTwoRowItemRendererMask))," +
-                "header.musicDetailHeaderRenderer(title,subtitle,thumbnail),microformat"
-        )
+        // Playlist browse responses have changed their nested shelf shape over time.
+        // Request the full payload, just as the working Songs For You search does,
+        // so the playlist and its continuation tokens are not cut off by a stale mask.
+        mask("*")
     }.body<BrowseResponse>()
 
     val twoColumn = response.contents?.twoColumnBrowseResultsRenderer
@@ -45,8 +36,6 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
         ?.contents
         ?.firstNotNullOfOrNull(SectionListRenderer.Content::musicResponsiveHeaderRenderer)
 
-    // Two-column is what YouTube serves today; the single-column path is kept as a fallback so an
-    // older or regional response shape still renders instead of showing an empty page.
     val sectionListRendererContents = twoColumn
         ?.secondaryContents
         ?.sectionListRenderer
@@ -76,8 +65,6 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
             ?.thumbnail
             ?.thumbnails
             ?.firstOrNull(),
-        // The artist lives in `straplineTextOne` now, and only the runs that link somewhere are
-        // real artists — the rest are separators like ", " and " & ".
         authors = header
             ?.straplineTextOne
             ?.runs
@@ -105,8 +92,7 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
             .microformat
             ?.microformatDataRenderer
             ?.urlCanonical,
-        songsPage = musicShelfRenderer
-            ?.toSongsPage(),
+        songsPage = musicShelfRenderer?.toSongsPage(),
         otherVersions = musicCarouselShelfRenderer
             ?.contents
             ?.mapNotNull(MusicCarouselShelfRenderer.Content::musicTwoRowItemRenderer)
@@ -117,7 +103,8 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
 suspend fun Innertube.playlistPage(body: ContinuationBody) = runCatchingNonCancellable {
     val response = client.post(browse) {
         setBody(body)
-        mask("continuationContents.musicPlaylistShelfContinuation(continuations,contents.$musicResponsiveListItemRendererMask)")
+        // Keep all continuation fields; the API can return either playlist-shelf or music-shelf data.
+        mask("*")
     }.body<ContinuationResponse>()
 
     response
