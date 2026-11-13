@@ -61,7 +61,7 @@ fun AlbumSongs(
 
     var songs by persistList<Song>("album/$browseId/songs")
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(browseId) {
         Database.albumSongs(browseId).collect { songs = it }
     }
 
