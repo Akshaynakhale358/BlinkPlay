@@ -117,6 +117,7 @@ import it.vfsfitvnm.vimusic.utils.trackLoopEnabledKey
 import it.vfsfitvnm.vimusic.utils.volumeNormalizationKey
 import kotlin.math.roundToInt
 import kotlin.system.exitProcess
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
@@ -449,10 +450,16 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             radioProcessingJob?.isActive != true
         ) {
             radioProcessingJob = coroutineScope.launch(Dispatchers.Main) {
-                val nextItems = activeRadio.process()
-                // A new radio may have replaced this one while the request was in flight.
-                if (radio === activeRadio && nextItems.isNotEmpty()) {
-                    player.addMediaItems(nextItems)
+                try {
+                    val nextItems = activeRadio.process()
+                    // A new radio may have replaced this one while the request was in flight.
+                    if (radio === activeRadio && nextItems.isNotEmpty()) {
+                        player.addMediaItems(nextItems)
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    Log.w(TAG, "radio continuation failed: ${error.message}", error)
                 }
             }
         }
@@ -1204,13 +1211,22 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             ).let {
                 isLoadingRadio = true
                 radioJob = coroutineScope.launch(Dispatchers.Main) {
-                    if (justAdd) {
-                        player.addMediaItems(it.process().drop(1))
-                    } else {
-                        player.forcePlayFromBeginning(it.process())
+                    try {
+                        val items = it.process()
+                        if (justAdd) {
+                            player.addMediaItems(items.drop(1))
+                        } else if (items.isNotEmpty()) {
+                            player.forcePlayFromBeginning(items)
+                        }
+                        radio = it
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Log.w(TAG, "radio start failed: ${error.message}", error)
+                    } finally {
+                        // A superseded request must not hide the loading state of a newer one.
+                        if (radioJob?.isActive != true) isLoadingRadio = false
                     }
-                    radio = it
-                    isLoadingRadio = false
                 }
             }
         }
