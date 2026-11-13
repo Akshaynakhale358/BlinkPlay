@@ -5,7 +5,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.BrowseResponse
-import it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer
+import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
 import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 import it.vfsfitvnm.innertube.models.SectionListRenderer
@@ -59,12 +59,28 @@ suspend fun Innertube.browsePage(body: BrowseBody) = runCatchingNonCancellable {
 }
 
 /** Home feed. YouTube decides which shelves/categories are currently relevant. */
-suspend fun Innertube.musicHomePage() =
-    browsePage(BrowseBody(browseId = MUSIC_HOME_BROWSE_ID))
+private val IndiaMusicBrowseContext = Context.DefaultWeb.copy(
+    client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+)
+
+/** Home feed. YouTube decides which shelves/categories are currently relevant. */
+suspend fun Innertube.musicHomePage(context: Context = IndiaMusicBrowseContext) =
+    browsePage(BrowseBody(context = context, browseId = MUSIC_HOME_BROWSE_ID))
 
 /** Explore feed. The returned categories and their order are server-controlled. */
-suspend fun Innertube.musicExplorePage() =
-    browsePage(BrowseBody(browseId = MUSIC_EXPLORE_BROWSE_ID))
+suspend fun Innertube.musicExplorePage(context: Context = IndiaMusicBrowseContext) =
+    browsePage(BrowseBody(context = context, browseId = MUSIC_EXPLORE_BROWSE_ID))
+
+/** Open a shelf's own server-provided destination; no category slug is hard-coded. */
+suspend fun Innertube.browseSection(
+    section: MusicBrowseSection,
+    context: Context = IndiaMusicBrowseContext,
+): Result<MusicBrowsePage?> {
+    val browseId = section.browseId ?: return Result.success(null)
+    return browsePage(
+        BrowseBody(context = context, browseId = browseId, params = section.params)
+    ).map { it }
+}
 
 private fun toBrowseSection(content: SectionListRenderer.Content): MusicBrowseSection? {
     val carousel = content.musicCarouselShelfRenderer
@@ -88,7 +104,7 @@ private fun toBrowseSection(content: SectionListRenderer.Content): MusicBrowseSe
             ?: item.musicTwoRowItemRenderer?.let(::toMusicItem)
     }
     val shelfItems = shelf?.contents.orEmpty()
-        .mapNotNull(MusicShelfRendererItem::from)
+        .mapNotNull { item -> item.musicResponsiveListItemRenderer?.let(Innertube.SongItem::from) }
     val gridItems = grid?.items.orEmpty()
         .mapNotNull { it.musicTwoRowItemRenderer?.let(::toMusicItem) }
 
@@ -101,10 +117,6 @@ private fun toBrowseSection(content: SectionListRenderer.Content): MusicBrowseSe
     )
 }
 
-private object MusicShelfRendererItem {
-    fun from(item: it.vfsfitvnm.innertube.models.MusicShelfRenderer.Content): Innertube.Item? =
-        item.musicResponsiveListItemRenderer?.let(Innertube.SongItem::from)
-}
 
 private fun toMusicItem(renderer: MusicTwoRowItemRenderer): Innertube.Item? =
     Innertube.PlaylistItem.from(renderer)
