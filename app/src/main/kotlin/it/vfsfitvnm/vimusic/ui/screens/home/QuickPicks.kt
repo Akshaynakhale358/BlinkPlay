@@ -434,7 +434,7 @@ fun QuickPicks(
                             binder?.player?.forcePlay(mediaItem)
                             binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
                         },
-                        onViewAll = { selectedDiscoveryCategory = category },
+                        onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedDiscoveryCategory = category },
                         onPlayBundle = {
                             val mediaItems = calmCategorySongs[category.key].orEmpty()
                                 .map(Innertube.SongItem::asMediaItem)
