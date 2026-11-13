@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.Player
 import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
@@ -76,6 +77,7 @@ import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
+import it.vfsfitvnm.vimusic.utils.DisposableListener
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.center
 import it.vfsfitvnm.vimusic.utils.forcePlay
@@ -109,6 +111,15 @@ fun QuickPicks(
     var isRefreshing by remember { mutableStateOf(false) }
     var songsForYou by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var songsForYouFailed by remember { mutableStateOf(false) }
+    var currentVideoId by remember { mutableStateOf(binder?.player?.currentMediaItem?.mediaId) }
+
+    binder?.player?.DisposableListener {
+        object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                currentVideoId = mediaItem?.mediaId
+            }
+        }
+    }
     var serverDiscovery by remember { mutableStateOf<MusicDiscovery?>(null) }
     var discoveryFailed by remember { mutableStateOf(false) }
     var trendingSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
@@ -122,14 +133,36 @@ fun QuickPicks(
         isRefreshing = false
     }
 
-    // Songs For You is a non-personalized automatic feed: it never reads play history
-    // or uses relatedPage. Prefer YouTube Music's Explore shelves, then use a neutral
-    // category-wide search fallback if Explore has no usable song items.
-    LaunchedEffect(refreshToken) {
+    // Recommendations are based on the song currently playing, never on a history-derived seed.
+    // Exclude the current track and tracks already listened to from the returned suggestions.
+    LaunchedEffect(refreshToken, currentVideoId) {
         songsForYouFailed = false
-        val feed = withContext(Dispatchers.IO) { fetchAutomaticSongsForYou() }
-        songsForYou = feed
-        songsForYouFailed = feed.isEmpty()
+        val related = if (!currentVideoId.isNullOrBlank()) {
+            withContext(Dispatchers.IO) {
+                Innertube.relatedPage(
+                    NextBody(
+                        context = Context.DefaultWeb.copy(
+                            client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
+                        ),
+                        videoId = currentVideoId
+                    )
+                )?.getOrNull()?.songs.orEmpty()
+            }
+        } else emptyList()
+
+        val playedIds = withContext(Dispatchers.IO) {
+            Database.trending(100).map { it.id }.toSet()
+        }
+        val recommendations = related
+            .filter { it.key != currentVideoId && it.key !in playedIds }
+            .distinctBy(Innertube.SongItem::key)
+
+        songsForYou = if (recommendations.size >= 5) recommendations
+            else (recommendations + withContext(Dispatchers.IO) { fetchAutomaticSongsForYou() })
+                .filter { it.key != currentVideoId && it.key !in playedIds }
+                .distinctBy(Innertube.SongItem::key)
+        songsForYouFailed = songsForYou.isEmpty()
+
         val shelves = withContext(Dispatchers.IO) { fetchIndiaDirectSongShelves() }
         trendingSongs = shelves.first
         topSongs = shelves.second
