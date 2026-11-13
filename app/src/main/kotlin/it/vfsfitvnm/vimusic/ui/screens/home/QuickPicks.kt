@@ -155,9 +155,10 @@ fun QuickPicks(
     // Calm listening rail: focused searches for lo-fi, sleep and meditation.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         calmSongs = withContext(Dispatchers.IO) {
-            fetchSearchAndRelatedBundle(
+            val fetchedCalmSongs = fetchSearchAndRelatedBundle(
                 listOf("lofi music", "sleep music relaxing", "meditation music instrumental", "ambient relaxing music")
-            ).let(::personalizeAndDiversify).take(40)
+            )
+            personalizeAndDiversify(fetchedCalmSongs).take(40)
         }
     }
 
