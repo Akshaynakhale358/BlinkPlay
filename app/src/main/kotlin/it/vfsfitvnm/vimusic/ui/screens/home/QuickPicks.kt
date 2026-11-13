@@ -38,6 +38,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
@@ -341,22 +344,28 @@ fun QuickPicks(
                 modifier = sectionTextModifier
             )
 
-            dailyLongListenCategories().forEach { category ->
-                QuickPicksLongListenShelf(
-                    category = category,
-                    songs = longListenSongs[category.title].orEmpty().take(5),
-                    onSongClick = { song ->
-                        val mediaItem = song.asMediaItem
-                        binder?.stopRadio()
-                        binder?.player?.forcePlay(mediaItem)
-                        binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-                    },
-                    onSongLongClick = { song ->
-                        menuState.display {
-                            NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+            LazyRow(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                lazyRowItems(items = dailyLongListenCategories(), key = LongListenCategory::title) { category ->
+                    QuickPicksLongListenShelf(
+                        category = category,
+                        songs = longListenSongs[category.title].orEmpty().take(5),
+                        onSongClick = { song ->
+                            val mediaItem = song.asMediaItem
+                            binder?.stopRadio()
+                            binder?.player?.forcePlay(mediaItem)
+                            binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                        },
+                        onSongLongClick = { song ->
+                            menuState.display {
+                                NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
 
         when {
@@ -533,28 +542,32 @@ private fun QuickPicksLongListenShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
+    Column(
+        modifier = Modifier
+            .width(340.dp)
+            .clip(RoundedCornerShape(26.dp))
+            .background(Color(0xFF29231B))
+            .padding(16.dp)
     ) {
-        BasicText(text = category.title.uppercase(), style = typography.s.semiBold)
-    }
-    if (songs.isEmpty()) {
-        ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 108.dp) } }
-    } else {
-        LazyRow(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            lazyRowItems(items = songs, key = Innertube.SongItem::key) { song ->
+        BasicText(
+            text = category.title,
+            style = typography.l.semiBold,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        if (songs.isEmpty()) {
+            ShimmerHost { repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
+        } else {
+            songs.take(5).forEach { song ->
                 SongItem(
                     song = song,
-                    thumbnailSizePx = 108.dp.px,
-                    thumbnailSizeDp = 108.dp,
-                    modifier = Modifier.width(300.dp).combinedClickable(
-                        onClick = { onSongClick(song) },
-                        onLongClick = { onSongLongClick(song) }
-                    )
+                    thumbnailSizePx = 64.dp.px,
+                    thumbnailSizeDp = 64.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .combinedClickable(
+                            onClick = { onSongClick(song) },
+                            onLongClick = { onSongLongClick(song) }
+                        )
                 )
             }
         }
@@ -590,9 +603,9 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
         async {
             // Search within the requested music category. Do not apply broad title/artist
             // keyword filters here: those were discarding valid results and leaving empty rows.
-            val primary = fetchSongsByCategory("${category.query} full song long version")
+            val primary = fetchSongsByCategory("${category.query} 30 minute long mix full audio")
             val fallback = if (primary.size < 5) {
-                fetchSongsByCategory("${category.query} 10 minute full songs")
+                fetchSongsByCategory("${category.query} 30 minutes extended full mix")
             } else {
                 emptyList()
             }
@@ -607,13 +620,12 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
             val durationRanked = personalized.distinctBy(Innertube.SongItem::key)
                 .sortedByDescending { it.durationText.toDurationSeconds() }
 
-            // Prefer tracks around 10 minutes or longer. If YouTube returns fewer than
-            // five, use the longest relevant category matches rather than showing blanks.
-            val tenMinuteTracks = durationRanked.filter {
-                it.durationText.toDurationSeconds() >= 600
+            // Strict minimum requested: show only tracks whose individual duration is 30+ minutes.
+            // Do not substitute shorter tracks when the source cannot find enough long audio.
+            val thirtyMinuteTracks = durationRanked.filter {
+                it.durationText.toDurationSeconds() >= 1800
             }
-            val pool = (if (tenMinuteTracks.size >= 5) tenMinuteTracks else durationRanked)
-                .take(40)
+            val pool = thirtyMinuteTracks.take(40)
 
             // Rotate five-song selections daily so both songs and the ten bunches refresh.
             val offset = if (pool.isEmpty()) 0 else ((indiaDay * 5L) % pool.size).toInt()
