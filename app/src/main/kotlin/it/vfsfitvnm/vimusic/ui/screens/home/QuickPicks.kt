@@ -86,6 +86,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
@@ -533,6 +534,7 @@ fun QuickPicks(
                     DailyMixPlaylistCard(
                         mix = mix,
                         dayKey = dailyMixDay,
+                        dayLabel = LocalDate.ofEpochDay(dailyMixDay).format(DateTimeFormatter.ofPattern("d MMM")),
                         refreshKey = refreshToken,
                         thumbnailSizeDp = playlistThumbnailSizeDp,
                         thumbnailSizePx = playlistThumbnailSizePx,
@@ -850,6 +852,7 @@ private fun OnlinePlaylistShelf(
 private fun DailyMixPlaylistCard(
     mix: DailyMixSpec,
     dayKey: Long,
+    dayLabel: String,
     refreshKey: Int,
     thumbnailSizeDp: androidx.compose.ui.unit.Dp,
     thumbnailSizePx: Int,
@@ -893,7 +896,7 @@ private fun DailyMixPlaylistCard(
             PlaylistItem(
                 thumbnailUrl = result.thumbnail?.url,
                 songCount = result.songCount,
-                name = mix.title,
+                name = "${mix.title} · $dayLabel",
                 channelName = null,
                 thumbnailSizePx = thumbnailSizePx,
                 thumbnailSizeDp = thumbnailSizeDp,
