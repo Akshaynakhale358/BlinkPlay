@@ -551,7 +551,7 @@ private fun QuickPicksLongListenShelf(
     ) {
         BasicText(
             text = category.title,
-            style = typography.l.semiBold,
+            style = typography.s.semiBold,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         if (songs.isEmpty()) {
