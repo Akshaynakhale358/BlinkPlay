@@ -52,6 +52,7 @@ import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.MusicDiscovery
 import it.vfsfitvnm.innertube.requests.musicDiscovery
 import it.vfsfitvnm.innertube.requests.musicExplorePage
+import it.vfsfitvnm.innertube.requests.playlistPage
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
@@ -567,50 +568,65 @@ private suspend fun fetchIndiaExploreSongShelves(): Triple<
     List<Innertube.SongItem>,
     List<Innertube.SongItem>
 > = coroutineScope {
+    // Explore shelves often contain playlist/album cards, not SongItem rows.
+    // Open those YouTube-provided endpoints to obtain their actual track lists.
     val explore = Innertube.musicExplorePage(IndiaExploreContext)?.getOrNull()
     val sections = explore?.sections.orEmpty()
 
-    val trending = sections
-        .firstOrNull { it.browseId?.startsWith("VLOLA") == true }
-        ?.items.orEmpty()
-        .filterIsInstance<Innertube.SongItem>()
-        .distinctBy(Innertube.SongItem::key)
-
-    val topSongs = sections
-        .firstOrNull { it.title.contains("top songs", ignoreCase = true) }
-        ?.items.orEmpty()
-        .filterIsInstance<Innertube.SongItem>()
-        .distinctBy(Innertube.SongItem::key)
-
-    val releaseAlbums = sections
-        .firstOrNull {
-            it.browseId == "FEmusic_new_releases_albums" ||
-                it.title.contains("new release", ignoreCase = true)
+    suspend fun songsFromItems(items: List<Innertube.Item>): List<Innertube.SongItem> =
+        coroutineScope {
+            val directSongs = items.filterIsInstance<Innertube.SongItem>()
+            val pageSongs = items.mapNotNull { item ->
+                when (item) {
+                    is Innertube.PlaylistItem -> async {
+                        val endpoint = item.info?.endpoint
+                        val id = endpoint?.browseId
+                        if (id.isNullOrBlank()) emptyList()
+                        else Innertube.playlistPage(
+                            BrowseBody(
+                                context = IndiaExploreContext,
+                                browseId = id,
+                                params = endpoint.params
+                            )
+                        )?.getOrNull()?.songsPage?.items.orEmpty()
+                    }
+                    is Innertube.AlbumItem -> async {
+                        val endpoint = item.info?.endpoint
+                        val id = endpoint?.browseId
+                        if (id.isNullOrBlank()) emptyList()
+                        else Innertube.albumPage(
+                            BrowseBody(
+                                context = IndiaExploreContext,
+                                browseId = id,
+                                params = endpoint.params
+                            )
+                        )?.getOrNull()?.songsPage?.items.orEmpty()
+                    }
+                    else -> null
+                }
+            }.awaitAll().flatten()
+            (directSongs + pageSongs).distinctBy(Innertube.SongItem::key)
         }
-        ?.items.orEmpty()
-        .filterIsInstance<Innertube.AlbumItem>()
-        .distinctBy(Innertube.AlbumItem::key)
-        .take(8)
 
-    val releaseSongs = releaseAlbums.map { album ->
-        async {
-            val endpoint = album.info?.endpoint
-            val browseId = endpoint?.browseId
-            if (browseId.isNullOrBlank()) {
-                emptyList()
-            } else {
-                Innertube.albumPage(
-                    BrowseBody(
-                        context = IndiaExploreContext,
-                        browseId = browseId,
-                        params = endpoint.params
-                    )
-                )?.getOrNull()?.songsPage?.items.orEmpty()
-            }
-        }
-    }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
+    val trendingSection = sections.firstOrNull {
+        it.title.contains("trending", ignoreCase = true) ||
+            it.browseId?.startsWith("VLOLA") == true
+    }
+    val topSection = sections.firstOrNull {
+        it.title.contains("top songs", ignoreCase = true) ||
+            it.title.contains("top charts", ignoreCase = true)
+    }
+    val releaseSection = sections.firstOrNull {
+        it.title.contains("new release", ignoreCase = true)
+    }
 
-    Triple(trending, topSongs, releaseSongs)
+    val trending = trendingSection?.let { songsFromItems(it.items) }.orEmpty()
+    val topSongs = topSection?.let { songsFromItems(it.items) }.orEmpty()
+    val newReleases = releaseSection?.let { section ->
+        songsFromItems(section.items.filterIsInstance<Innertube.AlbumItem>())
+    }.orEmpty()
+
+    Triple(trending, topSongs, newReleases)
 }
 
 private suspend fun loadLanguageOrderedRelatedPage(
