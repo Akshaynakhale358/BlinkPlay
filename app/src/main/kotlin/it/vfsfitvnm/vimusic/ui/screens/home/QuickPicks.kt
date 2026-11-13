@@ -125,16 +125,16 @@ fun QuickPicks(
     // Songs For You and New Releases use the same YouTube Music song-search
     // endpoint. Only the category query changes, so both shelves share one parser.
     LaunchedEffect(refreshToken) {
-        val (recommendations, shelves) = withContext(Dispatchers.IO) {
+        val (recommendations, personalizedShelves) = withContext(Dispatchers.IO) {
             coroutineScope {
                 val forYou = async { fetchPersonalizedSongsForYou() }
                 val shelvesDeferred = async { fetchIndiaDirectSongShelves() }
-                forYou.await() to shelvesDeferred.await()
+                val (forYouSongs, shelves) = forYou.await() to shelvesDeferred.await()
+                forYouSongs to personalizeSongLists(
+                    listOf(shelves.first, shelves.second, shelves.third)
+                )
             }
         }
-        val personalizedShelves = personalizeSongLists(
-            listOf(shelves.first, shelves.second, shelves.third)
-        )
         songsForYou = recommendations.distinctBy(Innertube.SongItem::key)
         trendingSongs = personalizedShelves[0].distinctBy(Innertube.SongItem::key)
         topSongs = personalizedShelves[1].distinctBy(Innertube.SongItem::key)
