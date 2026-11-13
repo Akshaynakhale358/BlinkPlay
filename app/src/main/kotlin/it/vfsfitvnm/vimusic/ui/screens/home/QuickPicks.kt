@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as lazyRowItems
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -110,6 +112,13 @@ fun QuickPicks(
     var trendingSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var longListenSongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
+    var selectedLongListenCategory by remember { mutableStateOf<LongListenCategory?>(null) }
+
+    LaunchedEffect(refreshToken) {
+        longListenSongs = withContext(Dispatchers.IO) { fetchLongListenCategories() }
+        isRefreshing = false
+    }
 
     LaunchedEffect(refreshToken) {
         val discovery = withContext(Dispatchers.IO) {
@@ -194,6 +203,7 @@ fun QuickPicks(
                         .asPaddingValues()
                 )
         ) {
+            if (selectedLongListenCategory == null) {
             Header(
                 title = "QUICK PICKS",
                 modifier = Modifier
@@ -311,6 +321,26 @@ fun QuickPicks(
                 }
             )
 
+
+            LongListenCategories.forEach { category ->
+                QuickPicksLongListenShelf(
+                    category = category,
+                    songs = longListenSongs[category.title].orEmpty(),
+                    onViewAll = { selectedLongListenCategory = category },
+                    onSongClick = { song ->
+                        val mediaItem = song.asMediaItem
+                        binder?.stopRadio()
+                        binder?.player?.forcePlay(mediaItem)
+                        binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                    },
+                    onSongLongClick = { song ->
+                        menuState.display {
+                            NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                        }
+                    }
+                )
+            }
+
         when {
             serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
                 sections = serverDiscovery!!.sections,
@@ -338,6 +368,36 @@ fun QuickPicks(
                 Row {
                     repeat(3) { PlaylistItemPlaceholder(thumbnailSizeDp = playlistThumbnailSizeDp, alternative = true) }
                 }
+            }
+            } else {
+                val category = selectedLongListenCategory!!
+                BasicText(
+                    text = "‹  BACK TO QUICK PICKS",
+                    style = typography.s.semiBold,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .clickable { selectedLongListenCategory = null }
+                )
+                Header(title = category.title.uppercase())
+                QuickPicksSongShelf(
+                    title = "ALL " + category.title.uppercase() + " SONGS",
+                    songs = longListenSongs[category.title].orEmpty(),
+                    thumbnailSizePx = songThumbnailSizePx,
+                    thumbnailSizeDp = songThumbnailSizeDp,
+                    itemWidth = itemInHorizontalGridWidth,
+                    endPaddingValues = endPaddingValues,
+                    onSongClick = { song ->
+                        val mediaItem = song.asMediaItem
+                        binder?.stopRadio()
+                        binder?.player?.forcePlay(mediaItem)
+                        binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                    },
+                    onSongLongClick = { song ->
+                        menuState.display {
+                            NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                        }
+                    }
+                )
             }
         }
     }
@@ -401,6 +461,89 @@ private fun QuickPicksSongShelf(
             }
         }
     }
+}
+
+
+private data class LongListenCategory(val title: String, val query: String, val matchTerms: List<String>)
+
+private val LongListenCategories = listOf(
+    LongListenCategory("Road Trip", "road trip playlist songs Hindi English Indian", listOf("road", "trip", "journey", "highway", "travel")),
+    LongListenCategory("Romantic", "romantic songs playlist Hindi Marathi Punjabi", listOf("romantic", "romance", "love", "pyaar", "ishq")),
+    LongListenCategory("Cover Songs", "best cover songs Indian Hindi Marathi", listOf("cover", "unplugged", "acoustic", "version")),
+    LongListenCategory("Love Songs", "love songs playlist Hindi Marathi Punjabi", listOf("love", "lover", "pyaar", "ishq", "dil")),
+    LongListenCategory("Sukoon Songs", "sukoon peaceful relaxing songs Hindi", listOf("sukoon", "peaceful", "calm", "relax", "soft")),
+    LongListenCategory("Sad Songs", "sad songs playlist Hindi Marathi Punjabi", listOf("sad", "broken", "heartbreak", "bewafa", "dard")),
+    LongListenCategory("Party Songs", "party dance songs playlist India", listOf("party", "dance", "club", "dj")),
+    LongListenCategory("Travel Songs", "travel songs playlist India Hindi English", listOf("travel", "journey", "safar", "musafir", "trip")),
+    LongListenCategory("Evergreen Hits", "evergreen classic hit songs India old Hindi", listOf("evergreen", "classic", "old", "golden", "retro")),
+    LongListenCategory("Long Drive", "long drive songs playlist Hindi English", listOf("drive", "driving", "road", "highway", "journey")),
+    LongListenCategory("Workout Songs", "workout gym motivation songs playlist", listOf("workout", "gym", "fitness", "motivation", "power")),
+    LongListenCategory("Chill Vibes", "chill vibes lofi relaxing songs playlist", listOf("chill", "lofi", "vibe", "relax", "mellow")),
+    LongListenCategory("Punjabi Hits", "Punjabi hit songs playlist latest classic", listOf("punjabi", "bhangra", "sidhu", "diljit")),
+    LongListenCategory("Marathi Hits", "Marathi hit songs playlist latest classic", listOf("marathi", "मराठी", "lavani", "maharashtra")),
+    LongListenCategory("90s Retro Hits", "90s Hindi retro hit songs playlist", listOf("90s", "1990", "retro", "old", "nineties"))
+)
+
+@Composable
+private fun QuickPicksLongListenShelf(
+    category: LongListenCategory,
+    songs: List<Innertube.SongItem>,
+    onViewAll: () -> Unit,
+    onSongClick: (Innertube.SongItem) -> Unit,
+    onSongLongClick: (Innertube.SongItem) -> Unit
+) {
+    val (_, typography) = LocalAppearance.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
+    ) {
+        BasicText(text = category.title.uppercase(), style = typography.s.semiBold)
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
+        BasicText(
+            text = "VIEW ALL",
+            style = typography.xs.semiBold.secondary,
+            modifier = Modifier.clickable(onClick = onViewAll).padding(6.dp)
+        )
+    }
+    if (songs.isEmpty()) {
+        ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 76.dp) } }
+    } else {
+        LazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            lazyRowItems(items = songs, key = Innertube.SongItem::key) { song ->
+                SongItem(
+                    song = song,
+                    thumbnailSizePx = 76.dp.px,
+                    thumbnailSizeDp = 76.dp,
+                    modifier = Modifier.width(260.dp).combinedClickable(
+                        onClick = { onSongClick(song) },
+                        onLongClick = { onSongLongClick(song) }
+                    )
+                )
+            }
+        }
+    }
+}
+
+private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
+    LongListenCategories.map { category ->
+        async {
+            val fetched = fetchSongsByCategory(category.query)
+            val categoryOnly = fetched.filter { song ->
+                val searchable = listOfNotNull(
+                    song.info?.name,
+                    song.authors?.joinToString(" ") { it.name.orEmpty() }
+                ).joinToString(" ").lowercase()
+                category.matchTerms.any { term -> searchable.contains(term.lowercase()) }
+            }.distinctBy(Innertube.SongItem::key)
+            val personalized = runCatching {
+                personalizeSongLists(listOf(categoryOnly)).firstOrNull().orEmpty()
+            }.getOrDefault(categoryOnly)
+            category.title to personalized.distinctBy(Innertube.SongItem::key).take(40)
+        }
+    }.awaitAll().toMap()
 }
 
 private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem> =
