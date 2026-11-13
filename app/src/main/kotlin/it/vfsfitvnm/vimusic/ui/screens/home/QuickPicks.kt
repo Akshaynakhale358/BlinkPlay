@@ -675,17 +675,33 @@ private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innert
         async {
             val songs = when (category.kind) {
                 "personal" -> fetchPersonalizedSongsForYou()
-                else -> {
-                    val results = fetchSearchAndRelatedBundle(listOf(category.query))
-                    if (category.parentTitle == "Mix for You") {
-                        runCatching { personalizeSongLists(listOf(results)).firstOrNull().orEmpty() }
-                            .getOrDefault(results)
-                    } else results
-                }
+                "mix" -> fetchPersonalizedMixCategory(category.query)
+                // Trending shelves are search-led, like YT Music's trend/mood shelves;
+                // Related Songs expands only tracks already found by that category search.
+                "trending" -> fetchSearchAndRelatedBundle(listOf(category.query))
+                // Listen Together shelves are activity-led (party, duet, chill, dance);
+                // the same two roots keep every result tied to the selected activity.
+                else -> fetchSearchAndRelatedBundle(listOf(category.query))
             }
             category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(songs))
         }
     }.awaitAll().toMap()
+}
+
+/**
+ * YouTube Music-inspired Mix for You:
+ * 1) Song Search first limits candidates to the requested language/mood/genre.
+ * 2) Existing listening history and favourites personalize the ordering.
+ * 3) Related Songs expands only category-search seeds, so the shelf stays on-topic.
+ * No third fetch root is introduced.
+ */
+private suspend fun fetchPersonalizedMixCategory(query: String): List<Innertube.SongItem> {
+    val categoryCandidates = fetchSearchAndRelatedBundle(listOf(query))
+    if (categoryCandidates.isEmpty()) return emptyList()
+    val personalized = runCatching {
+        personalizeSongLists(listOf(categoryCandidates)).firstOrNull().orEmpty()
+    }.getOrDefault(categoryCandidates)
+    return personalizeAndDiversify(personalized.ifEmpty { categoryCandidates })
 }
 
 private suspend fun fetchSearchAndRelatedBundle(queries: List<String>): List<Innertube.SongItem> = coroutineScope {
