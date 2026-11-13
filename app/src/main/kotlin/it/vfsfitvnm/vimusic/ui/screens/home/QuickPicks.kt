@@ -52,7 +52,6 @@ import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.MusicDiscovery
-import it.vfsfitvnm.innertube.requests.MusicBrowseSection
 import it.vfsfitvnm.innertube.requests.musicDiscovery
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.utils.from
@@ -67,23 +66,21 @@ import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.components.themed.TextPlaceholder
-import it.vfsfitvnm.vimusic.ui.items.AlbumItem
 import it.vfsfitvnm.vimusic.ui.items.AlbumItemPlaceholder
-import it.vfsfitvnm.vimusic.ui.items.ArtistItem
 import it.vfsfitvnm.vimusic.ui.items.ArtistItemPlaceholder
-import it.vfsfitvnm.vimusic.ui.items.PlaylistItem
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.items.SongItem
 import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
-import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.center
 import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
+import it.vfsfitvnm.vimusic.ui.screens.browse.MusicBrowseShelves
+import it.vfsfitvnm.vimusic.ui.screens.browse.browseCategoryRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -386,16 +383,8 @@ fun QuickPicks(
             }
 
         when {
-            serverDiscovery != null -> ServerDrivenMusicShelves(
+            serverDiscovery != null -> MusicBrowseShelves(
                 sections = serverDiscovery!!.sections,
-                songThumbnailSizeDp = songThumbnailSizeDp,
-                songThumbnailSizePx = songThumbnailSizePx,
-                albumThumbnailSizeDp = albumThumbnailSizeDp,
-                albumThumbnailSizePx = albumThumbnailSizePx,
-                artistThumbnailSizeDp = artistThumbnailSizeDp,
-                artistThumbnailSizePx = artistThumbnailSizePx,
-                playlistThumbnailSizeDp = playlistThumbnailSizeDp,
-                playlistThumbnailSizePx = playlistThumbnailSizePx,
                 sectionTextModifier = sectionTextModifier,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
@@ -410,7 +399,10 @@ fun QuickPicks(
                 },
                 onAlbumClick = onAlbumClick,
                 onArtistClick = onArtistClick,
-                onPlaylistClick = onPlaylistClick
+                onPlaylistClick = onPlaylistClick,
+                onCategoryClick = { id, params ->
+                    onPlaylistClick(browseCategoryRoute(id, params))
+                }
             )
             discoveryFailed -> BasicText(
                 text = "YouTube Music feed unavailable. Tap to retry.",
@@ -432,80 +424,6 @@ fun QuickPicks(
 }
 
 
-
-/** Renders YouTube Music's own shelves in BlinkPlay's existing visual language. */
-@Composable
-private fun ServerDrivenMusicShelves(
-    sections: List<MusicBrowseSection>,
-    songThumbnailSizeDp: androidx.compose.ui.unit.Dp,
-    songThumbnailSizePx: Int,
-    albumThumbnailSizeDp: androidx.compose.ui.unit.Dp,
-    albumThumbnailSizePx: Int,
-    artistThumbnailSizeDp: androidx.compose.ui.unit.Dp,
-    artistThumbnailSizePx: Int,
-    playlistThumbnailSizeDp: androidx.compose.ui.unit.Dp,
-    playlistThumbnailSizePx: Int,
-    sectionTextModifier: Modifier,
-    onSongClick: (Innertube.SongItem) -> Unit,
-    onSongLongClick: (Innertube.SongItem) -> Unit,
-    onAlbumClick: (String) -> Unit,
-    onArtistClick: (String) -> Unit,
-    onPlaylistClick: (String) -> Unit
-) {
-    val (_, typography) = LocalAppearance.current
-    sections.forEach { section ->
-        if (section.items.isNotEmpty()) {
-            BasicText(
-                text = section.title,
-                style = typography.s.semiBold,
-                modifier = sectionTextModifier.clickable {
-                    section.browseId?.let { id ->
-                        val route = if (section.params.isNullOrBlank()) id
-                            else "$id|||BLINK_PARAMS|||${section.params}"
-                        onPlaylistClick(route)
-                    }
-                }
-            )
-            LazyRow {
-                items(section.items, key = { it.key }) { item ->
-                    when (item) {
-                        is Innertube.SongItem -> SongItem(
-                            song = item,
-                            thumbnailSizePx = songThumbnailSizePx,
-                            thumbnailSizeDp = songThumbnailSizeDp,
-                            modifier = Modifier.combinedClickable(
-                                onClick = { onSongClick(item) },
-                                onLongClick = { onSongLongClick(item) }
-                            )
-                        )
-                        is Innertube.PlaylistItem -> PlaylistItem(
-                            playlist = item,
-                            thumbnailSizePx = playlistThumbnailSizePx,
-                            thumbnailSizeDp = playlistThumbnailSizeDp,
-                            alternative = true,
-                            modifier = Modifier.clickable { onPlaylistClick(item.key) }
-                        )
-                        is Innertube.AlbumItem -> AlbumItem(
-                            album = item,
-                            thumbnailSizePx = albumThumbnailSizePx,
-                            thumbnailSizeDp = albumThumbnailSizeDp,
-                            alternative = true,
-                            modifier = Modifier.clickable { item.info?.endpoint?.browseId?.let(onAlbumClick) }
-                        )
-                        is Innertube.ArtistItem -> ArtistItem(
-                            artist = item,
-                            thumbnailSizePx = artistThumbnailSizePx,
-                            thumbnailSizeDp = artistThumbnailSizeDp,
-                            alternative = true,
-                            modifier = Modifier.clickable { item.info?.endpoint?.browseId?.let(onArtistClick) }
-                        )
-                        else -> Unit
-                    }
-                }
-            }
-        }
-    }
-}
 
 private suspend fun loadLanguageOrderedRelatedPage(
     seed: Song?,
