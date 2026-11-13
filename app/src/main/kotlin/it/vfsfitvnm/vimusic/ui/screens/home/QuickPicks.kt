@@ -564,7 +564,7 @@ private fun QuickPicksLongListenShelf(
                 .clickable { firstSong?.let(onSongClick) }
         ) {
             AsyncImage(
-                model = firstSong?.thumbnail?.size(320.px),
+                model = firstSong?.thumbnail?.size(320),
                 contentDescription = category.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
