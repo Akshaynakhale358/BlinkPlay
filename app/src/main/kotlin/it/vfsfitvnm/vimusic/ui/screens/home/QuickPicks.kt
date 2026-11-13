@@ -83,6 +83,7 @@ import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.center
 import it.vfsfitvnm.vimusic.utils.forcePlay
+import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
 import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
@@ -362,6 +363,16 @@ fun QuickPicks(
                             binder?.player?.forcePlay(mediaItem)
                             binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
                         },
+                        onPlayBundle = {
+                            val bundleMediaItems = longListenSongs[category.title]
+                                .orEmpty()
+                                .take(5)
+                                .map(Innertube.SongItem::asMediaItem)
+                            if (bundleMediaItems.size == 5) {
+                                binder?.stopRadio()
+                                binder?.player?.forcePlayFromBeginning(bundleMediaItems)
+                            }
+                        },
                         onSongLongClick = { song ->
                             menuState.display {
                                 NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
@@ -542,6 +553,7 @@ private fun QuickPicksLongListenShelf(
     category: LongListenCategory,
     songs: List<Innertube.SongItem>,
     onSongClick: (Innertube.SongItem) -> Unit,
+    onPlayBundle: () -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
@@ -587,7 +599,7 @@ private fun QuickPicksLongListenShelf(
                         .padding(top = 8.dp)
                         .clip(RoundedCornerShape(50))
                         .background(Color.White.copy(alpha = 0.18f))
-                        .clickable { firstSong?.let(onSongClick) }
+                        .clickable(onClick = onPlayBundle)
                         .padding(horizontal = 12.dp, vertical = 7.dp)
                 )
             }
