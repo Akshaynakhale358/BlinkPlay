@@ -90,6 +90,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
@@ -113,9 +114,21 @@ fun QuickPicks(
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var longListenSongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
+    var longListenDailyToken by remember { mutableStateOf(0) }
     var selectedLongListenCategory by remember { mutableStateOf<LongListenCategory?>(null) }
 
-    LaunchedEffect(refreshToken) {
+    // Refresh only Long Listen at Indian midnight, without changing other Quick Picks shelves.
+    LaunchedEffect(Unit) {
+        while (true) {
+            val dayMillis = 86_400_000L
+            val indiaOffsetMillis = 19_800_000L
+            val indiaNow = System.currentTimeMillis() + indiaOffsetMillis
+            delay(dayMillis - (indiaNow % dayMillis))
+            longListenDailyToken += 1
+        }
+    }
+
+    LaunchedEffect(refreshToken, longListenDailyToken) {
         longListenSongs = withContext(Dispatchers.IO) { fetchLongListenCategories() }
         isRefreshing = false
     }
@@ -325,7 +338,7 @@ fun QuickPicks(
             LongListenCategories.forEach { category ->
                 QuickPicksLongListenShelf(
                     category = category,
-                    songs = longListenSongs[category.title].orEmpty().take(10),
+                    songs = longListenSongs[category.title].orEmpty().take(5),
                     onViewAll = { selectedLongListenCategory = category },
                     onSongClick = { song ->
                         val mediaItem = song.asMediaItem
@@ -558,8 +571,9 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
 
             // Rotate in blocks of ten using the current day so each category refreshes
             // its visible ten-song bunch daily while keeping the longer tracks prioritized.
+            val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
             val dailyOffset = if (longFirst.isEmpty()) 0
-                else (((System.currentTimeMillis() / 86_400_000L) * 10L) % longFirst.size).toInt()
+                else ((indiaDay * 5L) % longFirst.size).toInt()
             val dailyOrder = longFirst.drop(dailyOffset) + longFirst.take(dailyOffset)
             category.title to dailyOrder.take(40)
         }
