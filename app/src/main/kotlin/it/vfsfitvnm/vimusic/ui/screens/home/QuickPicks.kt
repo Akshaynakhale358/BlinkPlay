@@ -121,7 +121,7 @@ fun QuickPicks(
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
-    var selectedDiscoveryCategory by remember { mutableStateOf<DiscoveryCategory?>(null) }
+    var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
     var discoveryDailyToken by remember { mutableStateOf(0) }
 
     // Refresh only the three discovery bundles at Indian midnight so their songs
@@ -344,42 +344,44 @@ fun QuickPicks(
             )
 
 
-            BasicText(
-                text = "PERSONALIZED MIXES",
-                style = typography.s.semiBold,
-                modifier = sectionTextModifier
-            )
-
-            LazyRow(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                lazyRowItems(items = discoveryCategories(), key = DiscoveryCategory::title) { category ->
-                    QuickPicksDiscoveryShelf(
-                        category = category,
-                        songs = discoverySongs[category.title].orEmpty(),
-                        onSongClick = { song ->
-                            val mediaItem = song.asMediaItem
-                            binder?.stopRadio()
-                            binder?.player?.forcePlay(mediaItem)
-                            binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-                        },
-                        onPlayBundle = {
-                            val bundleMediaItems = discoverySongs[category.title]
-                                .orEmpty()
-                                .map(Innertube.SongItem::asMediaItem)
-                            if (bundleMediaItems.isNotEmpty()) {
+            discoveryBundles().forEach { bundle ->
+                BasicText(
+                    text = bundle.title.uppercase(),
+                    style = typography.s.semiBold,
+                    modifier = sectionTextModifier
+                )
+                LazyRow(
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    lazyRowItems(items = bundle.categories, key = DiscoverySubcategory::key) { category ->
+                        QuickPicksDiscoveryShelf(
+                            category = category,
+                            songs = discoverySongs[category.key].orEmpty(),
+                            onSongClick = { song ->
+                                val mediaItem = song.asMediaItem
                                 binder?.stopRadio()
-                                binder?.player?.forcePlayFromBeginning(bundleMediaItems)
+                                binder?.player?.forcePlay(mediaItem)
+                                binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                            },
+                            onViewAll = { selectedDiscoveryCategory = category },
+                            onPlayBundle = {
+                                val bundleMediaItems = discoverySongs[category.key]
+                                    .orEmpty()
+                                    .map(Innertube.SongItem::asMediaItem)
+                                if (bundleMediaItems.isNotEmpty()) {
+                                    binder?.stopRadio()
+                                    binder?.player?.forcePlayFromBeginning(bundleMediaItems)
+                                }
+                            },
+                            onSongLongClick = { song ->
+                                menuState.display {
+                                    NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                                }
                             }
-                        },
-                        onSongLongClick = { song ->
-                            menuState.display {
-                                NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                            }
-                        }
-                    )
+                        )
+                    }
                 }
             }
 
@@ -421,10 +423,10 @@ fun QuickPicks(
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         .clickable { selectedDiscoveryCategory = null }
                 )
-                Header(title = category.title.uppercase())
+                Header(title = category.parentTitle.uppercase() + " · " + category.title.uppercase())
                 QuickPicksSongShelf(
                     title = category.title.uppercase() + " SONGS",
-                    songs = discoverySongs[category.title].orEmpty(),
+                    songs = discoverySongs[category.key].orEmpty(),
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
                     itemWidth = itemInHorizontalGridWidth,
@@ -506,19 +508,66 @@ private fun QuickPicksSongShelf(
 }
 
 
-private data class DiscoveryCategory(val title: String, val kind: String)
-
-private fun discoveryCategories() = listOf(
-    DiscoveryCategory("Mix for You", "mix"),
-    DiscoveryCategory("Trending Community", "trending"),
-    DiscoveryCategory("Listen Together", "together")
+private data class DiscoverySubcategory(
+    val key: String,
+    val parentTitle: String,
+    val title: String,
+    val kind: String,
+    val query: String
 )
+
+private data class DiscoveryBundle(
+    val title: String,
+    val categories: List<DiscoverySubcategory>
+)
+
+private fun discoveryBundles(): List<DiscoveryBundle> {
+    val day = ((System.currentTimeMillis() + 19_800_000L) / 86_400_000L).toInt()
+    fun rotate(items: List<DiscoverySubcategory>): List<DiscoverySubcategory> {
+        val offset = day % items.size
+        return (items.drop(offset) + items.take(offset)).take(5)
+    }
+
+    val mix = listOf(
+        DiscoverySubcategory("mix_taste", "Mix for You", "For Your Taste", "personal", ""),
+        DiscoverySubcategory("mix_hindi", "Mix for You", "Hindi Mix", "mix", "personalized Hindi hit songs India"),
+        DiscoverySubcategory("mix_marathi", "Mix for You", "Marathi Mix", "mix", "popular Marathi songs"),
+        DiscoverySubcategory("mix_punjabi", "Mix for You", "Punjabi Mix", "mix", "popular Punjabi songs"),
+        DiscoverySubcategory("mix_regional", "Mix for You", "Regional Mix", "mix", "popular Tamil Telugu Kannada Malayalam songs"),
+        DiscoverySubcategory("mix_romantic", "Mix for You", "Romantic Mix", "mix", "romantic Hindi Marathi songs"),
+        DiscoverySubcategory("mix_chill", "Mix for You", "Chill Mix", "mix", "chill relaxing Indian songs")
+    )
+    val trending = listOf(
+        DiscoverySubcategory("trend_india", "Trending Community", "Trending India", "trending", "trending songs India"),
+        DiscoverySubcategory("trend_hindi", "Trending Community", "Hindi Viral", "trending", "viral trending Hindi songs"),
+        DiscoverySubcategory("trend_marathi", "Trending Community", "Marathi Viral", "trending", "viral trending Marathi songs"),
+        DiscoverySubcategory("trend_reels", "Trending Community", "Reels Hits", "trending", "Instagram reels trending songs India"),
+        DiscoverySubcategory("trend_pop", "Trending Community", "Pop Trending", "trending", "trending Indian pop songs"),
+        DiscoverySubcategory("trend_regional", "Trending Community", "Regional Trending", "trending", "trending Tamil Telugu Punjabi songs"),
+        DiscoverySubcategory("trend_new", "Trending Community", "Fresh Trending", "trending", "latest trending new songs India")
+    )
+    val together = listOf(
+        DiscoverySubcategory("together_party", "Listen Together", "Party Mix", "together", "party songs friends India"),
+        DiscoverySubcategory("together_duet", "Listen Together", "Duet & Sing Along", "together", "popular duet sing along songs Hindi Marathi"),
+        DiscoverySubcategory("together_romance", "Listen Together", "Romantic Duets", "together", "romantic duet songs India"),
+        DiscoverySubcategory("together_chill", "Listen Together", "Chill Together", "together", "chill songs to listen with friends"),
+        DiscoverySubcategory("together_classics", "Listen Together", "Evergreen Together", "together", "evergreen group sing along songs India"),
+        DiscoverySubcategory("together_dance", "Listen Together", "Dance Together", "together", "dance party songs Hindi Punjabi"),
+        DiscoverySubcategory("together_friends", "Listen Together", "Friends' Favorites", "together", "popular friendship songs India")
+    )
+    return listOf(
+        DiscoveryBundle("Mix for You", rotate(mix)),
+        DiscoveryBundle("Trending Community", rotate(trending)),
+        DiscoveryBundle("Listen Together", rotate(together))
+    )
+}
 
 @Composable
 private fun QuickPicksDiscoveryShelf(
-    category: DiscoveryCategory,
+    category: DiscoverySubcategory,
     songs: List<Innertube.SongItem>,
     onSongClick: (Innertube.SongItem) -> Unit,
+    onViewAll: () -> Unit,
     onPlayBundle: () -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
@@ -527,7 +576,7 @@ private fun QuickPicksDiscoveryShelf(
 
     Column(
         modifier = Modifier
-            .width(300.dp)
+            .width(276.dp)
             .clip(RoundedCornerShape(26.dp))
             .background(Color(0xFF29231B))
             .padding(12.dp)
@@ -535,7 +584,7 @@ private fun QuickPicksDiscoveryShelf(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(140.dp)
+                .height(128.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Color(0xFF40372C))
                 .clickable { firstSong?.let(onSongClick) }
@@ -568,9 +617,9 @@ private fun QuickPicksDiscoveryShelf(
         }
 
         if (songs.isEmpty()) {
-            ShimmerHost { repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
+            ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
         } else {
-            songs.forEach { song ->
+            songs.take(3).forEach { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = 64.dp.px,
@@ -583,8 +632,19 @@ private fun QuickPicksDiscoveryShelf(
                         )
                 )
             }
-
         }
+
+        BasicText(
+            text = "VIEW ALL  ›",
+            style = typography.xs.semiBold,
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(top = 8.dp, end = 4.dp, bottom = 2.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Color.White.copy(alpha = 0.14f))
+                .clickable(onClick = onViewAll)
+                .padding(horizontal = 14.dp, vertical = 9.dp)
+        )
     }
 }
 
@@ -611,33 +671,19 @@ private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
 }
 
 private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
-    discoveryCategories().map { category ->
+    discoveryBundles().flatMap { it.categories }.map { category ->
         async {
             val songs = when (category.kind) {
-                // Mix for You: use real listening history, favourites and related-song recommendations.
-                "mix" -> fetchPersonalizedSongsForYou()
-
-                // Trending Community: search trend/community-playlist song themes, then expand
-                // only those search results through the existing Related Songs root.
-                "trending" -> fetchSearchAndRelatedBundle(
-                    listOf(
-                        "trending community playlist songs India",
-                        "popular community music playlist songs Hindi Marathi",
-                        "viral trending playlist songs India"
-                    )
-                )
-
-                // Listen Together: create a shared-session style mix from broad group-listening
-                // searches and related feeds. It uses the same two existing song roots.
-                else -> fetchSearchAndRelatedBundle(
-                    listOf(
-                        "popular songs to listen together friends India",
-                        "best group listening party songs Hindi Marathi",
-                        "duet and sing along songs India"
-                    )
-                )
+                "personal" -> fetchPersonalizedSongsForYou()
+                else -> {
+                    val results = fetchSearchAndRelatedBundle(listOf(category.query))
+                    if (category.parentTitle == "Mix for You") {
+                        runCatching { personalizeSongLists(listOf(results)).firstOrNull().orEmpty() }
+                            .getOrDefault(results)
+                    } else results
+                }
             }
-            category.title to rotateDiscoverySongsDaily(personalizeAndDiversify(songs))
+            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(songs))
         }
     }.awaitAll().toMap()
 }
