@@ -49,6 +49,7 @@ import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.albumPage
 import it.vfsfitvnm.innertube.requests.browsePage
+import it.vfsfitvnm.innertube.requests.indiaChartSongs
 import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.MusicDiscovery
 import it.vfsfitvnm.innertube.requests.musicDiscovery
@@ -89,18 +90,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
-import io.ktor.client.call.body
-import io.ktor.client.request.post
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
 private const val SeedPoolSize = 20
@@ -570,98 +559,6 @@ private val IndiaExploreContext = Context.DefaultWeb.copy(
     client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
 )
 
-private val chartJson = Json { ignoreUnknownKeys = true; isLenient = true }
-
-/** Walk a response without binding to volatile wrapper renderer names. */
-private fun JsonElement.walkJson(): Sequence<JsonElement> = sequence {
-    yield(this@walkJson)
-    when (val value = this@walkJson) {
-        is JsonObject -> value.values.forEach { yieldAll(it.walkJson()) }
-        is JsonArray -> value.forEach { yieldAll(it.walkJson()) }
-        else -> Unit
-    }
-}
-
-private fun JsonElement.stringAt(vararg keys: String): String? {
-    val objects = walkJson().mapNotNull { it as? JsonObject }
-    for (key in keys) {
-        objects.forEach { obj ->
-            (obj[key] as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)?.let { return it }
-        }
-    }
-    return null
-}
-
-private fun JsonElement.arrayFor(key: String): List<JsonElement> =
-    walkJson().mapNotNull { it as? JsonObject }
-        .firstNotNullOfOrNull { it[key] as? JsonArray }
-        ?.toList().orEmpty()
-
-private fun chartThumbnail(element: JsonElement): Innertube.Thumbnail? {
-    val url = element.stringAt("url", "thumbnailUrl") ?: return null
-    if (!url.startsWith("https://")) return null
-    return Innertube.Thumbnail(url = url, height = null, width = null)
-}
-
-private fun chartSong(element: JsonElement): Innertube.SongItem? {
-    val videoId = element.stringAt("encryptedVideoId", "videoId", "id")
-        ?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) } ?: return null
-    val title = element.stringAt("name", "title")?.takeIf(String::isNotBlank) ?: return null
-
-    val artistNames = element.walkJson().mapNotNull { node ->
-        val obj = node as? JsonObject ?: return@mapNotNull null
-        val artist = obj["artists"] as? JsonArray ?: return@mapNotNull null
-        artist.mapNotNull { entry ->
-            val artistObj = entry as? JsonObject
-            (artistObj?.get("name") as? JsonPrimitive)?.contentOrNull
-                ?: (entry as? JsonPrimitive)?.contentOrNull
-        }
-    }.firstOrNull().orEmpty().distinct()
-
-    val thumbnail = chartThumbnail(element)
-    return Innertube.SongItem(
-        info = Innertube.Info(
-            name = title,
-            endpoint = NavigationEndpoint.Endpoint.Watch(videoId = videoId)
-        ),
-        authors = artistNames.map { Innertube.Info<NavigationEndpoint.Endpoint.Browse>(it, null) },
-        album = null,
-        durationText = null,
-        thumbnail = thumbnail
-    )
-}
-
-/**
- * YouTube Charts is the source of truth for chart shelves. This endpoint is undocumented,
- * so parsing is defensive and an empty/changed response is never replaced with search results.
- */
-private suspend fun fetchIndiaChart(chartQuery: String, arrayKey: String): List<Innertube.SongItem> =
-    runCatching {
-        val body = buildJsonObject {
-            put("context", buildJsonObject {
-                put("client", buildJsonObject {
-                    put("clientName", "WEB_MUSIC_ANALYTICS")
-                    put("clientVersion", "2.0")
-                    put("hl", "en")
-                    put("gl", "IN")
-                    put("theme", "MUSIC")
-                })
-            })
-            put("browseId", "FEmusic_analytics_charts_home")
-            put("query", chartQuery)
-        }
-        val raw = Innertube.client.post("https://charts.youtube.com/youtubei/v1/browse?alt=json") {
-            contentType(ContentType.Application.Json)
-            headers.remove("X-YouTube-Client-Name")
-            headers.remove("X-YouTube-Client-Version")
-            headers.append("X-YouTube-Client-Name", "67")
-            headers.append("X-YouTube-Client-Version", "2.0")
-            setBody(body)
-        }.body<String>()
-        val root = chartJson.parseToJsonElement(raw)
-        root.arrayFor(arrayKey).mapNotNull(::chartSong).distinctBy(Innertube.SongItem::key)
-    }.getOrDefault(emptyList())
-
 private suspend fun fetchIndiaDirectSongShelves(): Triple<
     List<Innertube.SongItem>,
     List<Innertube.SongItem>,
@@ -676,8 +573,25 @@ private suspend fun fetchIndiaDirectSongShelves(): Triple<
     val topQuery =
         "perspective=CHART_DETAILS&chart_params_country_code=in&chart_params_chart_type=TRACKS&chart_params_period_type=WEEKLY&chart_params_end_date=$endDate"
 
-    val trendingDeferred = async { fetchIndiaChart(trendingQuery, "videos") }
-    val topDeferred = async { fetchIndiaChart(topQuery, "trackViews") }
+    suspend fun searchSongs(query: String): List<Innertube.SongItem> =
+        Innertube.searchPage(
+            body = SearchBody(
+                context = IndiaExploreContext,
+                query = query,
+                params = Innertube.SearchFilter.Song.value
+            ),
+            fromMusicShelfRendererContent = Innertube.SongItem::from
+        )?.getOrNull()?.items.orEmpty()
+
+    // Prefer official direct chart roots; fall back to BlinkPlay's proven Music Search path.
+    val trendingDeferred = async {
+        Innertube.indiaChartSongs(trendingQuery, "videos")
+            .ifEmpty { searchSongs("trending popular Indian songs Hindi Marathi Punjabi Tamil Telugu") }
+    }
+    val topDeferred = async {
+        Innertube.indiaChartSongs(topQuery, "trackViews")
+            .ifEmpty { searchSongs("India top chart hit songs Hindi Marathi Punjabi Tamil Telugu") }
+    }
 
     // New releases are fetched from YouTube Music's own dedicated browse root, not Explore text matching.
     val releasesDeferred = async {
@@ -700,6 +614,7 @@ private suspend fun fetchIndiaDirectSongShelves(): Triple<
             songs += albumPage?.songsPage?.items.orEmpty()
         }
         songs.distinctBy(Innertube.SongItem::key)
+            .ifEmpty { searchSongs("latest new Indian songs official releases") }
     }
 
     Triple(trendingDeferred.await(), topDeferred.await(), releasesDeferred.await())
