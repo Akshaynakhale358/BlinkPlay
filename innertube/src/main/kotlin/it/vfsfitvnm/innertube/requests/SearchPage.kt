@@ -22,17 +22,20 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
         mask("contents.tabbedSearchResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents(musicShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask),gridRenderer(items.$musicTwoRowItemRendererMask))")
     }.body<SearchResponse>()
 
-    // Collect every matching section: YouTube may return multiple grids/shelves.
-    // Previously lastOrNull silently dropped playlist results when another section followed.
+    // Search filters can return the requested results on a non-first tab.
+    // Collect matching shelves and grids from every tab so songs, albums,
+    // artists and playlists all use the same reliable parser.
     val sections = response.contents
         ?.tabbedSearchResultsRenderer
         ?.tabs
-        ?.firstOrNull()
-        ?.tabRenderer
-        ?.content
-        ?.sectionListRenderer
-        ?.contents
         .orEmpty()
+        .flatMap { tab ->
+            tab.tabRenderer
+                ?.content
+                ?.sectionListRenderer
+                ?.contents
+                .orEmpty()
+        }
         .filter { it.musicShelfRenderer != null || it.gridRenderer != null }
 
     val items = sections.flatMap { section ->
