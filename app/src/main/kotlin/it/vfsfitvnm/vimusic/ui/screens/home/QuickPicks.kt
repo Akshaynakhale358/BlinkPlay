@@ -654,8 +654,9 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
 
     dailyLongListenCategories().map { category ->
         async {
-            // Keep discovery inside this category. These are search variations,
-            // not YouTube Music home-feed or Long Listen shelf requests.
+            // Search both music-song and long-form video results through BlinkPlay's
+            // existing Innertube search path. Long mixes and live sets are often
+            // indexed as videos rather than Song results.
             val queries = listOf(
                 "${category.query} full album",
                 "${category.query} continuous mix",
@@ -665,50 +666,31 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
                 "${category.query} 30 minutes full audio"
             )
             val batches = queries.map { query ->
-                async { runCatching { fetchSongsByCategory(query) }.getOrDefault(emptyList()) }
+                async { runCatching { fetchLongListenCandidates(query) }.getOrDefault(emptyList()) }
             }.awaitAll()
 
-            val eligible = batches.flatten()
+            val candidates = batches.flatten()
                 .distinctBy(Innertube.SongItem::key)
                 .filter { it.durationText.toDurationSeconds() > 1800 }
+                .filter { matchesLongListenCategory(category, it) }
 
-            // Personalization only reorders this category's already-matched,
-            // long-duration candidates; it cannot add short or cross-category songs.
+            // Personalization can only reorder songs already verified for this
+            // category and the >30-minute duration rule.
             val personalized = runCatching {
-                personalizeSongLists(listOf(eligible)).firstOrNull().orEmpty()
-            }.getOrDefault(eligible)
+                personalizeSongLists(listOf(candidates)).firstOrNull().orEmpty()
+            }.getOrDefault(candidates)
             val personalRank = personalized
                 .distinctBy(Innertube.SongItem::key)
                 .mapIndexed { index, song -> song.key to index }
                 .toMap()
 
-            val categoryTerms = category.query
-                .lowercase()
-                .split(Regex("[^a-z0-9]+"))
-                .filter { it.length > 2 && it !in setOf("full", "songs", "song", "india", "indian", "mix") }
-                .distinct()
-            val longFormTerms = listOf(
-                "full album", "continuous", "nonstop", "non stop", "jukebox",
-                "long play", "extended", "live concert", "full set", "medley", "mix"
-            )
-
-            fun relevanceScore(song: Innertube.SongItem): Int {
-                val searchable = "${song.info?.name.orEmpty()} ${song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }}".lowercase()
-                val categoryScore = categoryTerms.count { term -> searchable.contains(term) } * 10
-                val longFormScore = longFormTerms.count { term -> searchable.contains(term) } * 3
-                return categoryScore + longFormScore
-            }
-
-            val ranked = eligible
+            val ranked = candidates
                 .distinctBy(Innertube.SongItem::key)
                 .sortedWith(
-                    compareByDescending<Innertube.SongItem> { relevanceScore(it) }
-                        .thenBy { personalRank[it.key] ?: Int.MAX_VALUE }
+                    compareByDescending<Innertube.SongItem> { personalRank[it.key] ?: Int.MAX_VALUE }
                         .thenByDescending { it.durationText.toDurationSeconds() }
                 )
 
-            // Spread artists where possible, then fill from the same ranked
-            // category pool. Never insert short tracks or duplicate songs.
             val chosen = mutableListOf<Innertube.SongItem>()
             val remaining = ranked.toMutableList()
             val usedArtists = mutableSetOf<String>()
@@ -726,14 +708,71 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
                     ?.let(usedArtists::add)
             }
 
-            // The card renders its five placeholders until five real eligible
-            // songs are available; it never displays a partial or oversized list.
+            // Do not fill a category with unrelated or short songs. Cards appear
+            // only when five genuine category-matched long-form tracks are found.
             val pool = chosen.take(5)
             val offset = if (pool.size < 5) 0 else ((indiaDay * 5L) % pool.size).toInt()
             val dailyOrder = if (pool.size < 5) pool else pool.drop(offset) + pool.take(offset)
             category.title to dailyOrder
         }
     }.awaitAll().toMap()
+}
+
+private suspend fun fetchLongListenCandidates(query: String): List<Innertube.SongItem> = coroutineScope {
+    val songResults = async {
+        runCatching {
+            Innertube.searchPage(
+                body = SearchBody(
+                    context = IndiaExploreContext,
+                    query = query,
+                    params = Innertube.SearchFilter.Song.value
+                ),
+                fromMusicShelfRendererContent = Innertube.SongItem::from
+            )?.getOrNull()?.items.orEmpty()
+        }.getOrDefault(emptyList())
+    }
+    val videoResults = async {
+        runCatching {
+            Innertube.searchPage(
+                body = SearchBody(
+                    context = IndiaExploreContext,
+                    query = query,
+                    params = Innertube.SearchFilter.Video.value
+                ),
+                fromMusicShelfRendererContent = Innertube.VideoItem::from
+            )?.getOrNull()?.items.orEmpty()
+                .filter { it.durationText.toDurationSeconds() > 1800 }
+                .map { video ->
+                    Innertube.SongItem(
+                        info = video.info,
+                        authors = video.authors,
+                        album = null,
+                        durationText = video.durationText,
+                        thumbnail = video.thumbnail
+                    )
+                }
+        }.getOrDefault(emptyList())
+    }
+    (songResults.await() + videoResults.await())
+        .distinctBy(Innertube.SongItem::key)
+}
+
+private fun matchesLongListenCategory(
+    category: LongListenCategory,
+    song: Innertube.SongItem
+): Boolean {
+    val searchable = "${song.info?.name.orEmpty()} ${song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }}".lowercase()
+    return when {
+        category.title.contains("Tamil", ignoreCase = true) ->
+            searchable.contains("tamil") || Regex("[\\u0B80-\\u0BFF]").containsMatchIn(searchable)
+        category.title.contains("Telugu", ignoreCase = true) ->
+            searchable.contains("telugu") || Regex("[\\u0C00-\\u0C7F]").containsMatchIn(searchable)
+        category.title.contains("Kannada", ignoreCase = true) ->
+            searchable.contains("kannada") || Regex("[\\u0C80-\\u0CFF]").containsMatchIn(searchable)
+        category.title.contains("Malayalam", ignoreCase = true) ->
+            searchable.contains("malayalam") || Regex("[\\u0D00-\\u0D7F]").containsMatchIn(searchable)
+        else -> true
+    }
 }
 private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem> =
     Innertube.searchPage(
