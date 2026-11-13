@@ -79,6 +79,7 @@ import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import it.vfsfitvnm.vimusic.ui.screens.browse.MusicBrowseShelves
+import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeSongLists
 import it.vfsfitvnm.vimusic.ui.screens.browse.browseCategoryRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -131,9 +132,15 @@ fun QuickPicks(
             }
         }
         songsForYou = recommendations.distinctBy(Innertube.SongItem::key)
-        trendingSongs = fetchedShelves[0].distinctBy(Innertube.SongItem::key)
-        topSongs = fetchedShelves[1].distinctBy(Innertube.SongItem::key)
-        newReleases = fetchedShelves[2].distinctBy(Innertube.SongItem::key)
+        // Personalize each shelf independently so its original category stays intact:
+        // trending remains trending, top songs remain chart-ranked candidates, and
+        // new releases remain sourced only from the new-release search.
+        val personalizedShelves = withContext(Dispatchers.IO) {
+            personalizeSongLists(fetchedShelves)
+        }
+        trendingSongs = personalizedShelves[0].distinctBy(Innertube.SongItem::key)
+        topSongs = personalizedShelves[1].distinctBy(Innertube.SongItem::key)
+        newReleases = personalizedShelves[2].distinctBy(Innertube.SongItem::key)
         isRefreshing = false
     }
 
