@@ -12,6 +12,7 @@ data class MusicShelfRenderer(
     @Serializable
     data class Content(
         val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null,
+        val continuationItemRenderer: ContinuationItemRenderer? = null,
     ) {
         val runs: Pair<List<Runs.Run>, List<List<Runs.Run>>>
             get() = (musicResponsiveListItemRenderer
