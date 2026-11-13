@@ -48,6 +48,7 @@ private fun JsonElement.songRenderers(): List<Innertube.SongItem> =
             }.getOrNull()?.let(Innertube.SongItem::from)
         }
         .distinctBy(Innertube.SongItem::key)
+        .toList()
 
 private fun JsonElement.playlistShelfSongs(): List<Innertube.SongItem> {
     val shelves = descendants().mapNotNull { node ->
