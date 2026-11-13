@@ -1159,6 +1159,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             get() = timerJob?.millisLeft
 
         private var radioJob: Job? = null
+        private var radioRequestId = 0L
 
         var isLoadingRadio by mutableStateOf(false)
             private set
@@ -1203,6 +1204,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             radioJob?.cancel()
             radioProcessingJob?.cancel()
             radio = null
+            val requestId = ++radioRequestId
             YouTubeRadio(
                 endpoint?.videoId,
                 endpoint?.playlistId,
@@ -1225,13 +1227,14 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                         Log.w(TAG, "radio start failed: ${error.message}", error)
                     } finally {
                         // A superseded request must not hide the loading state of a newer one.
-                        if (radioJob?.isActive != true) isLoadingRadio = false
+                        if (radioRequestId == requestId) isLoadingRadio = false
                     }
                 }
             }
         }
 
         fun stopRadio() {
+            radioRequestId++
             isLoadingRadio = false
             radioJob?.cancel()
             radioProcessingJob?.cancel()
