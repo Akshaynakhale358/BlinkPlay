@@ -183,20 +183,20 @@ fun QuickPicks(
                 .filter { it.key != currentVideoId && it.key !in playedIds }
                 .distinctBy(Innertube.SongItem::key)
         songsForYou = withContext(Dispatchers.IO) {
-            Innertube.prioritizeIndianLanguageSongs(
+            prioritizeIndianLanguageSongs(
                 recommendationSongs, "popular", IndiaExploreContext
             )
         }
 
         val shelves = withContext(Dispatchers.IO) { fetchIndiaDirectSongShelves() }
         trendingSongs = withContext(Dispatchers.IO) {
-            Innertube.prioritizeIndianLanguageSongs(shelves.first, "trending", IndiaExploreContext)
+            prioritizeIndianLanguageSongs(shelves.first, "trending", IndiaExploreContext)
         }
         topSongs = withContext(Dispatchers.IO) {
-            Innertube.prioritizeIndianLanguageSongs(shelves.second, "top chart", IndiaExploreContext)
+            prioritizeIndianLanguageSongs(shelves.second, "top chart", IndiaExploreContext)
         }
         newReleases = withContext(Dispatchers.IO) {
-            Innertube.prioritizeIndianLanguageSongs(shelves.third, "latest new", IndiaExploreContext)
+            prioritizeIndianLanguageSongs(shelves.third, "latest new", IndiaExploreContext)
         }
         isRefreshing = false
     }
