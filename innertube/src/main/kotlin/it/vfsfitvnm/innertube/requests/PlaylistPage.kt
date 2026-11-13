@@ -104,6 +104,10 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
                 .orEmpty()
                 .mapNotNull { it.continuationItemRenderer?.continuationEndpoint?.token() }
                 .firstOrNull()
+                ?: musicShelfRenderer
+                    ?.contents
+                    ?.mapNotNull { it.continuationItemRenderer?.continuationEndpoint?.token() }
+                    ?.firstOrNull()
         ),
         otherVersions = musicCarouselShelfRenderer
             ?.contents
