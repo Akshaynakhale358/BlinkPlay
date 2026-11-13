@@ -335,6 +335,12 @@ fun QuickPicks(
             )
 
 
+            BasicText(
+                text = "LONG LISTEN",
+                style = typography.s.semiBold,
+                modifier = sectionTextModifier
+            )
+
             dailyLongListenCategories().forEach { category ->
                 QuickPicksLongListenShelf(
                     category = category,
@@ -476,49 +482,39 @@ private fun QuickPicksSongShelf(
 }
 
 
-private data class LongListenCategory(val title: String, val query: String, val matchTerms: List<String>)
+private data class LongListenCategory(val title: String, val query: String)
 
 private val LongListenCategoryPool = listOf(
-    LongListenCategory("Road Trip Anthems", "road trip long drive journey songs Hindi English", listOf("road trip", "journey", "highway", "safar")),
-    LongListenCategory("Romantic Melodies", "long romantic melody songs Hindi Marathi Punjabi", listOf("romantic", "romance", "love", "pyaar", "ishq")),
-    LongListenCategory("Acoustic Covers", "long acoustic cover songs Indian Hindi Marathi", listOf("cover", "acoustic", "unplugged")),
-    LongListenCategory("Heartfelt Love Songs", "long love songs playlist Hindi Marathi Punjabi", listOf("love", "lover", "pyaar", "ishq", "dil")),
-    LongListenCategory("Peaceful Sukoon", "peaceful relaxing sukoon songs Hindi", listOf("sukoon", "peaceful", "calm", "relax", "soft")),
-    LongListenCategory("Emotional Sad Songs", "emotional sad heartbreak songs Hindi Marathi", listOf("sad", "broken", "heartbreak", "bewafa", "dard")),
-    LongListenCategory("Dance Party Mix", "long party dance songs playlist India", listOf("party", "dance", "club", "dj")),
-    LongListenCategory("Safar Special", "safar musafir travel songs Hindi", listOf("safar", "musafir", "travel", "journey")),
-    LongListenCategory("Golden Era Classics", "evergreen classic old Hindi hit songs", listOf("evergreen", "classic", "old", "golden", "retro")),
-    LongListenCategory("Highway Drive Mix", "highway driving long drive songs Hindi English", listOf("drive", "driving", "highway", "road")),
-    LongListenCategory("Gym Motivation", "workout gym motivation power songs", listOf("workout", "gym", "fitness", "motivation", "power")),
-    LongListenCategory("Chill & Lofi", "chill lofi relaxing mellow songs playlist", listOf("chill", "lofi", "mellow", "relax")),
-    LongListenCategory("Punjabi Power Hits", "Punjabi hit songs playlist classic popular", listOf("punjabi", "bhangra", "diljit")),
-    LongListenCategory("Marathi Melodies", "Marathi hit songs long melody playlist", listOf("marathi", "मराठी", "lavani", "maharashtra")),
-    LongListenCategory("90s Nostalgia", "90s Hindi retro hit songs playlist", listOf("90s", "1990", "retro", "nineties")),
-    LongListenCategory("2000s Bollywood", "2000s Bollywood Hindi hit songs", listOf("2000", "bollywood", "hindi")),
-    LongListenCategory("Sufi Soul", "Sufi soulful songs Hindi Punjabi", listOf("sufi", "soulful", "sufiyana")),
-    LongListenCategory("Indie India", "Indian indie independent songs playlist", listOf("indie", "independent")),
-    LongListenCategory("Monsoon Memories", "rain monsoon romantic songs Hindi", listOf("rain", "baarish", "barsaat", "monsoon")),
-    LongListenCategory("Friendship Forever", "friendship dosti songs Hindi Marathi", listOf("friendship", "dosti", "yaari", "yaar")),
-    LongListenCategory("Wedding Celebration", "Indian wedding celebration songs playlist", listOf("wedding", "shaadi", "mehndi", "sangeet")),
-    LongListenCategory("Punjabi Romance", "Punjabi romantic love songs playlist", listOf("punjabi", "romantic", "love", "ishq")),
-    LongListenCategory("Hindi Unplugged", "Hindi unplugged acoustic songs", listOf("unplugged", "acoustic", "hindi")),
-    LongListenCategory("Marathi Classics", "old classic Marathi songs playlist", listOf("marathi", "मराठी", "classic", "old")),
-    LongListenCategory("Tamil Long Melodies", "Tamil long melody songs playlist", listOf("tamil", "தமிழ்", "melody")),
-    LongListenCategory("Telugu Melody Hits", "Telugu melody hit songs playlist", listOf("telugu", "తెలుగు", "melody")),
-    LongListenCategory("90s Love Classics", "90s romantic love songs Hindi", listOf("90s", "romantic", "love")),
-    LongListenCategory("Bollywood Duets", "Bollywood romantic duet songs Hindi", listOf("duet", "bollywood", "romantic")),
-    LongListenCategory("Motivational Anthems", "motivational inspirational songs India", listOf("motivation", "motivational", "inspire")),
-    LongListenCategory("Feel Good Vibes", "feel good happy songs Hindi Indian", listOf("happy", "feel good", "smile")),
-    LongListenCategory("Heartbreak Classics", "heartbreak breakup songs Hindi", listOf("heartbreak", "breakup", "broken", "bewafa")),
-    LongListenCategory("Live Concert Versions", "live concert performance songs India", listOf("live", "concert", "performance")),
-    LongListenCategory("Devotional-Free Calm", "instrumental meditation peaceful music India", listOf("instrumental", "meditation", "peaceful")),
-    LongListenCategory("English Pop Longplay", "English pop long songs playlist", listOf("english", "pop")),
-    LongListenCategory("Punjabi Folk Beats", "Punjabi folk traditional songs", listOf("punjabi", "folk", "traditional")),
-    LongListenCategory("Bollywood Mashups", "Bollywood mashup medley songs", listOf("mashup", "medley", "bollywood")),
-    LongListenCategory("Retro Remix Mix", "retro remix old Hindi songs", listOf("retro", "remix", "old")),
-    LongListenCategory("Female Vocal Favourites", "female singer Hindi melody songs", listOf("female", "singer", "voice")),
-    LongListenCategory("Male Vocal Classics", "male singer Hindi classic songs", listOf("male", "singer", "classic")),
-    LongListenCategory("Rainy Day Chill", "rainy day chill songs playlist", listOf("rain", "rainy", "baarish", "chill"))
+    LongListenCategory("Long Drive Mix", "long drive road trip journey full songs Hindi Marathi"),
+    LongListenCategory("Romantic Long Mix", "romantic love full songs Hindi Marathi"),
+    LongListenCategory("Peaceful Melody Mix", "peaceful relaxing melody full songs India"),
+    LongListenCategory("Emotional Long Mix", "emotional sad heartbreak full songs Hindi Marathi"),
+    LongListenCategory("Dance Long Mix", "dance party full songs Hindi Indian"),
+    LongListenCategory("Evergreen Classics Mix", "evergreen old classic full songs Hindi"),
+    LongListenCategory("Workout Energy Mix", "workout gym energetic full songs"),
+    LongListenCategory("Chill & Lofi Mix", "chill lofi mellow full songs"),
+    LongListenCategory("Marathi Long Mix", "Marathi full songs long melody"),
+    LongListenCategory("Bollywood Melody Mix", "Bollywood full melody songs"),
+    LongListenCategory("Sufi Soul Mix", "Sufi soulful full songs Hindi"),
+    LongListenCategory("Indian Indie Mix", "Indian indie independent full songs"),
+    LongListenCategory("Monsoon Mix", "rain monsoon baarish full songs Hindi"),
+    LongListenCategory("Friendship Mix", "friendship dosti yaari full songs"),
+    LongListenCategory("Tamil Melody Mix", "Tamil full melody songs"),
+    LongListenCategory("Telugu Melody Mix", "Telugu full melody songs"),
+    LongListenCategory("90s Nostalgia Mix", "90s Hindi evergreen full songs"),
+    LongListenCategory("2000s Bollywood Mix", "2000s Bollywood full songs"),
+    LongListenCategory("English Pop Mix", "English pop full songs"),
+    LongListenCategory("Live Performance Mix", "live concert full song performances"),
+    LongListenCategory("Acoustic Melody Mix", "acoustic guitar full songs Indian"),
+    LongListenCategory("Feel Good Mix", "feel good happy full songs Hindi Indian"),
+    LongListenCategory("Heartbreak Mix", "breakup heartbreak full songs Hindi"),
+    LongListenCategory("Bollywood Duets Mix", "Bollywood duet full songs"),
+    LongListenCategory("Retro Remix Mix", "retro remix full songs Hindi"),
+    LongListenCategory("Female Vocal Mix", "female vocal full songs Indian"),
+    LongListenCategory("Male Vocal Mix", "male vocal full songs Indian"),
+    LongListenCategory("Travel Memories Mix", "travel musafir safar full songs Hindi"),
+    LongListenCategory("Soft Melody Mix", "soft romantic melody full songs India"),
+    LongListenCategory("Festival Party Mix", "Indian festival celebration dance full songs")
 )
 
 private fun dailyLongListenCategories(): List<LongListenCategory> {
@@ -588,30 +584,41 @@ private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
 }
 
 private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
+    val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
+
     dailyLongListenCategories().map { category ->
         async {
-            val fetched = fetchSongsByCategory(category.query)
-            val categoryOnly = fetched.filter { song ->
-                val searchable = listOfNotNull(
-                    song.info?.name,
-                    song.authors?.joinToString(" ") { it.name.orEmpty() }
-                ).joinToString(" ").lowercase()
-                category.matchTerms.any { term -> searchable.contains(term.lowercase()) }
-            }.distinctBy(Innertube.SongItem::key)
-            val personalized = runCatching {
-                personalizeSongLists(listOf(categoryOnly)).firstOrNull().orEmpty()
-            }.getOrDefault(categoryOnly)
+            // Search within the requested music category. Do not apply broad title/artist
+            // keyword filters here: those were discarding valid results and leaving empty rows.
+            val primary = fetchSongsByCategory("${category.query} full song long version")
+            val fallback = if (primary.size < 5) {
+                fetchSongsByCategory("${category.query} 10 minute full songs")
+            } else {
+                emptyList()
+            }
 
-            // Keep category relevance first, then prefer longer tracks within that category.
-            // Duration is a ranking preference, not a hard filter, so short tracks can still
-            // appear if a category has too few long matches.
-            val longFirst = personalized.distinctBy(Innertube.SongItem::key)
+            val candidates = (primary + fallback)
+                .distinctBy(Innertube.SongItem::key)
+
+            val personalized = runCatching {
+                personalizeSongLists(listOf(candidates)).firstOrNull().orEmpty()
+            }.getOrDefault(candidates)
+
+            val durationRanked = personalized.distinctBy(Innertube.SongItem::key)
                 .sortedByDescending { it.durationText.toDurationSeconds() }
 
-            // Rotate in blocks of ten using the current day so each category refreshes
-            // its visible ten-song bunch daily while keeping the longer tracks prioritized.
-            val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
-            category.title to longFirst.take(40)
+            // Prefer tracks around 10 minutes or longer. If YouTube returns fewer than
+            // five, use the longest relevant category matches rather than showing blanks.
+            val tenMinuteTracks = durationRanked.filter {
+                it.durationText.toDurationSeconds() >= 600
+            }
+            val pool = (if (tenMinuteTracks.size >= 5) tenMinuteTracks else durationRanked)
+                .take(40)
+
+            // Rotate five-song selections daily so both songs and the ten bunches refresh.
+            val offset = if (pool.isEmpty()) 0 else ((indiaDay * 5L) % pool.size).toInt()
+            val rotated = if (pool.isEmpty()) emptyList() else pool.drop(offset) + pool.take(offset)
+            category.title to rotated.take(5)
         }
     }.awaitAll().toMap()
 }
