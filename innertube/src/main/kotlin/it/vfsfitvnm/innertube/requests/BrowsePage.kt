@@ -91,7 +91,7 @@ private fun parseBrowseSections(root: JsonElement): List<MusicBrowseSection> {
             ?: content["musicImmersiveCarouselShelfRenderer"]
         if (carouselElement != null) {
             val carousel = runCatching {
-                browseResponseJson.decodeFromJsonElement<MusicCarouselShelfRenderer>(carouselElement)
+                browseResponseJson.decodeFromJsonElement(MusicCarouselShelfRenderer.serializer(), carouselElement)
             }.getOrNull()
             if (carousel != null) {
                 val header = carousel.header?.musicCarouselShelfBasicHeaderRenderer
@@ -117,7 +117,7 @@ private fun parseBrowseSections(root: JsonElement): List<MusicBrowseSection> {
         val shelfElement = content["musicShelfRenderer"] ?: content["musicPlaylistShelfRenderer"]
         if (shelfElement != null) {
             val shelf = runCatching {
-                browseResponseJson.decodeFromJsonElement<MusicShelfRenderer>(shelfElement)
+                browseResponseJson.decodeFromJsonElement(MusicShelfRenderer.serializer(), shelfElement)
             }.getOrNull()
             if (shelf != null) {
                 val title = shelf.title?.text ?: return@mapNotNull null
@@ -138,11 +138,11 @@ private fun parseBrowseSections(root: JsonElement): List<MusicBrowseSection> {
         val gridElement = content["gridRenderer"]
         if (gridElement != null) {
             val grid = runCatching {
-                browseResponseJson.decodeFromJsonElement<GridRenderer>(gridElement)
+                browseResponseJson.decodeFromJsonElement(GridRenderer.serializer(), gridElement)
             }.getOrNull()
             val title = content["header"]?.let { header ->
                 runCatching {
-                    browseResponseJson.decodeFromJsonElement<MusicCarouselShelfRenderer.Header>(header)
+                    browseResponseJson.decodeFromJsonElement(MusicCarouselShelfRenderer.Header.serializer(), header)
                 }.getOrNull()?.musicCarouselShelfBasicHeaderRenderer?.title?.text
             } ?: return@mapNotNull null
             val items = grid?.items.orEmpty()
@@ -169,7 +169,7 @@ suspend fun Innertube.browsePage(body: BrowseBody) = runCatchingNonCancellable {
     val raw = client.post(browse) { setBody(body) }.body<String>()
     val root = browseResponseJson.parseToJsonElement(raw)
     val response = runCatching {
-        browseResponseJson.decodeFromJsonElement<BrowseResponse>(root)
+        browseResponseJson.decodeFromJsonElement(BrowseResponse.serializer(), root)
     }.getOrNull()
 
     MusicBrowsePage(
