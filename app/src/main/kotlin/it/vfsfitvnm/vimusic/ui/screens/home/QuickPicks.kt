@@ -561,7 +561,7 @@ private fun QuickPicksLongListenShelf(
 
     Column(
         modifier = Modifier
-            .width(340.dp)
+            .width(300.dp)
             .clip(RoundedCornerShape(26.dp))
             .background(Color(0xFF29231B))
             .padding(12.dp)
@@ -570,7 +570,7 @@ private fun QuickPicksLongListenShelf(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(156.dp)
+                .height(140.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Color(0xFF40372C))
                 .clickable { firstSong?.let(onSongClick) }
