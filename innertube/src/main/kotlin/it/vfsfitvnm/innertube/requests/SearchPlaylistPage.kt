@@ -5,6 +5,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.SearchResponse
+import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
@@ -58,8 +59,35 @@ suspend fun Innertube.searchPlaylistPage(body: SearchBody) = runCatchingNonCance
                     section.musicShelfRenderer
                         ?.contents
                         ?.mapNotNullTo(this) { content ->
-                            content.musicResponsiveListItemRenderer
-                                ?.let(Innertube.PlaylistItem::from)
+                            content.musicResponsiveListItemRenderer?.let { renderer ->
+                                val titleRun = renderer.flexColumns
+                                    .firstOrNull()
+                                    ?.musicResponsiveListItemFlexColumnRenderer
+                                    ?.text
+                                    ?.runs
+                                    ?.firstOrNull()
+                                val browseEndpoint = renderer.navigationEndpoint?.browseEndpoint
+                                    ?: titleRun?.navigationEndpoint?.browseEndpoint
+                                Innertube.PlaylistItem(
+                                    info = Innertube.Info(
+                                        name = titleRun?.text,
+                                        endpoint = browseEndpoint
+                                    ),
+                                    channel = renderer.flexColumns
+                                        .getOrNull(1)
+                                        ?.musicResponsiveListItemFlexColumnRenderer
+                                        ?.text
+                                        ?.runs
+                                        ?.firstOrNull()
+                                        ?.let(Innertube::Info),
+                                    songCount = null,
+                                    thumbnail = renderer.thumbnail
+                                        ?.musicThumbnailRenderer
+                                        ?.thumbnail
+                                        ?.thumbnails
+                                        ?.firstOrNull()
+                                ).takeIf { it.info?.endpoint?.browseId != null }
+                            }
                         }
                     section.gridRenderer
                         ?.items
