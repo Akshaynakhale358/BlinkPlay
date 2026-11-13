@@ -6,22 +6,22 @@ import kotlinx.serialization.json.JsonNames
 
 @Serializable
 data class BrowseResponse(
-    val contents: Contents?,
-    val header: Header?,
-    val microformat: Microformat?
+    val contents: Contents? = null,
+    val header: Header? = null,
+    val microformat: Microformat? = null
 ) {
     @Serializable
     data class Contents(
-        val singleColumnBrowseResultsRenderer: Tabs?,
-        val twoColumnBrowseResultsRenderer: TwoColumnBrowseResults?,
-        val sectionListRenderer: SectionListRenderer?,
+        val singleColumnBrowseResultsRenderer: Tabs? = null,
+        val twoColumnBrowseResultsRenderer: TwoColumnBrowseResults? = null,
+        val sectionListRenderer: SectionListRenderer? = null,
     )
 
     @Serializable
     data class Header @OptIn(ExperimentalSerializationApi::class) constructor(
         @JsonNames("musicVisualHeaderRenderer")
-        val musicImmersiveHeaderRenderer: MusicImmersiveHeaderRenderer?,
-        val musicDetailHeaderRenderer: MusicDetailHeaderRenderer?,
+        val musicImmersiveHeaderRenderer: MusicImmersiveHeaderRenderer? = null,
+        val musicDetailHeaderRenderer: MusicDetailHeaderRenderer? = null,
     ) {
         @Serializable
         data class MusicDetailHeaderRenderer(
