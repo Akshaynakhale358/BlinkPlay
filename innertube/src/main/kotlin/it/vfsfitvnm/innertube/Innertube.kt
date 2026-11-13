@@ -30,6 +30,7 @@ object Innertube {
     private val apiKeyMutex = Mutex()
     @Volatile private var cachedApiKey: String? = null
     @Volatile private var cachedApiKeyAt: Long = 0L
+    @Volatile private var cachedWebClientVersion: String? = null
 
     suspend fun currentApiKey(): String = apiKeyMutex.withLock {
         val cached = cachedApiKey
@@ -45,8 +46,16 @@ object Innertube {
             ?: throw IllegalStateException("YouTube Music API key was not found in web configuration")
 
         cachedApiKey = key
+        cachedWebClientVersion = Regex("""["']?INNERTUBE_CLIENT_VERSION["']?\\s*:\\s*["']([^"']+)["']""")
+            .find(html)?.groupValues?.getOrNull(1)
+            ?: cachedWebClientVersion
         cachedApiKeyAt = System.currentTimeMillis()
         key
+    }
+
+    suspend fun currentWebClientVersion(): String {
+        currentApiKey()
+        return cachedWebClientVersion ?: Context.DefaultWeb.client.clientVersion
     }
 
     val client = HttpClient(OkHttp) {
