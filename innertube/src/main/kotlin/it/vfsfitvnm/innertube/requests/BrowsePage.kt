@@ -6,12 +6,13 @@ import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.BrowseResponse
 import it.vfsfitvnm.innertube.models.Context
-import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
 import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 import it.vfsfitvnm.innertube.models.SectionListRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 /**
  * A server-discovered shelf. browseId/params come from YouTube's own "more" endpoint;
@@ -29,6 +30,15 @@ data class MusicBrowsePage(
     val title: String?,
     val sections: List<MusicBrowseSection>,
 )
+
+data class MusicDiscovery(
+    val home: MusicBrowsePage?,
+    val explore: MusicBrowsePage?,
+) {
+    val sections: List<MusicBrowseSection>
+        get() = (home?.sections.orEmpty() + explore?.sections.orEmpty())
+            .distinctBy { listOf(it.title, it.browseId, it.params) }
+}
 
 /** Fetches and parses every section exposed by a YouTube Music browse feed. */
 suspend fun Innertube.browsePage(body: BrowseBody) = runCatchingNonCancellable {
@@ -60,7 +70,7 @@ suspend fun Innertube.browsePage(body: BrowseBody) = runCatchingNonCancellable {
 
 /** Home feed. YouTube decides which shelves/categories are currently relevant. */
 private val IndiaMusicBrowseContext = Context.DefaultWeb.copy(
-    client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+    client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
 )
 
 /** Home feed. YouTube decides which shelves/categories are currently relevant. */
@@ -70,6 +80,24 @@ suspend fun Innertube.musicHomePage(context: Context = IndiaMusicBrowseContext) 
 /** Explore feed. The returned categories and their order are server-controlled. */
 suspend fun Innertube.musicExplorePage(context: Context = IndiaMusicBrowseContext) =
     browsePage(BrowseBody(context = context, browseId = MUSIC_EXPLORE_BROWSE_ID))
+
+/**
+ * Fetch both feeds independently. A temporary failure in one feed must not discard
+ * usable data from the other; fail only when both sources are unavailable.
+ */
+suspend fun Innertube.musicDiscovery(context: Context = IndiaMusicBrowseContext) =
+    runCatchingNonCancellable {
+        coroutineScope {
+            val home = async { musicHomePage(context) }.await()
+            val explore = async { musicExplorePage(context) }.await()
+            val homePage = home.getOrNull()
+            val explorePage = explore.getOrNull()
+            check(homePage != null || explorePage != null) {
+                "YouTube Music Home and Explore feeds are both unavailable"
+            }
+            MusicDiscovery(home = homePage, explore = explorePage)
+        }
+    }
 
 /** Open a shelf's own server-provided destination; no category slug is hard-coded. */
 suspend fun Innertube.browseSection(
