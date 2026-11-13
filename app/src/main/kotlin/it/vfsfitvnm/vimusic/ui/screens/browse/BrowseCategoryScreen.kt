@@ -26,8 +26,12 @@ import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
+import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.MusicBrowsePage
+import it.vfsfitvnm.innertube.requests.MusicBrowseSection
 import it.vfsfitvnm.innertube.requests.browsePage
+import it.vfsfitvnm.innertube.requests.searchPage
+import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
 import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
 import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
@@ -70,7 +74,49 @@ fun BrowseCategoryScreen(
                 BrowseBody(context = context, browseId = browseId, params = params)
             )
         }
-        page = result?.getOrNull() ?: page
+        var loadedPage = result?.getOrNull()
+        val loadedSongCount = loadedPage?.sections.orEmpty()
+            .sumOf { section -> section.items.count { it is Innertube.SongItem } }
+
+        // A category response with only a handful of tracks is often a partial YouTube
+        // response. Automatically try a category-title search and merge its song results.
+        if (loadedSongCount < 10) {
+            val categoryName = loadedPage?.title
+                ?.takeIf { it.isNotBlank() }
+                ?: browseId.removePrefix("FEmusic_").replace('_', ' ')
+            val searchQueries = listOf(
+                "$categoryName songs",
+                "$categoryName Hindi Marathi Punjabi Tamil Telugu songs"
+            )
+            val fallbackSongs = searchQueries.flatMap { query ->
+                Innertube.searchPage(
+                    body = SearchBody(context = context, query = query, params = Innertube.SearchFilter.Song.value),
+                    fromMusicShelfRendererContent = Innertube.SongItem::from
+                )?.getOrNull()?.items.orEmpty()
+            }.distinctBy(Innertube.SongItem::key)
+
+            if (fallbackSongs.isNotEmpty()) {
+                val existingSections = loadedPage?.sections.orEmpty()
+                val existingIds = existingSections.flatMap { section ->
+                    section.items.filterIsInstance<Innertube.SongItem>().map(Innertube.SongItem::key)
+                }.toSet()
+                val additionalSongs = fallbackSongs.filterNot { it.key in existingIds }
+                if (additionalSongs.isNotEmpty()) {
+                    loadedPage = MusicBrowsePage(
+                        title = loadedPage?.title ?: categoryName,
+                        sections = existingSections + MusicBrowseSection(
+                            title = "More $categoryName songs",
+                            browseId = null,
+                            params = null,
+                            items = additionalSongs,
+                            continuation = null
+                        )
+                    )
+                }
+            }
+        }
+
+        page = loadedPage ?: page
         failed = page?.sections.isNullOrEmpty()
         loading = false
     }
