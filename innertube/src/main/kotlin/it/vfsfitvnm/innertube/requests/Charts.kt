@@ -69,8 +69,10 @@ private fun chartSong(element: JsonElement): Innertube.SongItem? {
         }
     }.firstOrNull().orEmpty().distinct()
 
-    val thumbnailUrl = element.stringAt("url", "thumbnailUrl")
-        ?.takeIf { it.startsWith("https://") }
+    // Chart payload thumbnail URLs can point to tiny 60px previews (or unrelated
+    // nested URLs). Build the stable YouTube video thumbnail from the chart videoId.
+    // hqdefault is consistently available and gives a clear 480x360 image.
+    val thumbnailUrl = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
     return Innertube.SongItem(
         info = Innertube.Info(
             name = title,
