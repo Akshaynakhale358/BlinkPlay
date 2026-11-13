@@ -19,8 +19,34 @@ import it.vfsfitvnm.innertube.models.Runs
 import it.vfsfitvnm.innertube.models.Thumbnail
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 object Innertube {
+    // YouTube rotates its public InnerTube API key. Read it from the live Music
+    // web configuration instead of baking a stale key into BlinkPlay.
+    private val apiKeyMutex = Mutex()
+    @Volatile private var cachedApiKey: String? = null
+    @Volatile private var cachedApiKeyAt: Long = 0L
+
+    suspend fun currentApiKey(): String = apiKeyMutex.withLock {
+        val cached = cachedApiKey
+        if (cached != null && System.currentTimeMillis() - cachedApiKeyAt < 6 * 60 * 60 * 1000L) {
+            return@withLock cached
+        }
+
+        val html = client.get("/").body<String>()
+        val key = Regex("""["']?INNERTUBE_API_KEY["']?\\s*:\\s*["']([^"']+)["']""")
+            .find(html)?.groupValues?.getOrNull(1)
+            ?: Regex("""INNERTUBE_API_KEY\\s*[:=]\\s*["']([^"']+)["']""")
+                .find(html)?.groupValues?.getOrNull(1)
+            ?: throw IllegalStateException("YouTube Music API key was not found in web configuration")
+
+        cachedApiKey = key
+        cachedApiKeyAt = System.currentTimeMillis()
+        key
+    }
+
     val client = HttpClient(OkHttp) {
         expectSuccess = true
 
