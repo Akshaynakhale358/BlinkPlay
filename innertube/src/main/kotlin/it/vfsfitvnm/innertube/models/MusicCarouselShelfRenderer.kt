@@ -4,30 +4,30 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class MusicCarouselShelfRenderer(
-    val header: Header?,
-    val contents: List<Content>?,
+    val header: Header? = null,
+    val contents: List<Content>? = null,
 ) {
     @Serializable
     data class Content(
-        val musicTwoRowItemRenderer: MusicTwoRowItemRenderer?,
-        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer?,
+        val musicTwoRowItemRenderer: MusicTwoRowItemRenderer? = null,
+        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null,
     )
 
     @Serializable
     data class Header(
-        val musicTwoRowItemRenderer: MusicTwoRowItemRenderer?,
-        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer?,
-        val musicCarouselShelfBasicHeaderRenderer: MusicCarouselShelfBasicHeaderRenderer?
+        val musicTwoRowItemRenderer: MusicTwoRowItemRenderer? = null,
+        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null,
+        val musicCarouselShelfBasicHeaderRenderer: MusicCarouselShelfBasicHeaderRenderer? = null
     ) {
         @Serializable
         data class MusicCarouselShelfBasicHeaderRenderer(
-            val moreContentButton: MoreContentButton?,
-            val title: Runs?,
-            val strapline: Runs?,
+            val moreContentButton: MoreContentButton? = null,
+            val title: Runs? = null,
+            val strapline: Runs? = null,
         ) {
             @Serializable
             data class MoreContentButton(
-                val buttonRenderer: ButtonRenderer?
+                val buttonRenderer: ButtonRenderer? = null
             )
         }
     }
