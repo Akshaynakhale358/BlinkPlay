@@ -37,6 +37,7 @@ import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItem
 import it.vfsfitvnm.vimusic.ui.items.PlaylistItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.items.SongItem
+import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeSongLists
 import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
@@ -107,7 +108,6 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             )
             val previousTokens = continuation?.split('\u001F')
             val nextTokens = mutableListOf<String?>()
-            val combinedItems = mutableListOf<Innertube.SongItem>()
             // Keep each language batch separate so Hindi stays first, while personalizing
             // the order of songs inside each language using listening history and favorites.
             val languageGroups = mutableListOf<List<Innertube.SongItem>>()
@@ -175,7 +175,6 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 } else {
                     val languageItems = page.items.orEmpty()
                     languageGroups += languageItems
-                    combinedItems += languageItems
                     nextTokens += page.continuation
                 }
             }
