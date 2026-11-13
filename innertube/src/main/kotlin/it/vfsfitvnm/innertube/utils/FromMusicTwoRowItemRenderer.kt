@@ -21,7 +21,7 @@ fun Innertube.AlbumItem.Companion.from(renderer: MusicTwoRowItemRenderer): Inner
             ?.musicThumbnailRenderer
             ?.thumbnail
             ?.thumbnails
-            ?.firstOrNull()
+            ?.maxByOrNull { (it.width ?: 0) * (it.height ?: 0) }
     ).takeIf { it.info?.endpoint?.browseId != null }
 }
 
