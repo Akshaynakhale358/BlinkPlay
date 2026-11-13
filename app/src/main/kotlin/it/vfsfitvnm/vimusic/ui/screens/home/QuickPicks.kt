@@ -788,7 +788,7 @@ private fun MixForYouShelf(
     var playlists by remember(seedArtists, refreshKey) {
         mutableStateOf<List<Innertube.PlaylistItem>?>(null)
     }
-    LaunchedEffect(seedArtists, refreshKey, retryKey) {
+    LaunchedEffect(seedArtists, refreshKey) {
         playlists = withContext(Dispatchers.IO) {
             val seed = seedArtists.takeIf { it.isNotBlank() } ?: "popular Indian music"
             val languageQueries = listOf(
