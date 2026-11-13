@@ -30,6 +30,7 @@ import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.MusicBrowsePage
 import it.vfsfitvnm.innertube.requests.MusicBrowseSection
 import it.vfsfitvnm.innertube.requests.browsePage
+import it.vfsfitvnm.innertube.requests.prioritizeIndianLanguageSongs
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
@@ -114,6 +115,20 @@ fun BrowseCategoryScreen(
                     )
                 }
             }
+        }
+
+        loadedPage = loadedPage?.let { musicPage ->
+            val orderedSections = musicPage.sections.map { section ->
+                val songItems = section.items.filterIsInstance<Innertube.SongItem>()
+                if (songItems.isNotEmpty() && songItems.size == section.items.size) {
+                    section.copy(
+                        items = prioritizeIndianLanguageSongs(
+                            songItems, musicPage.title ?: "popular", context
+                        )
+                    )
+                } else section
+            }
+            musicPage.copy(sections = orderedSections)
         }
 
         page = loadedPage ?: page
