@@ -53,7 +53,6 @@ data class MusicDiscovery(
 private val browseResponseJson = Json {
     ignoreUnknownKeys = true
     isLenient = true
-    explicitNulls = false
 }
 
 private val discoveryMutex = Mutex()
