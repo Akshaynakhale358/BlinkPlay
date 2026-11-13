@@ -27,6 +27,10 @@ import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.material.ripple.LocalRippleTheme
+import androidx.compose.material.ripple.RippleAlpha
+import androidx.compose.material.ripple.RippleTheme
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -65,7 +69,6 @@ import it.vfsfitvnm.vimusic.enums.ColorPaletteName
 import it.vfsfitvnm.vimusic.enums.ThumbnailRoundness
 import it.vfsfitvnm.vimusic.service.PlayerService
 import it.vfsfitvnm.vimusic.ui.components.BottomSheetMenu
-import it.vfsfitvnm.vimusic.ui.components.BottomSheetState
 import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.rememberBottomSheetState
 import it.vfsfitvnm.vimusic.ui.screens.albumRoute
@@ -74,7 +77,6 @@ import it.vfsfitvnm.vimusic.ui.screens.home.HomeScreen
 import it.vfsfitvnm.vimusic.ui.screens.player.Player
 import it.vfsfitvnm.vimusic.ui.screens.playlistRoute
 import it.vfsfitvnm.vimusic.ui.styling.Appearance
-import it.vfsfitvnm.vimusic.ui.styling.ripple
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.colorPaletteOf
@@ -87,6 +89,7 @@ import it.vfsfitvnm.vimusic.utils.colorPaletteNameKey
 import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.getEnum
 import it.vfsfitvnm.vimusic.utils.intent
+import it.vfsfitvnm.vimusic.utils.isAtLeastAndroid6
 import it.vfsfitvnm.vimusic.utils.isAtLeastAndroid8
 import it.vfsfitvnm.vimusic.utils.preferences
 import it.vfsfitvnm.vimusic.utils.thumbnailRoundnessKey
@@ -276,13 +279,21 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
                 }
             }
 
-            val rippleIndication =
+            val rippleTheme =
                 remember(appearance.colorPalette.text, appearance.colorPalette.isDark) {
-                    ripple(
-                        color = appearance.colorPalette.text,
-                        isDark = appearance.colorPalette.isDark,
-                        bounded = true
-                    )
+                    object : RippleTheme {
+                        @Composable
+                        override fun defaultColor(): Color = RippleTheme.defaultRippleColor(
+                            contentColor = appearance.colorPalette.text,
+                            lightTheme = !appearance.colorPalette.isDark
+                        )
+
+                        @Composable
+                        override fun rippleAlpha(): RippleAlpha = RippleTheme.defaultRippleAlpha(
+                            contentColor = appearance.colorPalette.text,
+                            lightTheme = !appearance.colorPalette.isDark
+                        )
+                    }
                 }
 
             val shimmerTheme = remember {
@@ -330,10 +341,10 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
 
                 CompositionLocalProvider(
                     LocalAppearance provides appearance,
-                    LocalIndication provides rippleIndication,
+                    LocalIndication provides rememberRipple(bounded = true),
+                    LocalRippleTheme provides rippleTheme,
                     LocalShimmerTheme provides shimmerTheme,
                     LocalPlayerServiceBinder provides binder,
-                    LocalPlayerBottomSheetState provides playerBottomSheetState,
                     LocalPlayerAwareWindowInsets provides playerAwareWindowInsets,
                     LocalLayoutDirection provides LayoutDirection.Ltr
                 ) {
@@ -359,14 +370,18 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
                 DisposableEffect(binder?.player) {
                     val player = binder?.player ?: return@DisposableEffect onDispose { }
 
-                    // Keep the empty player sheet available so the rail launcher can open it.
-                    // Only apply the automatic initial collapse/expand when a track exists.
-                    if (player.currentMediaItem != null && playerBottomSheetState.isDismissed) {
-                        if (launchedFromNotification) {
-                            intent.replaceExtras(Bundle())
-                            playerBottomSheetState.expand(tween(700))
-                        } else {
-                            playerBottomSheetState.collapse(tween(700))
+                    if (player.currentMediaItem == null) {
+                        if (!playerBottomSheetState.isDismissed) {
+                            playerBottomSheetState.dismiss()
+                        }
+                    } else {
+                        if (playerBottomSheetState.isDismissed) {
+                            if (launchedFromNotification) {
+                                intent.replaceExtras(Bundle())
+                                playerBottomSheetState.expand(tween(700))
+                            } else {
+                                playerBottomSheetState.collapse(tween(700))
+                            }
                         }
                     }
 
@@ -392,10 +407,10 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
         onNewIntent(intent)
     }
 
-    override fun onNewIntent(intent: Intent) {
+    override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
 
-        val uri = intent.data ?: return
+        val uri = intent?.data ?: return
 
         intent.data = null
         this.intent = null
@@ -459,10 +474,11 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
             isAppearanceLightNavigationBars = !isDark
         }
 
-        // Still meaningful below API 26, where the navigation bar does not scrim itself and the
-        // property is not yet the no-op it became in API 35. Above that the insets controller
-        // above is the whole story.
-        @Suppress("DEPRECATION")
+        if (!isAtLeastAndroid6) {
+            window.statusBarColor =
+                (if (isDark) Color.Transparent else Color.Black.copy(alpha = 0.2f)).toArgb()
+        }
+
         if (!isAtLeastAndroid8) {
             window.navigationBarColor =
                 (if (isDark) Color.Transparent else Color.Black.copy(alpha = 0.2f)).toArgb()
@@ -471,6 +487,5 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
 }
 
 val LocalPlayerServiceBinder = staticCompositionLocalOf<PlayerService.Binder?> { null }
-val LocalPlayerBottomSheetState = staticCompositionLocalOf<BottomSheetState?> { null }
 
 val LocalPlayerAwareWindowInsets = staticCompositionLocalOf<WindowInsets> { TODO() }

@@ -5,7 +5,6 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,29 +12,22 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.valentinilk.shimmer.shimmer
 import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
-import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
-import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.requests.playlistPage
 import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
@@ -62,6 +54,7 @@ import it.vfsfitvnm.vimusic.ui.styling.Dimensions
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.asMediaItem
+import it.vfsfitvnm.vimusic.utils.completed
 import it.vfsfitvnm.vimusic.utils.enqueue
 import it.vfsfitvnm.vimusic.utils.forcePlayAtIndex
 import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
@@ -80,55 +73,13 @@ fun PlaylistSongList(
     val context = LocalContext.current
     val menuState = LocalMenuState.current
 
-    // Bump the persisted cache key so empty pages saved by the old parser are fetched again.
-    var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage-v3")
-    var playlistLoadError by rememberSaveable(browseId) { mutableStateOf(false) }
-    var isLoadingPlaylist by rememberSaveable(browseId) { mutableStateOf(false) }
-    var retryKey by rememberSaveable(browseId) { mutableStateOf(0) }
+    var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage")
 
-    LaunchedEffect(browseId, retryKey) {
-        if (playlistPage?.songsPage == null) {
-            isLoadingPlaylist = true
-            // New playlist loader: use India Music WEB context first, then the
-            // default WEB context. Try both canonical and VL-prefixed playlist ids.
-            val page = withContext(Dispatchers.IO) {
-                val indiaContext = Context.DefaultWeb.copy(
-                    client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
-                )
-                val contexts = listOf(indiaContext, Context.DefaultWeb)
-                val candidateIds = buildList {
-                    add(browseId)
-                    if (browseId.startsWith("VL")) add(browseId.removePrefix("VL"))
-                    else add("VL$browseId")
-                }.distinct()
+    LaunchedEffect(Unit) {
+        if (playlistPage != null && playlistPage?.songsPage?.continuation == null) return@LaunchedEffect
 
-                var loaded: Innertube.PlaylistOrAlbumPage? = null
-                for (requestContext in contexts) {
-                    for (candidateId in candidateIds) {
-                        val candidate = Innertube.playlistPage(
-                            BrowseBody(context = requestContext, browseId = candidateId)
-                        )?.getOrNull()
-                        if (candidate?.songsPage?.items?.isNotEmpty() == true ||
-                            candidate?.songsPage?.continuation != null
-                        ) {
-                            loaded = candidate
-                            break
-                        }
-                        if (loaded == null && candidate?.songsPage != null) loaded = candidate
-                    }
-                    if (loaded?.songsPage?.items?.isNotEmpty() == true ||
-                        loaded?.songsPage?.continuation != null
-                    ) break
-                }
-                loaded
-            }
-            if (page?.songsPage != null) {
-                playlistPage = page
-                playlistLoadError = false
-            } else {
-                playlistLoadError = true
-            }
-            isLoadingPlaylist = false
+        playlistPage = withContext(Dispatchers.IO) {
+            Innertube.playlistPage(BrowseBody(browseId = browseId))?.completed()?.getOrNull()
         }
     }
 
@@ -217,50 +168,6 @@ fun PlaylistSongList(
 
     val lazyListState = rememberLazyListState()
 
-    LaunchedEffect(browseId) {
-        snapshotFlow {
-            Triple(
-                lazyListState.layoutInfo.visibleItemsInfo.any { it.key == "playlist-loading" },
-                playlistPage?.songsPage?.continuation,
-                retryKey
-            )
-        }.collect { (isFooterVisible, continuation, _) ->
-            if (!isFooterVisible || continuation == null || playlistLoadError || isLoadingPlaylist) {
-                return@collect
-            }
-
-            isLoadingPlaylist = true
-            val nextPage = withContext(Dispatchers.IO) {
-                Innertube.playlistPage(
-                    ContinuationBody(
-                        context = Context.DefaultWeb.copy(
-                            client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
-                        ),
-                        continuation = continuation
-                    )
-                )?.getOrNull()
-            }
-
-            if (nextPage != null) {
-                val currentPage = playlistPage
-                val currentSongsPage = currentPage?.songsPage
-                val nextContinuation = nextPage.continuation
-                    ?.takeUnless { it == continuation }
-                playlistPage = currentPage?.copy(
-                    songsPage = Innertube.ItemsPage(
-                        items = (currentSongsPage?.items.orEmpty() + nextPage.items.orEmpty())
-                            .distinctBy(Innertube.SongItem::key),
-                        continuation = nextContinuation
-                    )
-                )
-                playlistLoadError = false
-            } else {
-                playlistLoadError = true
-            }
-            isLoadingPlaylist = false
-        }
-    }
-
     LayoutWithAdaptiveThumbnail(thumbnailContent = thumbnailContent) {
         Box {
             LazyColumn(
@@ -307,53 +214,13 @@ fun PlaylistSongList(
                 }
 
                 if (playlistPage == null) {
-                    item(key = "playlist-loading") {
-                        if (playlistLoadError) {
-                            BasicText(
-                                text = "Playlist could not load. Tap to retry.",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { playlistLoadError = false; retryKey += 1 }
-                                    .padding(24.dp)
-                            )
-                        } else {
-                            ShimmerHost(
-                                modifier = Modifier.fillParentMaxSize()
-                            ) {
-                                repeat(4) {
-                                    SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp)
-                                }
-                            }
-                        }
-                    }
-                } else if (playlistPage?.songsPage?.items.isNullOrEmpty() &&
-                    playlistPage?.songsPage?.continuation == null
-                ) {
-                    item(key = "empty-playlist") {
-                        BasicText(
-                            text = "No songs found in this playlist.",
+                    item(key = "loading") {
+                        ShimmerHost(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp)
-                        )
-                    }
-                }
-
-                if (playlistPage?.songsPage?.continuation != null) {
-                    item(key = "playlist-loading") {
-                        if (playlistLoadError) {
-                            BasicText(
-                                text = "More songs could not load. Tap to retry.",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { playlistLoadError = false; retryKey += 1 }
-                                    .padding(24.dp)
-                            )
-                        } else {
-                            ShimmerHost {
-                                repeat(2) {
-                                    SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp)
-                                }
+                                .fillParentMaxSize()
+                        ) {
+                            repeat(4) {
+                                SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp)
                             }
                         }
                     }

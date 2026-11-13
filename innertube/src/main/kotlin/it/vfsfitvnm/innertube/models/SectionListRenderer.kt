@@ -7,23 +7,23 @@ import kotlinx.serialization.json.JsonNames
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class SectionListRenderer(
-    val contents: List<Content>? = null,
-    val continuations: List<Continuation>? = null
+    val contents: List<Content>?,
+    val continuations: List<Continuation>?
 ) {
     @Serializable
     data class Content(
         @JsonNames("musicImmersiveCarouselShelfRenderer")
-        val musicCarouselShelfRenderer: MusicCarouselShelfRenderer? = null,
+        val musicCarouselShelfRenderer: MusicCarouselShelfRenderer?,
         @JsonNames("musicPlaylistShelfRenderer")
-        val musicShelfRenderer: MusicShelfRenderer? = null,
-        val musicResponsiveHeaderRenderer: MusicResponsiveHeaderRenderer? = null,
-        val gridRenderer: GridRenderer? = null,
-        val musicDescriptionShelfRenderer: MusicDescriptionShelfRenderer? = null,
-        val continuationItemRenderer: ContinuationItemRenderer? = null,
+        val musicShelfRenderer: MusicShelfRenderer?,
+        val gridRenderer: GridRenderer?,
+        val musicDescriptionShelfRenderer: MusicDescriptionShelfRenderer?,
     ) {
+
         @Serializable
         data class MusicDescriptionShelfRenderer(
-            val description: Runs? = null,
+            val description: Runs?,
         )
     }
+
 }

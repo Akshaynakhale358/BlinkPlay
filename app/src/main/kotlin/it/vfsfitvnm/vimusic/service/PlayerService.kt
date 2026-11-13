@@ -23,11 +23,8 @@ import android.media.MediaMetadata
 import android.media.audiofx.AudioEffect
 import android.media.audiofx.LoudnessEnhancer
 import android.media.session.MediaSession
-import android.media.Rating
-import android.os.Bundle
 import android.media.session.PlaybackState
 import android.net.Uri
-import android.util.Log
 import android.os.Handler
 import android.text.format.DateUtils
 import androidx.compose.runtime.getValue
@@ -36,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat.startForegroundService
 import androidx.core.content.getSystemService
-import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.text.isDigitsOnly
 import androidx.media3.common.AudioAttributes
@@ -64,7 +60,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink.DefaultAudioProcessorChain
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
-import androidx.media3.common.audio.SonicAudioProcessor
+import androidx.media3.exoplayer.audio.SonicAudioProcessor
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
@@ -73,10 +69,6 @@ import androidx.media3.extractor.mkv.MatroskaExtractor
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
-import it.vfsfitvnm.innertube.VisitorData
-import it.vfsfitvnm.vimusic.service.cipher.Cipher
-import it.vfsfitvnm.vimusic.service.potoken.PoTokenGenerator
-import it.vfsfitvnm.innertube.models.Context as InnertubeContext
 import it.vfsfitvnm.innertube.models.bodies.PlayerBody
 import it.vfsfitvnm.innertube.requests.player
 import it.vfsfitvnm.vimusic.Database
@@ -96,17 +88,16 @@ import it.vfsfitvnm.vimusic.utils.exoPlayerDiskCacheMaxSizeKey
 import it.vfsfitvnm.vimusic.utils.findNextMediaItemById
 import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
 import it.vfsfitvnm.vimusic.utils.forceSeekToNext
-import it.vfsfitvnm.vimusic.utils.thumbnail
 import it.vfsfitvnm.vimusic.utils.forceSeekToPrevious
 import it.vfsfitvnm.vimusic.utils.getEnum
 import it.vfsfitvnm.vimusic.utils.intent
 import it.vfsfitvnm.vimusic.utils.isAtLeastAndroid13
+import it.vfsfitvnm.vimusic.utils.isAtLeastAndroid6
 import it.vfsfitvnm.vimusic.utils.isAtLeastAndroid8
 import it.vfsfitvnm.vimusic.utils.isInvincibilityEnabledKey
 import it.vfsfitvnm.vimusic.utils.isShowingThumbnailInLockscreenKey
 import it.vfsfitvnm.vimusic.utils.mediaItems
 import it.vfsfitvnm.vimusic.utils.persistentQueueKey
-import it.vfsfitvnm.vimusic.utils.prefer320KbpsKey
 import it.vfsfitvnm.vimusic.utils.preferences
 import it.vfsfitvnm.vimusic.utils.queueLoopEnabledKey
 import it.vfsfitvnm.vimusic.utils.resumePlaybackWhenDeviceConnectedKey
@@ -118,47 +109,34 @@ import it.vfsfitvnm.vimusic.utils.volumeNormalizationKey
 import kotlin.math.roundToInt
 import kotlin.system.exitProcess
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.cancellable
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 
 @Suppress("DEPRECATION")
-/** Custom transport action surfaced on the Android Auto now-playing screen. */
-internal const val ACTION_START_RADIO = "net.m4j.ViMusic.START_RADIO"
-internal const val ACTION_SHUFFLE = "net.m4j.ViMusic.SHUFFLE"
-internal const val ACTION_REPEAT = "net.m4j.ViMusic.REPEAT"
-
-// Big enough for a car display without being wasteful on a phone notification.
-private const val NowPlayingArtworkSize = 1024
-
-private const val BaseActions = PlaybackState.ACTION_PLAY or
-    PlaybackState.ACTION_PAUSE or
-    PlaybackState.ACTION_PLAY_PAUSE or
-    PlaybackState.ACTION_STOP or
-    PlaybackState.ACTION_SKIP_TO_PREVIOUS or
-    PlaybackState.ACTION_SKIP_TO_NEXT or
-    PlaybackState.ACTION_SKIP_TO_QUEUE_ITEM or
-    PlaybackState.ACTION_SEEK_TO or
-    PlaybackState.ACTION_REWIND or
-    // Android Auto only draws a control if the session advertises it. Rating is what gets us
-    // the heart on the car's now-playing screen.
-    PlaybackState.ACTION_SET_RATING or
-    PlaybackState.ACTION_PLAY_FROM_MEDIA_ID or
-    PlaybackState.ACTION_PLAY_FROM_SEARCH
-
 class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListener.Callback,
     SharedPreferences.OnSharedPreferenceChangeListener {
     private lateinit var mediaSession: MediaSession
     private lateinit var cache: SimpleCache
     private lateinit var player: ExoPlayer
+
+    private val stateBuilder = PlaybackState.Builder()
+        .setActions(
+            PlaybackState.ACTION_PLAY
+                    or PlaybackState.ACTION_PAUSE
+                    or PlaybackState.ACTION_PLAY_PAUSE
+                    or PlaybackState.ACTION_STOP
+                    or PlaybackState.ACTION_SKIP_TO_PREVIOUS
+                    or PlaybackState.ACTION_SKIP_TO_NEXT
+                    or PlaybackState.ACTION_SKIP_TO_QUEUE_ITEM
+                    or PlaybackState.ACTION_SEEK_TO
+                    or PlaybackState.ACTION_REWIND
+        )
 
     private val metadataBuilder = MediaMetadata.Builder()
 
@@ -167,18 +145,14 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     private var timerJob: TimerJob? = null
 
     private var radio: YouTubeRadio? = null
-    private var likeStatusJob: Job? = null
-    private var isCurrentSongLiked = false
 
     private lateinit var bitmapProvider: BitmapProvider
-    private val poTokenGenerator by lazy { PoTokenGenerator(this) }
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO) + Job()
 
     private var volumeNormalizationJob: Job? = null
 
     private var isPersistentQueueEnabled = false
-    private var isQueueRestored = false
     private var isShowingThumbnailInLockscreen = true
     override var isInvincibilityEnabled = false
 
@@ -205,14 +179,11 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         super.onCreate()
 
         bitmapProvider = BitmapProvider(
-            context = this,
             bitmapSize = (256 * resources.displayMetrics.density).roundToInt(),
             colorProvider = { isSystemInDarkMode ->
                 if (isSystemInDarkMode) Color.BLACK else Color.WHITE
             }
         )
-
-        warmUpPlaybackPipeline()
 
         createNotificationChannel()
 
@@ -271,16 +242,13 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         player.addListener(this)
         player.addAnalyticsListener(PlaybackStatsListener(false, this))
 
+        maybeRestorePlayerQueue()
+
         mediaSession = MediaSession(baseContext, "PlayerService")
         mediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
         mediaSession.setCallback(SessionCallback(player))
-        mediaSession.setRatingType(Rating.RATING_HEART)
-        mediaSession.setPlaybackState(playbackState)
+        mediaSession.setPlaybackState(stateBuilder.build())
         mediaSession.isActive = true
-
-        // Queue restoration can publish a notification and trigger player callbacks; the
-        // MediaSession must exist before either path reads its session token or playback state.
-        maybeRestorePlayerQueue()
 
         notificationActionReceiver = NotificationActionReceiver(player)
 
@@ -291,14 +259,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             addAction(Action.previous.value)
         }
 
-        // From Android 13 the export flag is mandatory. These are the app's own playback
-        // actions, so the receiver must not be reachable by other apps.
-        ContextCompat.registerReceiver(
-            this,
-            notificationActionReceiver,
-            filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
+        registerReceiver(notificationActionReceiver, filter)
 
         maybeResumePlaybackWhenDeviceConnected()
     }
@@ -312,9 +273,6 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
     override fun onDestroy() {
         maybeSavePlayerQueue()
-        // Stop warm-up, radio, timer, and metadata jobs before releasing player resources.
-        coroutineScope.cancel()
-        poTokenGenerator.close()
 
         preferences.unregisterOnSharedPreferenceChangeListener(this)
 
@@ -323,10 +281,6 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         player.release()
 
         unregisterReceiver(notificationActionReceiver)
-        audioDeviceCallback?.let { callback ->
-            audioManager?.unregisterAudioDeviceCallback(callback)
-        }
-        audioDeviceCallback = null
 
         mediaSession.isActive = false
         mediaSession.release()
@@ -456,10 +410,6 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         if (!isPersistentQueueEnabled) return
 
         val mediaItems = player.currentTimeline.mediaItems
-        // If restoration has not completed and the player is still empty, preserve the
-        // saved database queue. If the user has already started a new queue, save that instead.
-        if (!isQueueRestored && mediaItems.isEmpty()) return
-
         val mediaItemIndex = player.currentMediaItemIndex
         val mediaItemPosition = player.currentPosition
 
@@ -479,16 +429,15 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     private fun maybeRestorePlayerQueue() {
         if (!isPersistentQueueEnabled) return
 
-        coroutineScope.launch {
-            val queuedSong = withContext(Dispatchers.IO) { Database.queue() }
-            if (queuedSong.isEmpty()) {
-                withContext(Dispatchers.Main) { isQueueRestored = true }
-                return@launch
-            }
+        query {
+            val queuedSong = Database.queue()
+            Database.clearQueue()
+
+            if (queuedSong.isEmpty()) return@query
 
             val index = queuedSong.indexOfFirst { it.position != null }.coerceAtLeast(0)
 
-            withContext(Dispatchers.Main) {
+            runBlocking(Dispatchers.Main) {
                 player.setMediaItems(
                     queuedSong.map { mediaItem ->
                         mediaItem.mediaItem.buildUpon()
@@ -502,15 +451,11 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                     queuedSong[index].position ?: C.TIME_UNSET
                 )
                 player.prepare()
-                isQueueRestored = true
 
                 isNotificationStarted = true
                 startForegroundService(this@PlayerService, intent<PlayerService>())
                 startForeground(NotificationId, notification())
             }
-
-            // Keep the saved queue intact if the service is cancelled before player restoration.
-            withContext(Dispatchers.IO) { Database.clearQueue() }
         }
     }
 
@@ -541,71 +486,6 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         }
     }
 
-    /**
-     * Shuffle and repeat are not transport actions on the framework session -- only on the
-     * compat one -- so they ride along as custom actions, which is also what lets each icon
-     * reflect the current mode instead of being a static glyph.
-     */
-    private val playbackState: PlaybackState
-        get() = PlaybackState.Builder()
-            .setActions(BaseActions)
-            .setState(player.androidPlaybackState, player.currentPosition, 1f)
-            .setBufferedPosition(player.bufferedPosition)
-            .addCustomAction(
-                PlaybackState.CustomAction.Builder(
-                    ACTION_SHUFFLE,
-                    if (player.shuffleModeEnabled) "Shuffle on" else "Shuffle",
-                    if (player.shuffleModeEnabled) R.drawable.shuffle else R.drawable.shuffle_off
-                ).build()
-            )
-            .addCustomAction(
-                PlaybackState.CustomAction.Builder(
-                    ACTION_REPEAT,
-                    when (player.repeatMode) {
-                        Player.REPEAT_MODE_ONE -> "Repeat one"
-                        Player.REPEAT_MODE_ALL -> "Repeat all"
-                        else -> "Repeat"
-                    },
-                    when (player.repeatMode) {
-                        Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
-                        Player.REPEAT_MODE_ALL -> R.drawable.repeat
-                        else -> R.drawable.repeat_off
-                    }
-                ).build()
-            )
-            .addCustomAction(
-                PlaybackState.CustomAction
-                    .Builder(ACTION_START_RADIO, "Start radio", R.drawable.radio)
-                    .build()
-            )
-            .build()
-
-    /**
-     * Keeps [isCurrentSongLiked] in step with the database so the heart in the car reflects a
-     * like made on the phone, and vice versa, without either side polling.
-     */
-    private fun watchLikeStatus() {
-        likeStatusJob?.cancel()
-        val songId = player.currentMediaItem?.mediaId ?: run {
-            isCurrentSongLiked = false
-            return
-        }
-
-        likeStatusJob = coroutineScope.launch(Dispatchers.Main) {
-            Database.likedAt(songId).cancellable().collectLatest { likedAt ->
-                isCurrentSongLiked = likedAt != null
-                if (player.duration != C.TIME_UNSET) mediaSession.setMetadata(
-                    metadataBuilder
-                        .putRating(
-                            MediaMetadata.METADATA_KEY_USER_RATING,
-                            Rating.newHeartRating(isCurrentSongLiked)
-                        )
-                        .build()
-                )
-            }
-        }
-    }
-
     private fun maybeShowSongCoverInLockScreen() {
         val bitmap =
             if (isAtLeastAndroid13 || isShowingThumbnailInLockscreen) bitmapProvider.bitmap else null
@@ -624,6 +504,8 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
     @SuppressLint("NewApi")
     private fun maybeResumePlaybackWhenDeviceConnected() {
+        if (!isAtLeastAndroid6) return
+
         if (preferences.getBoolean(resumePlaybackWhenDeviceConnectedKey, false)) {
             if (audioManager == null) {
                 audioManager = getSystemService(AUDIO_SERVICE) as AudioManager?
@@ -684,8 +566,6 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         }
 
     override fun onEvents(player: Player, events: Player.Events) {
-        if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) watchLikeStatus()
-
         if (player.duration != C.TIME_UNSET) {
             mediaSession.setMetadata(
                 metadataBuilder
@@ -693,26 +573,15 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                     .putText(MediaMetadata.METADATA_KEY_ARTIST, player.mediaMetadata.artist)
                     .putText(MediaMetadata.METADATA_KEY_ALBUM, player.mediaMetadata.albumTitle)
                     .putLong(MediaMetadata.METADATA_KEY_DURATION, player.duration)
-                    // The notification bitmap is sized for a phone; giving the car a URI instead
-                    // lets it fetch artwork at whatever size its own screen wants.
-                    .putString(
-                        MediaMetadata.METADATA_KEY_ALBUM_ART_URI,
-                        player.mediaMetadata.artworkUri?.toString().thumbnail(NowPlayingArtworkSize)
-                    )
-                    .putString(
-                        MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI,
-                        player.mediaMetadata.artworkUri?.toString().thumbnail(NowPlayingArtworkSize)
-                    )
-                    .putRating(
-                        MediaMetadata.METADATA_KEY_USER_RATING,
-                        Rating.newHeartRating(isCurrentSongLiked)
-                    )
                     .build()
             )
         }
 
+        stateBuilder
+            .setState(player.androidPlaybackState, player.currentPosition, 1f)
+            .setBufferedPosition(player.bufferedPosition)
 
-        mediaSession.setPlaybackState(playbackState)
+        mediaSession.setPlaybackState(stateBuilder.build())
 
         if (events.containsAny(
                 Player.EVENT_PLAYBACK_STATE_CHANGED,
@@ -750,19 +619,10 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         }
     }
 
-    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
+    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String) {
         when (key) {
-            persistentQueueKey -> {
-                isPersistentQueueEnabled =
-                    sharedPreferences.getBoolean(key, isPersistentQueueEnabled)
-                if (isPersistentQueueEnabled && !isQueueRestored) {
-                    if (player.mediaItemCount > 0) {
-                        isQueueRestored = true
-                    } else {
-                        maybeRestorePlayerQueue()
-                    }
-                }
-            }
+            persistentQueueKey -> isPersistentQueueEnabled =
+                sharedPreferences.getBoolean(key, isPersistentQueueEnabled)
 
             volumeNormalizationKey -> maybeNormalizeVolume()
 
@@ -790,10 +650,10 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     override fun notification(): Notification? {
         if (player.currentMediaItem == null) return null
 
-        val playIntent = Action.play.pendingIntent(this)
-        val pauseIntent = Action.pause.pendingIntent(this)
-        val nextIntent = Action.next.pendingIntent(this)
-        val prevIntent = Action.previous.pendingIntent(this)
+        val playIntent = Action.play.pendingIntent
+        val pauseIntent = Action.pause.pendingIntent
+        val nextIntent = Action.next.pendingIntent
+        val prevIntent = Action.previous.pendingIntent
 
         val mediaMetadata = player.mediaMetadata
 
@@ -877,54 +737,6 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         }
     }
 
-    /**
-     * Prepares everything playback needs before a track is ever requested.
-     *
-     * Resolving a stream is a synchronous callback on an ExoPlayer loader thread, so anything not
-     * ready by then has to be waited for inline: a visitor-id round trip, a ~2.9 MB player script
-     * download, two WebViews and a BotGuard cold start. Doing that lazily made the first play of a
-     * session stall for several seconds and put WebView construction on the main thread while the
-     * UI was still settling. Warming up here means the resolver usually finds a cached answer, and
-     * a cold start only ever costs the warm-up coroutine.
-     */
-    private fun warmUpPlaybackPipeline() {
-        coroutineScope.launch {
-            // Logged before anything can fail, and offline too: these five numbers say exactly
-            // which browse tabs the car will be able to fill, which is otherwise only knowable
-            // by plugging into a car and looking.
-            runCatching {
-                Log.i(
-                    TAG,
-                    "library: songs=${Database.songsByPlayTimeDesc().first().size} " +
-                        "artists=${Database.artistsInLibrary().first().size} " +
-                        "albums=${Database.albumsInLibrary().first().size} " +
-                        "playlists=${Database.playlistPreviewsByDateAddedDesc().first().size} " +
-                        "liked=${Database.likedSongsCount().first()}"
-                )
-            }
-
-            val session = runCatching { VisitorData.get() }.getOrNull()
-            if (session == null) {
-                // Warn, not debug: this survives into release, where it is the only clue that
-                // the pipeline degraded rather than failed outright.
-                Log.w(TAG, "warm-up: no visitor id (${VisitorData.lastFailure}), playback will retry")
-                return@launch
-            }
-
-            val cipherReady = runCatching { Cipher.ensureReady(this@PlayerService) }.getOrDefault(false)
-
-            // Minting against a throwaway id is enough to pay for the BotGuard cold start; the
-            // session-bound half of the result is what later calls reuse.
-            val token = runCatching {
-                poTokenGenerator.awaitWebClientPoToken(WarmUpVideoId, session)
-            }.onFailure {
-                Log.w(TAG, "warm-up: poToken threw ${it.javaClass.simpleName}: ${it.message}")
-            }.getOrNull()
-
-            Log.i(TAG, "warm-up done: cipher=$cipherReady token=${token != null}")
-        }
-    }
-
     private fun createCacheDataSource(): DataSource.Factory {
         return CacheDataSource.Factory().setCache(cache).apply {
             setUpstreamDataSourceFactory(
@@ -950,79 +762,15 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                     ringBuffer.getOrNull(0)?.first -> dataSpec.withUri(ringBuffer.getOrNull(0)!!.second)
                     ringBuffer.getOrNull(1)?.first -> dataSpec.withUri(ringBuffer.getOrNull(1)!!.second)
                     else -> {
-                        // A proof-of-origin token is what lifts YouTube's ~1 MB cap. One is
-                        // bound to the session and travels with the /player request; the other is
-                        // bound to the video and is appended to the stream URL further down.
-                        // Full-length playback needs three things together: the web client, a
-                        // proof-of-origin token bound to the session, and the signature timestamp
-                        // taken from YouTube's player script. Any one missing and the response is
-                        // either UNPLAYABLE or capped at roughly a megabyte.
-                        val session = runBlocking(Dispatchers.IO) { VisitorData.get() }
-                        val cipherReady = runBlocking(Dispatchers.IO) {
-                            Cipher.ensureReady(this@PlayerService)
-                        }
-                        val poToken = session?.let { poTokenGenerator.getWebClientPoToken(videoId, it) }
-
-                        val useWebClient = cipherReady && poToken != null && session != null
-                        // Kept at info: this one line is what identifies a broken playback
-                        // pipeline in the field, and it carries no values, only whether each
-                        // piece resolved.
-                        Log.i(
-                            TAG,
-                            "resolver: webClient=$useWebClient cipher=$cipherReady " +
-                                "sts=${Cipher.signatureTimestamp} poToken=${poToken != null}"
-                        )
-
-                        val playerContext =
-                            if (useWebClient) InnertubeContext.DefaultWeb.withVisitorData(session)
-                            else InnertubeContext.DefaultAndroidVr
-
                         val urlResult = runBlocking(Dispatchers.IO) {
-                            Innertube.player(
-                                PlayerBody(
-                                    videoId = videoId,
-                                    context = playerContext,
-                                    serviceIntegrityDimensions = poToken?.playerRequestPoToken
-                                        ?.takeIf { useWebClient }
-                                        ?.let { PlayerBody.ServiceIntegrityDimensions(it) },
-                                    playbackContext = Cipher.signatureTimestamp
-                                        ?.takeIf { useWebClient }
-                                        ?.let {
-                                            PlayerBody.PlaybackContext(
-                                                PlayerBody.PlaybackContext.ContentPlaybackContext(it)
-                                            )
-                                        }
-                                )
-                            )
+                            Innertube.player(PlayerBody(videoId = videoId))
                         }?.mapCatching { body ->
-                            val status = body.playabilityStatus?.status
-                            val returnedVideoId = body.videoDetails?.videoId
-
-                            // Logged before anything can throw. A track that will not play leaves
-                            // no other trace, and the reason is YouTube's own wording.
-                            if (status != "OK") Log.i(
-                                TAG,
-                                "player refused $videoId: status=$status " +
-                                    "reason=${body.playabilityStatus?.reason} webClient=$useWebClient"
-                            )
-
-                            // Only compare ids when a video actually came back. A refusal carries
-                            // no videoDetails at all, so the old unconditional check turned every
-                            // failure -- deleted, region-locked, bot-checked -- into "the returned
-                            // video id doesn't match the requested one", and threw before the
-                            // status below could give the real reason.
-                            if (returnedVideoId != null && returnedVideoId != videoId) {
+                            if (body.videoDetails?.videoId != videoId) {
                                 throw VideoIdMismatchException()
                             }
 
-                            when (status) {
-                                "OK" -> body.streamingData?.let { streaming ->
-                                    if (preferences.getBoolean(prefer320KbpsKey, true)) {
-                                        streaming.preferred320KbpsFormat
-                                    } else {
-                                        streaming.highestQualityFormat
-                                    }
-                                }?.let { format ->
+                            when (val status = body.playabilityStatus?.status) {
+                                "OK" -> body.streamingData?.highestQualityFormat?.let { format ->
                                     val mediaItem = runBlocking(Dispatchers.Main) {
                                         player.findNextMediaItemById(videoId)
                                     }
@@ -1055,20 +803,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                                         )
                                     }
 
-                                    // Decipher the signature and de-throttle `n`, then append the
-                                    // video-bound token; the stream stays capped without it.
-                                    val resolved = runBlocking(Dispatchers.IO) {
-                                        Cipher.resolve(format.url, format.signatureCipher)
-                                    } ?: format.url
-
-                                    resolved?.let { plain ->
-                                        poToken?.streamingDataPoToken
-                                            ?.takeIf { useWebClient }
-                                            ?.let { pot ->
-                                                plain + (if ('?' in plain) "&" else "?") +
-                                                    "pot=" + Uri.encode(pot)
-                                            } ?: plain
-                                    }
+                                    format.url
                                 } ?: throw PlayableFormatNotFoundException()
 
                                 "UNPLAYABLE" -> throw UnplayableException()
@@ -1107,9 +842,10 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     }
 
     private fun createRendersFactory(): RenderersFactory {
-        val audioSink = DefaultAudioSink.Builder(applicationContext)
+        val audioSink = DefaultAudioSink.Builder()
             .setEnableFloatOutput(false)
             .setEnableAudioTrackPlaybackParams(false)
+            .setOffloadMode(DefaultAudioSink.OFFLOAD_MODE_DISABLED)
             .setAudioProcessorChain(
                 DefaultAudioProcessorChain(
                     emptyArray(),
@@ -1215,39 +951,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         }
     }
 
-    /**
-     * Open so that [PlayerMediaBrowserService] can extend it: Android Auto replaces the session
-     * callback when it binds, and the transport controls below have to keep working when it does.
-     */
-    internal open class SessionCallback(private val player: Player) : MediaSession.Callback() {
-        override fun onSetRating(rating: Rating) {
-            // Guard hard. hasHeart() is false for every rating that is not a *set* heart --
-            // thumbs, stars, or an unrated placeholder -- and the old code turned all of those
-            // into "clear the like", so an unrelated controller could silently wipe a favourite.
-            if (rating.ratingStyle != Rating.RATING_HEART || !rating.isRated) {
-                Log.i(TAG, "ignoring non-heart rating (style=${rating.ratingStyle} rated=${rating.isRated})")
-                return
-            }
-
-            val songId = player.currentMediaItem?.mediaId ?: return
-            val likedAt = if (rating.hasHeart()) System.currentTimeMillis() else null
-            Log.i(TAG, "like via media session: song=$songId liked=${likedAt != null}")
-            query { Database.like(songId, likedAt) }
-        }
-
-        override fun onCustomAction(action: String, extras: Bundle?) = when (action) {
-            ACTION_SHUFFLE -> player.shuffleModeEnabled = !player.shuffleModeEnabled
-
-            // Cycles off -> all -> one, the order a driver expects from a single button.
-            ACTION_REPEAT -> player.repeatMode = when (player.repeatMode) {
-                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-                else -> Player.REPEAT_MODE_OFF
-            }
-
-            else -> Unit
-        }
-
+    private class SessionCallback(private val player: Player) : MediaSession.Callback() {
         override fun onPlay() = player.play()
         override fun onPause() = player.pause()
         override fun onSkipToPrevious() = runCatching(player::forceSeekToPrevious).let { }
@@ -1277,31 +981,24 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
     @JvmInline
     private value class Action(val value: String) {
-        fun pendingIntent(context: Context): PendingIntent =
-            PendingIntent.getBroadcast(
-                context,
+        context(Context)
+        val pendingIntent: PendingIntent
+            get() = PendingIntent.getBroadcast(
+                this@Context,
                 100,
-                Intent(value).setPackage(context.packageName),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                Intent(value).setPackage(packageName),
+                PendingIntent.FLAG_UPDATE_CURRENT.or(if (isAtLeastAndroid6) PendingIntent.FLAG_IMMUTABLE else 0)
             )
 
         companion object {
-            val pause = Action("net.m4j.ViMusic.pause")
-            val play = Action("net.m4j.ViMusic.play")
-            val next = Action("net.m4j.ViMusic.next")
-            val previous = Action("net.m4j.ViMusic.previous")
+            val pause = Action("it.vfsfitvnm.vimusic.pause")
+            val play = Action("it.vfsfitvnm.vimusic.play")
+            val next = Action("it.vfsfitvnm.vimusic.next")
+            val previous = Action("it.vfsfitvnm.vimusic.previous")
         }
     }
 
     private companion object {
-        const val TAG = "PlayerService"
-
-        /**
-         * Any stable id works; the token minted for it is discarded. It exists only so the
-         * BotGuard cold start happens during warm-up rather than on the first play.
-         */
-        const val WarmUpVideoId = "jNQXAC9IVRw"
-
         const val NotificationId = 1001
         const val NotificationChannelId = "default_channel_id"
 

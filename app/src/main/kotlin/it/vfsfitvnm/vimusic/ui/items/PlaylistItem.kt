@@ -204,7 +204,8 @@ fun PlaylistItem(
                 .requiredSize(thumbnailSizeDp)
         ) {
             thumbnailContent(
-                Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
             )
 
             songCount?.let {

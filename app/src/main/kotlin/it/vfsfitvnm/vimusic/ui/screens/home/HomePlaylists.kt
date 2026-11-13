@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -161,8 +160,6 @@ fun HomePlaylists(
                 }
             }
 
-
-
             item(key = "favorites") {
                 PlaylistItem(
                     icon = R.drawable.heart,
@@ -173,7 +170,7 @@ fun HomePlaylists(
                     alternative = true,
                     modifier = Modifier
                         .clickable(onClick = { onBuiltInPlaylist(BuiltInPlaylist.Favorites) })
-                        .animateItem()
+                        .animateItemPlacement()
                 )
             }
 
@@ -187,7 +184,7 @@ fun HomePlaylists(
                     alternative = true,
                     modifier = Modifier
                         .clickable(onClick = { onBuiltInPlaylist(BuiltInPlaylist.Offline) })
-                        .animateItem()
+                        .animateItemPlacement()
                 )
             }
 
@@ -199,13 +196,15 @@ fun HomePlaylists(
                     alternative = true,
                     modifier = Modifier
                         .clickable(onClick = { onPlaylistClick(playlistPreview.playlist) })
-                        .animateItem()
+                        .animateItemPlacement()
                 )
             }
         }
 
         FloatingActionsContainerWithScrollToTop(
-            lazyGridState = lazyGridState
+            lazyGridState = lazyGridState,
+            iconId = R.drawable.search,
+            onClick = onSearchClick
         )
     }
 }

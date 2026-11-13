@@ -39,8 +39,6 @@ import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.components.themed.SecondaryTextButton
 import it.vfsfitvnm.vimusic.ui.components.themed.TextPlaceholder
 import it.vfsfitvnm.vimusic.ui.items.AlbumItem
-import it.vfsfitvnm.vimusic.ui.items.PlaylistItem
-import it.vfsfitvnm.vimusic.ui.items.ArtistItem
 import it.vfsfitvnm.vimusic.ui.items.AlbumItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.items.SongItem
 import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
@@ -63,10 +61,6 @@ fun ArtistOverview(
     onViewAllAlbumsClick: () -> Unit,
     onViewAllSinglesClick: () -> Unit,
     onAlbumClick: (String) -> Unit,
-    onArtistClick: (String) -> Unit,
-    onPlaylistClick: (String) -> Unit,
-    isSubscribed: Boolean,
-    onToggleSubscribed: () -> Unit,
     thumbnailContent: @Composable () -> Unit,
     headerContent: @Composable (textButton: (@Composable () -> Unit)?) -> Unit,
 ) {
@@ -102,15 +96,11 @@ fun ArtistOverview(
                             .asPaddingValues()
                     )
             ) {
-                // The artwork-led header replaces the old title-and-circle pairing; the shuffle
-                // and radio actions ride underneath it rather than beside the title.
-                ArtistHeader(
-                    artistPage = youtubeArtistPage,
-                    thumbnailUrl = youtubeArtistPage?.thumbnail?.url,
-                    name = youtubeArtistPage?.name,
-                    modifier = Modifier.padding(endPaddingValues)
+                Box(
+                    modifier = Modifier
+                        .padding(endPaddingValues)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    headerContent {
                         youtubeArtistPage?.shuffleEndpoint?.let { endpoint ->
                             SecondaryTextButton(
                                 text = "Shuffle",
@@ -120,25 +110,10 @@ fun ArtistOverview(
                                 }
                             )
                         }
-
-                        youtubeArtistPage?.radioEndpoint?.let { endpoint ->
-                            SecondaryTextButton(
-                                text = "Radio",
-                                onClick = {
-                                    binder?.stopRadio()
-                                    binder?.playRadio(endpoint)
-                                },
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
-                        }
-
-                        SecondaryTextButton(
-                            text = if (isSubscribed) "Subscribed" else "Subscribe",
-                            onClick = onToggleSubscribed,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
                     }
                 }
+
+                thumbnailContent()
 
                 if (youtubeArtistPage != null) {
                     youtubeArtistPage.songs?.let { songs ->
@@ -279,65 +254,6 @@ fun ArtistOverview(
                                     alternative = true,
                                     modifier = Modifier
                                         .clickable(onClick = { onAlbumClick(album.key) })
-                                )
-                            }
-                        }
-                    }
-
-                    // YouTube returns this shelf for every artist and nothing was reading it:
-                    // a way sideways into artists of the same stripe, rather than only deeper
-                    // into this one.
-                    youtubeArtistPage.similarArtists?.takeIf { it.isNotEmpty() }?.let { artists ->
-                        BasicText(
-                            text = "Fans might also like",
-                            style = typography.m.semiBold,
-                            modifier = sectionTextModifier
-                        )
-
-                        LazyRow(
-                            contentPadding = endPaddingValues,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ) {
-                            items(
-                                items = artists,
-                                key = Innertube.ArtistItem::key
-                            ) { artist ->
-                                ArtistItem(
-                                    artist = artist,
-                                    thumbnailSizePx = albumThumbnailSizePx,
-                                    thumbnailSizeDp = albumThumbnailSizeDp,
-                                    alternative = true,
-                                    modifier = Modifier
-                                        .clickable(onClick = { onArtistClick(artist.key) })
-                                )
-                            }
-                        }
-                    }
-
-                    youtubeArtistPage.playlists?.takeIf { it.isNotEmpty() }?.let { playlists ->
-                        BasicText(
-                            text = "Playlists",
-                            style = typography.m.semiBold,
-                            modifier = sectionTextModifier
-                        )
-
-                        LazyRow(
-                            contentPadding = endPaddingValues,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ) {
-                            items(
-                                items = playlists,
-                                key = Innertube.PlaylistItem::key
-                            ) { playlist ->
-                                PlaylistItem(
-                                    playlist = playlist,
-                                    thumbnailSizePx = albumThumbnailSizePx,
-                                    thumbnailSizeDp = albumThumbnailSizeDp,
-                                    alternative = true,
-                                    modifier = Modifier
-                                        .clickable(onClick = { onPlaylistClick(playlist.key) })
                                 )
                             }
                         }

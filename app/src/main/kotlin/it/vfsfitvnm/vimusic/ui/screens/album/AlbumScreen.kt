@@ -60,14 +60,14 @@ fun AlbumScreen(browseId: String) {
 
     PersistMapCleanup(tagPrefix = "album/$browseId/")
 
-    LaunchedEffect(browseId) {
+    LaunchedEffect(Unit) {
         Database
             .album(browseId)
             .combine(snapshotFlow { tabIndex }) { album, tabIndex -> album to tabIndex }
             .collect { (currentAlbum, tabIndex) ->
                 album = currentAlbum
 
-                if (albumPage == null && (currentAlbum?.timestamp == null || currentAlbum.title == null || tabIndex == 1)) {
+                if (albumPage == null && (currentAlbum?.timestamp == null || tabIndex == 1)) {
                     withContext(Dispatchers.IO) {
                         Innertube.albumPage(BrowseBody(browseId = browseId))
                             ?.onSuccess { currentAlbumPage ->

@@ -1,15 +1,22 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+    id("com.android.library")
+    kotlin("android")
 }
 
 android {
     namespace = "it.vfsfitvnm.compose.routing"
-    compileSdk = 37
+    compileSdk = 33
 
     defaultConfig {
-        minSdk = 23
+        minSdk = 21
+        targetSdk = 33
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
     }
 
     sourceSets.all {
@@ -21,22 +28,21 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
-}
 
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        // Route0/1/2.invoke take the RouteHandlerScope as a context parameter, the
-        // replacement for the context receivers this project was written against.
-        freeCompilerArgs.add("-Xcontext-parameters")
+    composeOptions {
+        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
+    }
+
+    kotlinOptions {
+        freeCompilerArgs += "-Xcontext-receivers"
+        jvmTarget = "1.8"
     }
 }
 
 dependencies {
-    implementation(platform(libs.compose.bom))
-    implementation(libs.compose.foundation)
     implementation(libs.compose.activity)
+    implementation(libs.compose.foundation)
 }

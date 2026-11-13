@@ -59,8 +59,6 @@ fun LocalSongSearch(
     LaunchedEffect(textFieldValue.text) {
         if (textFieldValue.text.length > 1) {
             Database.search("%${textFieldValue.text}%").collect { items = it }
-        } else {
-            items = emptyList()
         }
     }
 
@@ -132,7 +130,7 @@ fun LocalSongSearch(
                                 )
                             }
                         )
-                        .animateItem()
+                        .animateItemPlacement()
                 )
             }
         }

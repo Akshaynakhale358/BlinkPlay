@@ -35,6 +35,7 @@ import it.vfsfitvnm.vimusic.service.PlayerMediaBrowserService
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.utils.isAtLeastAndroid12
+import it.vfsfitvnm.vimusic.utils.isAtLeastAndroid6
 import it.vfsfitvnm.vimusic.utils.isIgnoringBatteryOptimizations
 import it.vfsfitvnm.vimusic.utils.isInvincibilityEnabledKey
 import it.vfsfitvnm.vimusic.utils.pauseSearchHistoryKey
@@ -55,7 +56,7 @@ fun OtherSettings() {
         val enabledFlag = PackageManager.COMPONENT_ENABLED_STATE_ENABLED
 
         mutableStateOf(
-            value = context.packageManager.getComponentEnabledSetting(component) != disabledFlag,
+            value = context.packageManager.getComponentEnabledSetting(component) == enabledFlag,
             policy = object : SnapshotMutationPolicy<Boolean> {
                 override fun equivalent(a: Boolean, b: Boolean): Boolean {
                     context.packageManager.setComponentEnabledSetting(
@@ -105,7 +106,7 @@ fun OtherSettings() {
 
         SwitchSettingEntry(
             title = "Android Auto",
-            text = "Show ViMusic in the car",
+            text = "Enable Android Auto support",
             isChecked = isAndroidAutoEnabled,
             onCheckedChange = { isAndroidAutoEnabled = it }
         )
@@ -151,6 +152,8 @@ fun OtherSettings() {
                 "Disable background restrictions"
             },
             onClick = {
+                if (!isAtLeastAndroid6) return@SettingsEntry
+
                 try {
                     activityResultLauncher.launch(
                         Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {

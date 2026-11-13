@@ -8,18 +8,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -49,9 +44,7 @@ inline fun <T : Innertube.Item> ItemsPage(
     initialPlaceholderCount: Int = 8,
     continuationPlaceholderCount: Int = 3,
     emptyItemsText: String = "No items found",
-    refreshOnEnter: Boolean = false,
     noinline itemsPageProvider: (suspend (String?) -> Result<Innertube.ItemsPage<T>?>?)? = null,
-    noinline onRefresh: (() -> Unit)? = null,
 ) {
     val (_, typography) = LocalAppearance.current
 
@@ -60,76 +53,29 @@ inline fun <T : Innertube.Item> ItemsPage(
     val lazyListState = rememberLazyListState()
 
     var itemsPage by persist<Innertube.ItemsPage<T>?>(tag)
-    var isRefreshing by remember { mutableStateOf(false) }
-    var hasLoadError by remember { mutableStateOf(false) }
-    var retryKey by remember { mutableStateOf(0) }
 
     LaunchedEffect(lazyListState, updatedItemsPageProvider) {
-        if (refreshOnEnter) itemsPage = null
         val currentItemsPageProvider = updatedItemsPageProvider ?: return@LaunchedEffect
 
-        snapshotFlow {
-            Triple(
-                lazyListState.layoutInfo.visibleItemsInfo.any { it.key == "loading" },
-                retryKey,
-                itemsPage?.continuation
-            ) to (itemsPage?.items?.size ?: 0)
-        }
-            .collect { (loadState, _) ->
-                val (shouldLoadMore, _, _) = loadState
-                if (!shouldLoadMore || hasLoadError) return@collect
+        snapshotFlow { lazyListState.layoutInfo.visibleItemsInfo.any { it.key == "loading" } }
+            .collect { shouldLoadMore ->
+                if (!shouldLoadMore) return@collect
 
-                val result: Result<Innertube.ItemsPage<T>?>? = try {
-                    withContext(Dispatchers.IO) {
-                        currentItemsPageProvider(itemsPage?.continuation)
+                withContext(Dispatchers.IO) {
+                    currentItemsPageProvider(itemsPage?.continuation)
+                }?.onSuccess {
+                    if (it == null) {
+                        if (itemsPage == null) {
+                            itemsPage = Innertube.ItemsPage(null, null)
+                        }
+                    } else {
+                        itemsPage += it
                     }
-                } catch (exception: Exception) {
-                    Result.failure(exception)
                 }
-
-                if (result == null) {
-                    // Keep the current page and continuation intact so the failed request can be retried.
-                    hasLoadError = true
-                } else {
-                    result
-                        .onSuccess { page ->
-                            if (page == null) {
-                                itemsPage = itemsPage?.copy(continuation = null)
-                                    ?: Innertube.ItemsPage(null, null)
-                            } else {
-                                val previousContinuation = itemsPage?.continuation
-                                val safePage = if (
-                                    previousContinuation != null &&
-                                    page.continuation == previousContinuation
-                                ) page.copy(continuation = null) else page
-                                itemsPage += safePage
-                            }
-                            hasLoadError = false
-                        }
-                        .onFailure {
-                            // Preserve loaded items and the failed continuation for retry.
-                            hasLoadError = true
-                        }
-                }
-                isRefreshing = false
             }
     }
 
-    @OptIn(ExperimentalMaterial3Api::class)
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            if (!isRefreshing) {
-                isRefreshing = true
-                hasLoadError = false
-                itemsPage = null
-                retryKey += 1
-                onRefresh?.invoke()
-            }
-        },
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Box {
+    Box {
         LazyColumn(
             state = lazyListState,
             contentPadding = LocalPlayerAwareWindowInsets.current
@@ -164,30 +110,15 @@ inline fun <T : Innertube.Item> ItemsPage(
 
             if (!(itemsPage != null && itemsPage?.continuation == null)) {
                 item(key = "loading") {
-                    if (hasLoadError) {
-                        BasicText(
-                            text = "Loading failed. Tap to retry.",
-                            style = typography.xs.secondary.center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    hasLoadError = false
-                                    isRefreshing = true
-                                    retryKey += 1
-                                }
-                                .padding(horizontal = 16.dp, vertical = 24.dp)
-                        )
-                    } else {
-                        val isFirstLoad = itemsPage?.items.isNullOrEmpty()
-                        ShimmerHost(
-                            modifier = Modifier
-                                .run {
-                                    if (isFirstLoad) fillParentMaxSize() else this
-                                }
-                        ) {
-                            repeat(if (isFirstLoad) initialPlaceholderCount else continuationPlaceholderCount) {
-                                itemPlaceholderContent()
+                    val isFirstLoad = itemsPage?.items.isNullOrEmpty()
+                    ShimmerHost(
+                        modifier = Modifier
+                            .run {
+                                if (isFirstLoad) fillParentMaxSize() else this
                             }
+                    ) {
+                        repeat(if (isFirstLoad) initialPlaceholderCount else continuationPlaceholderCount) {
+                            itemPlaceholderContent()
                         }
                     }
                 }
@@ -195,6 +126,5 @@ inline fun <T : Innertube.Item> ItemsPage(
         }
 
         FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
-        }
     }
 }

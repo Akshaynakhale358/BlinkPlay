@@ -6,7 +6,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,7 +34,6 @@ import it.vfsfitvnm.vimusic.query
 import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
-import it.vfsfitvnm.vimusic.ui.components.themed.SecondaryTextButton
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderPlaceholder
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.components.themed.Scaffold
@@ -45,8 +43,6 @@ import it.vfsfitvnm.vimusic.ui.items.AlbumItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.items.SongItem
 import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.screens.albumRoute
-import it.vfsfitvnm.vimusic.ui.screens.artistRoute
-import it.vfsfitvnm.vimusic.ui.screens.playlistRoute
 import it.vfsfitvnm.vimusic.ui.screens.globalRoutes
 import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
@@ -76,7 +72,7 @@ fun ArtistScreen(browseId: String) {
 
     var artistPage by persist<Innertube.ArtistPage?>("artist/$browseId/artistPage")
 
-    LaunchedEffect(browseId) {
+    LaunchedEffect(Unit) {
         Database
             .artist(browseId)
             .combine(snapshotFlow { tabIndex }.map { it != 4 }) { artist, mustFetch -> artist to mustFetch }
@@ -135,7 +131,24 @@ fun ArtistScreen(browseId: String) {
                                     .weight(1f)
                             )
 
+                            HeaderIconButton(
+                                icon = if (artist?.bookmarkedAt == null) {
+                                    R.drawable.bookmark_outline
+                                } else {
+                                    R.drawable.bookmark
+                                },
+                                color = colorPalette.accent,
+                                onClick = {
+                                    val bookmarkedAt =
+                                        if (artist?.bookmarkedAt == null) System.currentTimeMillis() else null
 
+                                    query {
+                                        artist
+                                            ?.copy(bookmarkedAt = bookmarkedAt)
+                                            ?.let(Database::update)
+                                    }
+                                }
+                            )
 
                             HeaderIconButton(
                                 icon = R.drawable.share_social,
@@ -177,29 +190,6 @@ fun ArtistScreen(browseId: String) {
                             thumbnailContent = thumbnailContent,
                             headerContent = headerContent,
                             onAlbumClick = { albumRoute(it) },
-                            onArtistClick = { artistRoute(it) },
-                            onPlaylistClick = { playlistRoute(it) },
-                            isSubscribed = artist?.bookmarkedAt != null,
-                            onToggleSubscribed = {
-                                val bookmarkedAt =
-                                    if (artist?.bookmarkedAt == null) System.currentTimeMillis() else null
-
-                                query {
-                                    // Upsert rather than update: the row only exists once the
-                                    // artist page has loaded and been stored, so tapping this
-                                    // early used to silently do nothing at all.
-                                    Database.upsert(
-                                        artist?.copy(bookmarkedAt = bookmarkedAt)
-                                            ?: Artist(
-                                                id = browseId,
-                                                name = artistPage?.name,
-                                                thumbnailUrl = artistPage?.thumbnail?.url,
-                                                timestamp = System.currentTimeMillis(),
-                                                bookmarkedAt = bookmarkedAt
-                                            )
-                                    )
-                                }
-                            },
                             onViewAllSongsClick = { tabIndex = 1 },
                             onViewAllAlbumsClick = { tabIndex = 2 },
                             onViewAllSinglesClick = { tabIndex = 3 },

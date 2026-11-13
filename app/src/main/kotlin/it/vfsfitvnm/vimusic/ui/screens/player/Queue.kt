@@ -1,7 +1,7 @@
 package it.vfsfitvnm.vimusic.ui.screens.player
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -33,7 +33,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
-import it.vfsfitvnm.vimusic.ui.styling.ripple
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -109,8 +109,15 @@ fun Queue(
                     .fillMaxSize()
                     .padding(horizontalBottomPaddingValues)
             ) {
-                // The queue glyph is laid out by the caller now, so it can sit alongside the
-                // other collapsed-bar controls instead of floating on its own.
+                Image(
+                    painter = painterResource(R.drawable.playlist),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(colorPalette.text),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(18.dp)
+                )
+
                 content()
             }
         }
@@ -170,7 +177,7 @@ fun Queue(
             extraItemCount = 0
         )
 
-        val rippleIndication = ripple(bounded = false)
+        val rippleIndication = rememberRipple(bounded = false)
 
         val musicBarsTransition = updateTransition(targetState = mediaItemIndex, label = "")
 
@@ -271,7 +278,7 @@ fun Queue(
                                         }
                                     }
                                 )
-                                .then(animateItemPlacement(reorderingState = reorderingState))
+                                .animateItemPlacement(reorderingState = reorderingState)
                                 .draggedItem(
                                     reorderingState = reorderingState,
                                     index = window.firstPeriodIndex
@@ -361,7 +368,7 @@ fun Queue(
                     AnimatedContent(
                         targetState = queueLoopEnabled,
                         transitionSpec = {
-                            val slideDirection = if (targetState) AnimatedContentTransitionScope.SlideDirection.Up else AnimatedContentTransitionScope.SlideDirection.Down
+                            val slideDirection = if (targetState) AnimatedContentScope.SlideDirection.Up else AnimatedContentScope.SlideDirection.Down
 
                             ContentTransform(
                                 targetContentEnter = slideIntoContainer(slideDirection) + fadeIn(),

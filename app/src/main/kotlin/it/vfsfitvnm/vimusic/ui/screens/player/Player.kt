@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
@@ -26,8 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -114,24 +111,7 @@ fun Player(
         }
     }
 
-    val mediaItem = nullableMediaItem
-    if (mediaItem == null) {
-        BottomSheet(
-            state = layoutState,
-            modifier = modifier,
-            onDismiss = {},
-            collapsedContent = {},
-            content = {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    BasicText(text = "No song playing")
-                }
-            }
-        )
-        return
-    }
+    val mediaItem = nullableMediaItem ?: return
 
     val positionAndDuration by binder.player.positionAndDurationState()
 
@@ -315,13 +295,13 @@ fun Player(
                         .padding(bottom = 16.dp)
                 ) {
                     thumbnailContent(
-                        Modifier
+                        modifier = Modifier
                             .padding(horizontal = 16.dp)
                     )
                 }
 
                 controlsContent(
-                    Modifier
+                    modifier = Modifier
                         .padding(vertical = 8.dp)
                         .fillMaxHeight()
                         .weight(1f)
@@ -339,13 +319,13 @@ fun Player(
                         .weight(1.25f)
                 ) {
                     thumbnailContent(
-                        Modifier
+                        modifier = Modifier
                             .padding(horizontal = 32.dp, vertical = 8.dp)
                     )
                 }
 
                 controlsContent(
-                    Modifier
+                    modifier = Modifier
                         .padding(vertical = 8.dp)
                         .fillMaxWidth()
                         .weight(1f)
@@ -357,34 +337,6 @@ fun Player(
         Queue(
             layoutState = playerBottomSheetState,
             content = {
-                // Queue and lyrics are the two things reached from here most often, so they sit
-                // together in the middle where the thumb lands. The track menu stays out at the
-                // edge, away from them.
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxHeight()
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.playlist),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colorPalette.text),
-                        modifier = Modifier
-                            .padding(horizontal = 8.dp)
-                            .size(20.dp)
-                    )
-
-                    IconButton(
-                        icon = R.drawable.text,
-                        color = if (isShowingLyrics) colorPalette.text else colorPalette.textDisabled,
-                        onClick = { isShowingLyrics = !isShowingLyrics },
-                        modifier = Modifier
-                            .padding(horizontal = 8.dp)
-                            .size(20.dp)
-                    )
-                }
-
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End,
@@ -393,10 +345,8 @@ fun Player(
                         .padding(horizontal = 8.dp)
                         .fillMaxHeight()
                 ) {
-                    // Vertical and a size up from the other controls: this is the way into the
-                    // track menu and it was reading as decoration at 20dp lying on its side.
                     IconButton(
-                        icon = R.drawable.ellipsis_vertical,
+                        icon = R.drawable.ellipsis_horizontal,
                         color = colorPalette.text,
                         onClick = {
                             menuState.display {
@@ -409,7 +359,7 @@ fun Player(
                         },
                         modifier = Modifier
                             .padding(horizontal = 4.dp, vertical = 8.dp)
-                            .size(26.dp)
+                            .size(20.dp)
                     )
 
                     Spacer(

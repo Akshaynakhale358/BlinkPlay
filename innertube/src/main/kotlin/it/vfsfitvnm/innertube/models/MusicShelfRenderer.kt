@@ -4,15 +4,14 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class MusicShelfRenderer(
-    val bottomEndpoint: NavigationEndpoint? = null,
-    val contents: List<Content>? = null,
-    val continuations: List<Continuation>? = null,
-    val title: Runs? = null
+    val bottomEndpoint: NavigationEndpoint?,
+    val contents: List<Content>?,
+    val continuations: List<Continuation>?,
+    val title: Runs?
 ) {
     @Serializable
     data class Content(
-        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null,
-        val continuationItemRenderer: ContinuationItemRenderer? = null,
+        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer?,
     ) {
         val runs: Pair<List<Runs.Run>, List<List<Runs.Run>>>
             get() = (musicResponsiveListItemRenderer
@@ -24,11 +23,12 @@ data class MusicShelfRenderer(
                 ?: emptyList()) to
                     (musicResponsiveListItemRenderer
                         ?.flexColumns
-                        ?.getOrNull(1)
+                        ?.lastOrNull()
                         ?.musicResponsiveListItemFlexColumnRenderer
                         ?.text
                         ?.splitBySeparator()
-                        ?: emptyList())
+                        ?: emptyList()
+                            )
 
         val thumbnail: Thumbnail?
             get() = musicResponsiveListItemRenderer

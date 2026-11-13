@@ -1,67 +1,40 @@
-import java.util.Properties
-
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ksp)
+    id("com.android.application")
+    kotlin("android")
+    kotlin("kapt")
 }
 
 android {
-    namespace = "it.vfsfitvnm.vimusic"
-    compileSdk {
-        version = release(37) {
-            minorApiLevel = 0
-        }
-    }
+    compileSdk = 33
 
     defaultConfig {
-        // The source package stays it.vfsfitvnm.vimusic -- this is a fork, and the code is
-        // still theirs. The application id is the identity on a device and in a store, and
-        // that one has to be ours: the original already occupies the old id on F-Droid, and
-        // two apps cannot share it.
-        applicationId = "net.m4j.ViMusic"
-        minSdk = 23
-        targetSdk = 36
-        versionCode = 23
-        versionName = "0.6.2"
+        applicationId = "it.vfsfitvnm.vimusic"
+        minSdk = 21
+        targetSdk = 33
+        versionCode = 20
+        versionName = "0.5.4"
     }
 
-    // Release signing is read from keystore.properties, which is deliberately untracked: the
-    // keystore and its password must never enter the repository. Without that file the release
-    // build falls back to the debug key below, which is fine for local builds but must not be
-    // used for anything published -- the debug key ships with the SDK and everyone has it.
-    val keystorePropertiesFile = rootProject.file("keystore.properties")
-    if (keystorePropertiesFile.exists()) {
-        val keystoreProperties = Properties().apply {
-            keystorePropertiesFile.inputStream().use(::load)
-        }
-
-        signingConfigs {
-            create("release") {
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-            }
+    splits {
+        abi {
+            reset()
+            isUniversalApk = true
         }
     }
+
+    namespace = "it.vfsfitvnm.vimusic"
 
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["appName"] = "BlinkPlay"
+            manifestPlaceholders["appName"] = "Debug"
         }
 
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            manifestPlaceholders["appName"] = "BlinkPlay"
-            // Falls back to the debug key when no keystore.properties is present, so a fresh
-            // clone -- or F-Droid, which signs with its own key anyway -- still builds.
-            signingConfig = signingConfigs.findByName("release")
-                ?: signingConfigs.getByName("debug")
+            manifestPlaceholders["appName"] = "ViMusic"
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -72,75 +45,52 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true
     }
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
-    packaging {
-        resources.excludes += setOf(
-            "META-INF/{AL2.0,LGPL2.1}",
-            "META-INF/*.version",
-            "kotlin/**",
-            "DebugProbesKt.bin"
-        )
+    composeOptions {
+        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
     }
-}
 
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        // Route0/1/2.invoke take the RouteHandlerScope as a context parameter, the
-        // replacement for the context receivers this project was written against.
-        freeCompilerArgs.add("-Xcontext-parameters")
+    kotlinOptions {
+        freeCompilerArgs += "-Xcontext-receivers"
+        jvmTarget = "1.8"
     }
 }
 
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-    arg("room.incremental", "true")
-    arg("room.generateKotlin", "true")
+kapt {
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
 }
 
 dependencies {
-    implementation(project(":compose-persist"))
-    implementation(project(":compose-routing"))
-    implementation(project(":compose-reordering"))
-    implementation(project(":innertube"))
-    implementation(project(":kugou"))
+    implementation(projects.composePersist)
+    implementation(projects.composeRouting)
+    implementation(projects.composeReordering)
 
-    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.activity)
     implementation(libs.compose.foundation)
-    implementation("androidx.compose.material3:material3")
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.util)
     implementation(libs.compose.ripple)
-    implementation(libs.compose.activity)
-    implementation(libs.compose.coil)
     implementation(libs.compose.shimmer)
+    implementation(libs.compose.coil)
 
-    // Proof-of-origin token generation runs BotGuard in a WebView and talks to YouTube's
-    // attestation endpoints directly; see service/potoken.
-    implementation(libs.okhttp)
-    implementation(libs.serialization.json)
-
-    implementation(libs.core.ktx)
-    implementation("androidx.work:work-runtime-ktx:2.11.1")
-    implementation(libs.lifecycle.runtime)
-    implementation(libs.annotation)
     implementation(libs.palette)
 
-    implementation(libs.media3.exoplayer)
-    implementation(libs.media3.datasource)
-    implementation(libs.media3.common)
+    implementation(libs.exoplayer)
 
     implementation(libs.room)
-    implementation(libs.room.runtime)
-    ksp(libs.room.compiler)
+    kapt(libs.room.compiler)
+
+    implementation(projects.innertube)
+    implementation(projects.kugou)
 
     coreLibraryDesugaring(libs.desugaring)
 }

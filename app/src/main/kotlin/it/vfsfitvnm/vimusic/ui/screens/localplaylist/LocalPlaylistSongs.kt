@@ -14,13 +14,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import it.vfsfitvnm.vimusic.ui.styling.ripple
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -64,8 +63,8 @@ import it.vfsfitvnm.vimusic.utils.forcePlayAtIndex
 import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.launch
 
 @ExperimentalAnimationApi
 @ExperimentalFoundationApi
@@ -77,11 +76,10 @@ fun LocalPlaylistSongs(
     val (colorPalette) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
-    val scope = rememberCoroutineScope()
 
     var playlistWithSongs by persist<PlaylistWithSongs?>("localPlaylist/$playlistId/playlistWithSongs")
 
-    LaunchedEffect(playlistId) {
+    LaunchedEffect(Unit) {
         Database.playlistWithSongs(playlistId).filterNotNull().collect { playlistWithSongs = it }
     }
 
@@ -135,7 +133,7 @@ fun LocalPlaylistSongs(
     val thumbnailSizeDp = Dimensions.thumbnails.song
     val thumbnailSizePx = thumbnailSizeDp.px
 
-    val rippleIndication = ripple(bounded = false)
+    val rippleIndication = rememberRipple(bounded = false)
 
     Box {
         ReorderingLazyColumn(
@@ -184,18 +182,15 @@ fun LocalPlaylistSongs(
                                             text = "Sync",
                                             onClick = {
                                                 menuState.hide()
-                                                scope.launch {
-                                                    val remotePlaylist = withContext(Dispatchers.IO) {
-                                                        Innertube.playlistPage(BrowseBody(browseId = browseId))
-                                                            ?.completed()
-                                                            ?.getOrNull()
-                                                            ?.takeIf { it.songsPage?.continuation == null && it.songsPage != null }
-                                                    } ?: return@launch
-
-                                                    // Fetch remotely first; hold the database transaction
-                                                    // only for the local playlist replacement.
-                                                    transaction {
+                                                transaction {
+                                                    runBlocking(Dispatchers.IO) {
+                                                        withContext(Dispatchers.IO) {
+                                                            Innertube.playlistPage(BrowseBody(browseId = browseId))
+                                                                ?.completed()
+                                                        }
+                                                    }?.getOrNull()?.let { remotePlaylist ->
                                                         Database.clearPlaylist(playlistId)
+
                                                         remotePlaylist.songsPage
                                                             ?.items
                                                             ?.map(Innertube.SongItem::asMediaItem)
@@ -278,7 +273,7 @@ fun LocalPlaylistSongs(
                                     }
                             }
                         )
-                        .then(animateItemPlacement(reorderingState = reorderingState))
+                        .animateItemPlacement(reorderingState = reorderingState)
                         .draggedItem(reorderingState = reorderingState, index = index)
                 )
             }

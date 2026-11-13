@@ -26,7 +26,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
-import it.vfsfitvnm.vimusic.ui.styling.ripple
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -72,7 +72,6 @@ import it.vfsfitvnm.vimusic.utils.center
 import it.vfsfitvnm.vimusic.utils.color
 import it.vfsfitvnm.vimusic.utils.isShowingSynchronizedLyricsKey
 import it.vfsfitvnm.vimusic.utils.medium
-import it.vfsfitvnm.vimusic.utils.semiBold
 import it.vfsfitvnm.vimusic.utils.rememberPreference
 import it.vfsfitvnm.vimusic.utils.toast
 import it.vfsfitvnm.vimusic.utils.verticalFadingEdge
@@ -102,9 +101,7 @@ fun Lyrics(
         val menuState = LocalMenuState.current
         val currentView = LocalView.current
 
-        // Synced lyrics are the point of the feature, so they are the default; the toggle in the
-        // menu still switches back to the plain text version.
-        var isShowingSynchronizedLyrics by rememberPreference(isShowingSynchronizedLyricsKey, true)
+        var isShowingSynchronizedLyrics by rememberPreference(isShowingSynchronizedLyricsKey, false)
 
         var isEditing by remember(mediaId, isShowingSynchronizedLyrics) {
             mutableStateOf(false)
@@ -279,33 +276,25 @@ fun Lyrics(
 
                     LazyColumn(
                         state = lazyListState,
-                        // Scrolling stays available so the words can be read ahead or back; the
-                        // follow-along scroll resumes on the next line either way.
-                        userScrollEnabled = true,
+                        userScrollEnabled = false,
                         contentPadding = PaddingValues(vertical = size / 2),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .verticalFadingEdge()
                     ) {
                         itemsIndexed(items = synchronizedLyrics.sentences) { index, sentence ->
-                            val isCurrent = index == synchronizedLyrics.index
                             BasicText(
                                 text = sentence.second,
-                                style = (if (isCurrent) typography.l.semiBold else typography.m.medium)
-                                    .center
-                                    .color(
-                                        if (isCurrent) PureBlackColorPalette.text
-                                        else PureBlackColorPalette.textDisabled
-                                    ),
+                                style = typography.xs.center.medium.color(if (index == synchronizedLyrics.index) PureBlackColorPalette.text else PureBlackColorPalette.textDisabled),
                                 modifier = Modifier
-                                    .padding(vertical = 8.dp, horizontal = 24.dp)
+                                    .padding(vertical = 4.dp, horizontal = 32.dp)
                             )
                         }
                     }
                 } else {
                     BasicText(
                         text = text,
-                        style = typography.m.center.medium.color(PureBlackColorPalette.text),
+                        style = typography.xs.center.medium.color(PureBlackColorPalette.text),
                         modifier = Modifier
                             .verticalFadingEdge()
                             .verticalScroll(rememberScrollState())
@@ -338,7 +327,7 @@ fun Lyrics(
                 modifier = Modifier
                     .padding(all = 4.dp)
                     .clickable(
-                        indication = ripple(bounded = false),
+                        indication = rememberRipple(bounded = false),
                         interactionSource = remember { MutableInteractionSource() },
                         onClick = {
                             menuState.display {

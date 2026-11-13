@@ -130,34 +130,6 @@ interface Database {
     @Query("SELECT * FROM Song WHERE id = :id")
     fun song(id: String): Flow<Song?>
 
-    @Query("SELECT COUNT(*) FROM Song WHERE totalPlayTimeMs > 0")
-    fun songsPlayedCount(): Flow<Int>
-
-    @Query("SELECT COUNT(*) FROM Song WHERE likedAt IS NOT NULL")
-    fun likedSongsCount(): Flow<Int>
-
-    @Query("SELECT COALESCE(SUM(totalPlayTimeMs), 0) FROM Song")
-    fun totalPlayTimeMs(): Flow<Long>
-
-    @Query("""
-        SELECT COUNT(DISTINCT Artist.id) FROM Artist
-        JOIN SongArtistMap ON Artist.id = SongArtistMap.artistId
-        JOIN Song ON Song.id = SongArtistMap.songId
-        WHERE Song.totalPlayTimeMs > 0
-    """)
-    fun bookmarkedArtistsCount(): Flow<Int>
-
-    @Query("""
-        SELECT COUNT(DISTINCT Album.id) FROM Album
-        JOIN SongAlbumMap ON Album.id = SongAlbumMap.albumId
-        JOIN Song ON Song.id = SongAlbumMap.songId
-        WHERE Song.totalPlayTimeMs > 0
-    """)
-    fun bookmarkedAlbumsCount(): Flow<Int>
-
-    @Query("SELECT COUNT(*) FROM Playlist")
-    fun playlistsCount(): Flow<Int>
-
     @Query("SELECT likedAt FROM Song WHERE id = :songId")
     fun likedAt(songId: String): Flow<Long?>
 
@@ -173,59 +145,16 @@ interface Database {
     @Query("SELECT * FROM Artist WHERE id = :id")
     fun artist(id: String): Flow<Artist?>
 
-    @Query("""
-        SELECT Artist.* FROM Artist
-        LEFT JOIN SongArtistMap ON Artist.id = SongArtistMap.artistId
-        LEFT JOIN Song ON Song.id = SongArtistMap.songId
-        WHERE Artist.bookmarkedAt IS NOT NULL OR Song.totalPlayTimeMs > 0
-        GROUP BY Artist.id
-        ORDER BY Artist.bookmarkedAt IS NULL, Artist.name COLLATE NOCASE DESC
-    """)
+    @Query("SELECT * FROM Artist WHERE bookmarkedAt IS NOT NULL ORDER BY name DESC")
     fun artistsByNameDesc(): Flow<List<Artist>>
 
-    @Query("""
-        SELECT Artist.* FROM Artist
-        LEFT JOIN SongArtistMap ON Artist.id = SongArtistMap.artistId
-        LEFT JOIN Song ON Song.id = SongArtistMap.songId
-        WHERE Artist.bookmarkedAt IS NOT NULL OR Song.totalPlayTimeMs > 0
-        GROUP BY Artist.id
-        ORDER BY Artist.bookmarkedAt IS NULL, Artist.name COLLATE NOCASE ASC
-    """)
+    @Query("SELECT * FROM Artist WHERE bookmarkedAt IS NOT NULL ORDER BY name ASC")
     fun artistsByNameAsc(): Flow<List<Artist>>
 
-    @Query("""
-        SELECT Artist.* FROM Artist
-        LEFT JOIN SongArtistMap ON Artist.id = SongArtistMap.artistId
-        LEFT JOIN Song ON Song.id = SongArtistMap.songId
-        WHERE Artist.bookmarkedAt IS NOT NULL OR Song.totalPlayTimeMs > 0
-        GROUP BY Artist.id
-        ORDER BY Artist.bookmarkedAt IS NULL, Artist.ROWID DESC
-    """)
+    @Query("SELECT * FROM Artist WHERE bookmarkedAt IS NOT NULL ORDER BY bookmarkedAt DESC")
     fun artistsByRowIdDesc(): Flow<List<Artist>>
 
-    /**
-     * Artists you have actually listened to, most-played first. Every other artist query filters
-     * on [Artist.bookmarkedAt], which only covers artists explicitly bookmarked -- useless as a
-     * browse list for anyone who plays from radio and quick picks rather than curating.
-     */
-    @Query("""
-        SELECT Artist.* FROM Artist
-        JOIN SongArtistMap ON Artist.id = SongArtistMap.artistId
-        JOIN Song ON Song.id = SongArtistMap.songId
-        WHERE Song.totalPlayTimeMs > 0
-        GROUP BY Artist.id
-        ORDER BY SUM(Song.totalPlayTimeMs) DESC
-    """)
-    fun artistsInLibrary(): Flow<List<Artist>>
-
-    @Query("""
-        SELECT Artist.* FROM Artist
-        LEFT JOIN SongArtistMap ON Artist.id = SongArtistMap.artistId
-        LEFT JOIN Song ON Song.id = SongArtistMap.songId
-        WHERE Artist.bookmarkedAt IS NOT NULL OR Song.totalPlayTimeMs > 0
-        GROUP BY Artist.id
-        ORDER BY Artist.bookmarkedAt IS NULL, Artist.ROWID ASC
-    """)
+    @Query("SELECT * FROM Artist WHERE bookmarkedAt IS NOT NULL ORDER BY bookmarkedAt ASC")
     fun artistsByRowIdAsc(): Flow<List<Artist>>
 
     fun artists(sortBy: ArtistSortBy, sortOrder: SortOrder): Flow<List<Artist>> {
@@ -252,76 +181,23 @@ interface Database {
     @RewriteQueriesToDropUnusedColumns
     fun albumSongs(albumId: String): Flow<List<Song>>
 
-    @Query("""
-        SELECT Album.* FROM Album
-        LEFT JOIN SongAlbumMap ON Album.id = SongAlbumMap.albumId
-        LEFT JOIN Song ON Song.id = SongAlbumMap.songId
-        WHERE Album.bookmarkedAt IS NOT NULL OR Song.totalPlayTimeMs > 0
-        GROUP BY Album.id
-        ORDER BY Album.bookmarkedAt IS NULL, Album.title COLLATE NOCASE ASC
-    """)
+    @Query("SELECT * FROM Album WHERE bookmarkedAt IS NOT NULL ORDER BY title ASC")
     fun albumsByTitleAsc(): Flow<List<Album>>
 
-    @Query("""
-        SELECT Album.* FROM Album
-        LEFT JOIN SongAlbumMap ON Album.id = SongAlbumMap.albumId
-        LEFT JOIN Song ON Song.id = SongAlbumMap.songId
-        WHERE Album.bookmarkedAt IS NOT NULL OR Song.totalPlayTimeMs > 0
-        GROUP BY Album.id
-        ORDER BY Album.bookmarkedAt IS NULL, Album.year ASC
-    """)
+    @Query("SELECT * FROM Album WHERE bookmarkedAt IS NOT NULL ORDER BY year ASC")
     fun albumsByYearAsc(): Flow<List<Album>>
 
-    @Query("""
-        SELECT Album.* FROM Album
-        LEFT JOIN SongAlbumMap ON Album.id = SongAlbumMap.albumId
-        LEFT JOIN Song ON Song.id = SongAlbumMap.songId
-        WHERE Album.bookmarkedAt IS NOT NULL OR Song.totalPlayTimeMs > 0
-        GROUP BY Album.id
-        ORDER BY Album.bookmarkedAt IS NULL, Album.ROWID ASC
-    """)
+    @Query("SELECT * FROM Album WHERE bookmarkedAt IS NOT NULL ORDER BY bookmarkedAt ASC")
     fun albumsByRowIdAsc(): Flow<List<Album>>
 
-    @Query("""
-        SELECT Album.* FROM Album
-        LEFT JOIN SongAlbumMap ON Album.id = SongAlbumMap.albumId
-        LEFT JOIN Song ON Song.id = SongAlbumMap.songId
-        WHERE Album.bookmarkedAt IS NOT NULL OR Song.totalPlayTimeMs > 0
-        GROUP BY Album.id
-        ORDER BY Album.bookmarkedAt IS NULL, Album.title COLLATE NOCASE DESC
-    """)
+    @Query("SELECT * FROM Album WHERE bookmarkedAt IS NOT NULL ORDER BY title DESC")
     fun albumsByTitleDesc(): Flow<List<Album>>
 
-    @Query("""
-        SELECT Album.* FROM Album
-        LEFT JOIN SongAlbumMap ON Album.id = SongAlbumMap.albumId
-        LEFT JOIN Song ON Song.id = SongAlbumMap.songId
-        WHERE Album.bookmarkedAt IS NOT NULL OR Song.totalPlayTimeMs > 0
-        GROUP BY Album.id
-        ORDER BY Album.bookmarkedAt IS NULL, Album.year DESC
-    """)
+    @Query("SELECT * FROM Album WHERE bookmarkedAt IS NOT NULL ORDER BY year DESC")
     fun albumsByYearDesc(): Flow<List<Album>>
 
-    @Query("""
-        SELECT Album.* FROM Album
-        LEFT JOIN SongAlbumMap ON Album.id = SongAlbumMap.albumId
-        LEFT JOIN Song ON Song.id = SongAlbumMap.songId
-        WHERE Album.bookmarkedAt IS NOT NULL OR Song.totalPlayTimeMs > 0
-        GROUP BY Album.id
-        ORDER BY Album.bookmarkedAt IS NULL, Album.ROWID DESC
-    """)
+    @Query("SELECT * FROM Album WHERE bookmarkedAt IS NOT NULL ORDER BY bookmarkedAt DESC")
     fun albumsByRowIdDesc(): Flow<List<Album>>
-
-    /** Albums you have actually listened to, most-played first. See [artistsInLibrary]. */
-    @Query("""
-        SELECT Album.* FROM Album
-        JOIN SongAlbumMap ON Album.id = SongAlbumMap.albumId
-        JOIN Song ON Song.id = SongAlbumMap.songId
-        WHERE Song.totalPlayTimeMs > 0
-        GROUP BY Album.id
-        ORDER BY SUM(Song.totalPlayTimeMs) DESC
-    """)
-    fun albumsInLibrary(): Flow<List<Album>>
 
     fun albums(sortBy: AlbumSortBy, sortOrder: SortOrder): Flow<List<Album>> {
         return when (sortBy) {
@@ -348,27 +224,27 @@ interface Database {
     fun playlistWithSongs(id: Long): Flow<PlaylistWithSongs?>
 
     @Transaction
-    @Query("SELECT id, name, browseId, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY name ASC")
+    @Query("SELECT id, name, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY name ASC")
     fun playlistPreviewsByNameAsc(): Flow<List<PlaylistPreview>>
 
     @Transaction
-    @Query("SELECT id, name, browseId, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY ROWID ASC")
+    @Query("SELECT id, name, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY ROWID ASC")
     fun playlistPreviewsByDateAddedAsc(): Flow<List<PlaylistPreview>>
 
     @Transaction
-    @Query("SELECT id, name, browseId, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY songCount ASC")
+    @Query("SELECT id, name, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY songCount ASC")
     fun playlistPreviewsByDateSongCountAsc(): Flow<List<PlaylistPreview>>
 
     @Transaction
-    @Query("SELECT id, name, browseId, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY name DESC")
+    @Query("SELECT id, name, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY name DESC")
     fun playlistPreviewsByNameDesc(): Flow<List<PlaylistPreview>>
 
     @Transaction
-    @Query("SELECT id, name, browseId, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY ROWID DESC")
+    @Query("SELECT id, name, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY ROWID DESC")
     fun playlistPreviewsByDateAddedDesc(): Flow<List<PlaylistPreview>>
 
     @Transaction
-    @Query("SELECT id, name, browseId, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY songCount DESC")
+    @Query("SELECT id, name, (SELECT COUNT(*) FROM SongPlaylistMap WHERE playlistId = id) as songCount FROM Playlist ORDER BY songCount DESC")
     fun playlistPreviewsByDateSongCountDesc(): Flow<List<PlaylistPreview>>
 
     fun playlistPreviews(
@@ -435,18 +311,10 @@ interface Database {
     @Query("SELECT id, name FROM Artist LEFT JOIN SongArtistMap ON id = artistId WHERE songId = :songId")
     fun songArtistInfo(songId: String): List<Info>
 
-    /**
-     * The most-played songs, weighted so recent listening counts for more.
-     *
-     * Returns a pool rather than a single song. Quick Picks seeds itself from one of these, and
-     * seeding from the top song alone meant that anything in heavy rotation became the seed
-     * permanently -- the page then showed that one album and little else, which reinforced itself
-     * every time it was played.
-     */
     @Transaction
-    @Query("SELECT Song.* FROM Event JOIN Song ON Song.id = songId GROUP BY songId ORDER BY SUM(CAST(playTime AS REAL) / (((:now - timestamp) / 86400000) + 1)) DESC LIMIT :limit")
+    @Query("SELECT Song.* FROM Event JOIN Song ON Song.id = songId GROUP BY songId ORDER BY SUM(CAST(playTime AS REAL) / (((:now - timestamp) / 86400000) + 1)) DESC LIMIT 1")
     @RewriteQueriesToDropUnusedColumns
-    fun trending(limit: Int, now: Long = System.currentTimeMillis()): Flow<List<Song>>
+    fun trending(now: Long = System.currentTimeMillis()): Flow<Song?>
 
     @Query("SELECT COUNT (*) FROM Event")
     fun eventsCount(): Flow<Int>
@@ -495,7 +363,7 @@ interface Database {
     fun insert(mediaItem: MediaItem, block: (Song) -> Song = { it }) {
         val song = Song(
             id = mediaItem.mediaId,
-            title = mediaItem.mediaMetadata.title?.toString()?.takeIf { it.isNotBlank() } ?: "Unknown title",
+            title = mediaItem.mediaMetadata.title!!.toString(),
             artistsText = mediaItem.mediaMetadata.artist?.toString(),
             durationText = mediaItem.mediaMetadata.extras?.getString("durationText"),
             thumbnailUrl = mediaItem.mediaMetadata.artworkUri?.toString()
@@ -612,10 +480,11 @@ abstract class DatabaseInitializer protected constructor() : RoomDatabase() {
     companion object {
         lateinit var Instance: DatabaseInitializer
 
-        operator fun invoke(context: Context) {
+        context(Context)
+        operator fun invoke() {
             if (!::Instance.isInitialized) {
                 Instance = Room
-                    .databaseBuilder(context, DatabaseInitializer::class.java, "data.db")
+                    .databaseBuilder(this@Context, DatabaseInitializer::class.java, "data.db")
                     .addMigrations(
                         From8To9Migration(),
                         From10To11Migration(),
@@ -782,7 +651,7 @@ object Converters {
                 val bundle = parcel.readBundle(MediaItem::class.java.classLoader)
                 parcel.recycle()
 
-                bundle?.let(MediaItem::fromBundle)
+                bundle?.let(MediaItem.CREATOR::fromBundle)
             }.getOrNull()
         }
     }

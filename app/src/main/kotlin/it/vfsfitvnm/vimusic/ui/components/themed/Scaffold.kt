@@ -1,7 +1,7 @@
 package it.vfsfitvnm.vimusic.ui.components.themed
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.Spring
@@ -25,7 +25,6 @@ fun Scaffold(
     tabIndex: Int,
     onTabChanged: (Int) -> Unit,
     tabColumnContent: @Composable ColumnScope.(@Composable (Int, String, Int) -> Unit) -> Unit,
-    bottomContent: @Composable ColumnScope.() -> Unit = {},
     modifier: Modifier = Modifier,
     content: @Composable AnimatedVisibilityScope.(Int) -> Unit
 ) {
@@ -41,16 +40,15 @@ fun Scaffold(
             onTopIconButtonClick = onTopIconButtonClick,
             tabIndex = tabIndex,
             onTabIndexChanged = onTabChanged,
-            content = tabColumnContent,
-            bottomContent = bottomContent
+            content = tabColumnContent
         )
 
         AnimatedContent(
             targetState = tabIndex,
             transitionSpec = {
                 val slideDirection = when (targetState > initialState) {
-                    true -> AnimatedContentTransitionScope.SlideDirection.Up
-                    false -> AnimatedContentTransitionScope.SlideDirection.Down
+                    true -> AnimatedContentScope.SlideDirection.Up
+                    false -> AnimatedContentScope.SlideDirection.Down
                 }
 
                 val animationSpec = spring(
