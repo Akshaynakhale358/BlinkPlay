@@ -52,7 +52,6 @@ import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.searchPage
-import it.vfsfitvnm.innertube.requests.searchPlaylistPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
@@ -103,30 +102,38 @@ private const val DefaultSeedVideoId = "J7p4bzqLvCw"
 // calls so the search endpoint is not flooded and silently left with empty shelves.
 private val PlaylistSearchSemaphore = Semaphore(3)
 
-private suspend fun searchPlaylistItems(searchQuery: String): List<Innertube.PlaylistItem> =
-    PlaylistSearchSemaphore.withPermit {
-        val filters = listOf(
-            Innertube.SearchFilter.FeaturedPlaylist.value,
-            Innertube.SearchFilter.CommunityPlaylist.value,
-            ""
-        )
-        for (filter in filters) {
-            val items = Innertube.searchPlaylistPage(
-                body = SearchBody(context = IndiaMusicContext, query = searchQuery, params = filter)
-            )?.getOrNull().orEmpty().distinctBy(Innertube.PlaylistItem::key)
-            if (items.isNotEmpty()) return@withPermit items
-        }
-        emptyList()
+private suspend fun searchPlaylistItems(
+    searchQuery: String,
+    preferredFilter: String? = null
+): List<Innertube.PlaylistItem> = PlaylistSearchSemaphore.withPermit {
+    // Every playlist shelf now uses the same generic search pipeline as song
+    // shelves. Keep the category's requested filter first, then safe fallbacks.
+    val filters = (listOfNotNull(preferredFilter) + listOf(
+        Innertube.SearchFilter.FeaturedPlaylist.value,
+        Innertube.SearchFilter.CommunityPlaylist.value,
+        ""
+    )).distinct()
+
+    for (filter in filters) {
+        val items = Innertube.searchPage(
+            body = SearchBody(context = IndiaMusicContext, query = searchQuery, params = filter),
+            fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
+            fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
+        )?.getOrNull()?.items.orEmpty().distinctBy(Innertube.PlaylistItem::key)
+        if (items.isNotEmpty()) return@withPermit items
     }
+    emptyList()
+}
 
 private suspend fun searchPlaylistCategories(
     queries: List<String>,
-    limit: Int = 20
+    limit: Int = 20,
+    filter: String? = null
 ): List<Innertube.PlaylistItem> {
     // Try category-specific phrases in order and stop as soon as a real result set
     // arrives. Running every fallback query at once made Quick Picks slow to populate.
     for (query in queries.distinct()) {
-        val items = searchPlaylistItems(query)
+        val items = searchPlaylistItems(query, filter)
         if (items.isNotEmpty()) return items.distinctBy(Innertube.PlaylistItem::key).take(limit)
     }
     return emptyList()
@@ -885,7 +892,8 @@ private fun OnlinePlaylistShelf(
         playlists = withContext(Dispatchers.IO) {
             searchPlaylistCategories(
                 listOf(query, query + " playlist", query + " official music mix"),
-                limit = 24
+                limit = 24,
+                filter = filter
             )
         }
     }
