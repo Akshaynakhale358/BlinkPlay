@@ -11,6 +11,7 @@ import it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
+import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
 import kotlinx.coroutines.async
@@ -59,6 +60,42 @@ private val discoveryMutex = Mutex()
 @Volatile private var cachedMusicDiscovery: MusicDiscovery? = null
 @Volatile private var cachedMusicDiscoveryAt: Long = 0L
 private const val MUSIC_DISCOVERY_CACHE_MILLIS = 5 * 60 * 1000L
+/**
+ * YouTube occasionally returns a valid-looking shelf with only one or two songs.
+ * Enrich sparse song shelves through the WEB_REMIX song-search route, retaining
+ * YouTube's original ranking first and de-duplicating by video ID.
+ */
+private suspend fun enrichSparseSongSections(
+    page: MusicBrowsePage?,
+    context: Context,
+): MusicBrowsePage? {
+    page ?: return null
+    val sections = page.sections.map { section ->
+        val originalSongs = section.items.filterIsInstance<Innertube.SongItem>()
+        if (originalSongs.isEmpty() || originalSongs.size >= 10 ||
+            originalSongs.size != section.items.size
+        ) return@map section
+
+        val queries = listOf(
+            "${section.title} songs",
+            "${section.title} popular songs India"
+        )
+        val fallback = queries.flatMap { query ->
+            Innertube.searchPage(
+                body = SearchBody(
+                    context = context,
+                    query = query,
+                    params = Innertube.SearchFilter.Song.value
+                ),
+                fromMusicShelfRendererContent = Innertube.SongItem::from
+            )?.getOrNull()?.items.orEmpty()
+        }
+        val merged = (originalSongs + fallback).distinctBy(Innertube.SongItem::key)
+        section.copy(items = merged)
+    }
+    return page.copy(sections = sections)
+}
+
 
 private fun JsonElement.descendants(): Sequence<JsonElement> = sequence {
     yield(this@descendants)
@@ -226,8 +263,8 @@ suspend fun Innertube.musicDiscovery(
                 val explore = async { musicExplorePage(context) }
                 home.await() to explore.await()
             }
-            val home = homeResult?.getOrNull()
-            val explore = exploreResult?.getOrNull()
+            val home = enrichSparseSongSections(homeResult?.getOrNull(), context)
+            val explore = enrichSparseSongSections(exploreResult?.getOrNull(), context)
             val validHome = home?.takeIf { it.sections.isNotEmpty() }
             val validExplore = explore?.takeIf { it.sections.isNotEmpty() }
             if (validHome != null || validExplore != null) {
