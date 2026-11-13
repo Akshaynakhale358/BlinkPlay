@@ -55,7 +55,6 @@ import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.MusicDiscovery
 import it.vfsfitvnm.innertube.requests.musicDiscovery
 import it.vfsfitvnm.innertube.requests.musicExplorePage
-import it.vfsfitvnm.innertube.requests.prioritizeIndianLanguageSongs
 import it.vfsfitvnm.innertube.requests.playlistPage
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.utils.from
@@ -457,19 +456,19 @@ private suspend fun fetchIndiaDirectSongShelves(): Triple<
         .minusDays(1)
         .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
 
-    val trendingQuery =
-        "flags=MusicCharts__enable_apac_and_shorts_charts_expansion&perspective=CHART_DETAILS&chart_params_country_code=in&chart_params_chart_type=TRENDING_VIDEOS"
-    val topQuery =
-        "perspective=CHART_DETAILS&chart_params_country_code=in&chart_params_chart_type=TRACKS&chart_params_period_type=WEEKLY&chart_params_end_date=$endDate"
+    // YouTube Charts WEB_MUSIC_ANALYTICS query used for India's weekly chart.
+    // The response contains both Top Videos and Trending Videos groups, plus Top Songs.
+    val chartQuery =
+        "chart_params_type=WEEK&perspective=CHART&flags=viral_video_chart&selected_chart=TRACKS&chart_params_id=weekly:0:0:IN"
 
     // Prefer official direct chart roots, but treat a tiny partial response as an
     // incomplete feed too. The chart endpoint sometimes returns only one row.
     // Merge search results to fill the shelf, while keeping chart ranking first.
     val trendingDeferred = async {
-        Innertube.indiaChartSongs(trendingQuery, "videos")
+        Innertube.indiaChartSongs(chartQuery, "videos", 1, "videoViews")
     }
     val topDeferred = async {
-        Innertube.indiaChartSongs(topQuery, "trackViews")
+        Innertube.indiaChartSongs(chartQuery, "trackTypes", 0, "trackViews")
     }
 
     // New releases are fetched from YouTube Music's own dedicated browse root, not Explore text matching.
