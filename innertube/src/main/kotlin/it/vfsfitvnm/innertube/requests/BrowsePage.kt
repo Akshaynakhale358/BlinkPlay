@@ -78,8 +78,15 @@ private suspend fun enrichSparseSongSections(
             "album|artist|playlist|video|podcast|radio|audiobook",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(section.title)
-        if (originalSongs.size >= 10 || isMixedOrNonSongShelf || isNonSongCategory) {
+        if (isMixedOrNonSongShelf || isNonSongCategory) {
             return@map section
+        }
+
+        val prioritizedSongs = prioritizeIndianLanguageSongs(
+            originalSongs, section.title, context
+        )
+        if (prioritizedSongs.size >= 10) {
+            return@map section.copy(items = prioritizedSongs)
         }
 
         val queries = listOf(
@@ -96,7 +103,7 @@ private suspend fun enrichSparseSongSections(
                 fromMusicShelfRendererContent = Innertube.SongItem::from
             )?.getOrNull()?.items.orEmpty()
         }
-        val merged = (originalSongs + fallback).distinctBy(Innertube.SongItem::key)
+        val merged = (prioritizedSongs + fallback).distinctBy(Innertube.SongItem::key)
         section.copy(items = merged)
     }
     return page.copy(sections = sections)
