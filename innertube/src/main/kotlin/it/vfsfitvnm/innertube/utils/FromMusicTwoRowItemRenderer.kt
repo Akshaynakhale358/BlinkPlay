@@ -47,12 +47,17 @@ fun Innertube.ArtistItem.Companion.from(renderer: MusicTwoRowItemRenderer): Inne
 }
 
 fun Innertube.PlaylistItem.Companion.from(renderer: MusicTwoRowItemRenderer): Innertube.PlaylistItem? {
+    // Playlist grid cards expose their browse endpoint on the renderer itself.
+    // The title run often has text only; using that run alone discarded valid playlists.
+    val titleRun = renderer.title?.runs?.firstOrNull()
+    val browseEndpoint = renderer.navigationEndpoint?.browseEndpoint
+        ?: titleRun?.navigationEndpoint?.browseEndpoint
+
     return Innertube.PlaylistItem(
-        info = renderer
-            .title
-            ?.runs
-            ?.firstOrNull()
-            ?.let(Innertube::Info),
+        info = Innertube.Info(
+            name = titleRun?.text,
+            endpoint = browseEndpoint
+        ),
         channel = renderer
             .subtitle
             ?.runs
