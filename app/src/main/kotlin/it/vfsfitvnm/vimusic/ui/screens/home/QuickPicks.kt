@@ -91,6 +91,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 @ExperimentalFoundationApi
@@ -151,14 +152,30 @@ fun QuickPicks(
         } else emptyList()
 
         val playedIds = withContext(Dispatchers.IO) {
-            Database.trending(100).map { it.id }.toSet()
+            Database.trending(100).first().map { it.id }.toSet()
         }
         val recommendations = related
             .filter { it.key != currentVideoId && it.key !in playedIds }
             .distinctBy(Innertube.SongItem::key)
 
-        songsForYou = if (recommendations.size >= 5) recommendations
-            else (recommendations + withContext(Dispatchers.IO) { fetchAutomaticSongsForYou() })
+        val title = binder?.player?.currentMediaItem?.mediaMetadata?.title?.toString().orEmpty()
+        val artist = binder?.player?.currentMediaItem?.mediaMetadata?.artist?.toString().orEmpty()
+        val relatedSearch = if (currentVideoId != null && title.isNotBlank()) {
+            withContext(Dispatchers.IO) {
+                Innertube.searchPage(
+                    body = SearchBody(
+                        context = Context.DefaultWeb.copy(
+                            client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
+                        ),
+                        query = "$title $artist similar songs",
+                        params = Innertube.SearchFilter.Song.value
+                    ),
+                    fromMusicShelfRendererContent = Innertube.SongItem::from
+                )?.getOrNull()?.items.orEmpty()
+            }
+        } else emptyList()
+        songsForYou = if (currentVideoId == null) fetchAutomaticSongsForYou()
+            else (recommendations + relatedSearch)
                 .filter { it.key != currentVideoId && it.key !in playedIds }
                 .distinctBy(Innertube.SongItem::key)
         songsForYouFailed = songsForYou.isEmpty()
