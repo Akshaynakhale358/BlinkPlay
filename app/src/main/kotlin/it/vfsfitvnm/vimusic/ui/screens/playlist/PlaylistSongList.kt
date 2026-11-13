@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -24,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import com.valentinilk.shimmer.shimmer
 import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
@@ -74,12 +76,36 @@ fun PlaylistSongList(
     val menuState = LocalMenuState.current
 
     var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage")
+    var retryLoad by rememberSaveable(browseId) { mutableStateOf(0) }
+    var isLoadingPlaylist by rememberSaveable(browseId) { mutableStateOf(false) }
+    var playlistLoadFailed by rememberSaveable(browseId) { mutableStateOf(false) }
 
-    LaunchedEffect(browseId) {
-        if (playlistPage != null && playlistPage?.songsPage?.continuation == null) return@LaunchedEffect
+    LaunchedEffect(browseId, retryLoad) {
+        // A cached header with no songs is not a completed load. Retry it rather than
+        // leaving the playlist screen permanently blank.
+        val cachedSongs = playlistPage?.songsPage?.items.orEmpty()
+        if (cachedSongs.isNotEmpty() && playlistPage?.songsPage?.continuation == null) {
+            return@LaunchedEffect
+        }
 
-        playlistPage = withContext(Dispatchers.IO) {
-            Innertube.playlistPage(BrowseBody(browseId = browseId))?.completed()?.getOrNull()
+        isLoadingPlaylist = true
+        playlistLoadFailed = false
+        try {
+            val loaded = withContext(Dispatchers.IO) {
+                Innertube.playlistPage(BrowseBody(browseId = browseId))?.completed()?.getOrNull()
+            }
+            if (loaded != null) {
+                playlistPage = loaded
+                playlistLoadFailed = loaded.songsPage?.items.isNullOrEmpty()
+            } else {
+                playlistLoadFailed = true
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            playlistLoadFailed = true
+        } finally {
+            isLoadingPlaylist = false
         }
     }
 
@@ -213,14 +239,27 @@ fun PlaylistSongList(
                     )
                 }
 
-                if (playlistPage == null) {
+                if (playlistPage?.songsPage?.items.isNullOrEmpty()) {
                     item(key = "loading") {
-                        ShimmerHost(
-                            modifier = Modifier
-                                .fillParentMaxSize()
-                        ) {
-                            repeat(4) {
-                                SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp)
+                        if (isLoadingPlaylist || !playlistLoadFailed) {
+                            ShimmerHost(
+                                modifier = Modifier.fillParentMaxSize()
+                            ) {
+                                repeat(4) {
+                                    SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp)
+                                }
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                SecondaryTextButton(
+                                    text = "Songs not loaded · Tap to retry",
+                                    onClick = { retryLoad += 1 }
+                                )
                             }
                         }
                     }
