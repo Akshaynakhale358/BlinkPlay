@@ -89,22 +89,10 @@ private suspend fun enrichSparseSongSections(
             return@map section.copy(items = prioritizedSongs)
         }
 
-        val queries = listOf(
-            "${section.title} songs",
-            "${section.title} popular songs India"
-        )
-        val fallback = queries.flatMap { query ->
-            Innertube.searchPage(
-                body = SearchBody(
-                    context = context,
-                    query = query,
-                    params = Innertube.SearchFilter.Song.value
-                ),
-                fromMusicShelfRendererContent = Innertube.SongItem::from
-            )?.getOrNull()?.items.orEmpty()
-        }
-        val merged = (prioritizedSongs + fallback).distinctBy(Innertube.SongItem::key)
-        section.copy(items = merged)
+        // Keep this shelf strictly tied to its own YouTube Music browse root.
+        // A generic search fallback can silently turn (for example) Top Songs into
+        // New Releases or another unrelated category.
+        section.copy(items = prioritizedSongs)
     }
     return page.copy(sections = sections)
 }
@@ -226,8 +214,11 @@ suspend fun prioritizeIndianLanguageSongs(
     context: Context,
 ): List<Innertube.SongItem> {
     if (songs.isEmpty()) return songs
+    // Language searches may only reorder items already returned by this category's
+    // own YouTube Music feed. They must never inject songs from another category.
     val original = songs.distinctBy(Innertube.SongItem::key)
-    suspend fun find(query: String) =
+    val allowedIds = original.map(Innertube.SongItem::key).toSet()
+    suspend fun matching(query: String): List<Innertube.SongItem> =
         Innertube.searchPage(
             body = SearchBody(
                 context = context,
@@ -235,16 +226,17 @@ suspend fun prioritizeIndianLanguageSongs(
                 params = Innertube.SearchFilter.Song.value
             ),
             fromMusicShelfRendererContent = Innertube.SongItem::from
-        )?.getOrNull()?.items.orEmpty()
+        )?.getOrNull()?.items.orEmpty().filter { it.key in allowedIds }
 
-    val hindi = find("$categoryTitle Hindi songs")
-    val marathi = find("$categoryTitle Marathi songs")
-    val punjabi = find("$categoryTitle Punjabi songs")
-    val otherIndian = find("$categoryTitle Tamil Telugu Kannada Malayalam Bengali Gujarati songs")
-    val english = find("$categoryTitle English songs")
-    val englishIds = english.map(Innertube.SongItem::key).toSet()
+    val hindi = matching("$categoryTitle Hindi songs")
+    val marathi = matching("$categoryTitle Marathi songs")
+    val punjabi = matching("$categoryTitle Punjabi songs")
+    val otherIndian = matching("$categoryTitle Tamil Telugu Kannada Malayalam Bengali Gujarati songs")
+    val english = matching("$categoryTitle English songs")
+    val prioritizedIds = (hindi + marathi + punjabi + otherIndian + english)
+        .map(Innertube.SongItem::key).toSet()
     return (hindi + marathi + punjabi + otherIndian +
-        original.filterNot { it.key in englishIds } + english)
+        original.filterNot { it.key in prioritizedIds } + english)
         .distinctBy(Innertube.SongItem::key)
 }
 
