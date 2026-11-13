@@ -101,7 +101,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /** How many of the most-played songs Quick Picks may seed itself from. */
@@ -588,7 +588,7 @@ private fun JsonElement.stringAt(vararg keys: String): String? {
     val objects = walkJson().mapNotNull { it as? JsonObject }
     for (key in keys) {
         objects.forEach { obj ->
-            obj[key]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)?.let { return it }
+            (obj[key] as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)?.let { return it }
         }
     }
     return null
@@ -615,8 +615,8 @@ private fun chartSong(element: JsonElement): Innertube.SongItem? {
         val artist = obj["artists"] as? JsonArray ?: return@mapNotNull null
         artist.mapNotNull { entry ->
             val artistObj = entry as? JsonObject
-            artistObj?.get("name")?.jsonPrimitive?.contentOrNull
-                ?: entry.jsonPrimitive.contentOrNull
+            (artistObj?.get("name") as? JsonPrimitive)?.contentOrNull
+                ?: (entry as? JsonPrimitive)?.contentOrNull
         }
     }.firstOrNull().orEmpty().distinct()
 
