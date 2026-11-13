@@ -51,6 +51,9 @@ import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.relatedPage
+import it.vfsfitvnm.innertube.requests.MusicDiscovery
+import it.vfsfitvnm.innertube.requests.MusicBrowseSection
+import it.vfsfitvnm.innertube.requests.musicDiscovery
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
@@ -243,6 +246,15 @@ fun QuickPicks(
     var isRefreshing by remember { mutableStateOf(false) }
     var hasLoadedFreshRecommendations by remember { mutableStateOf(false) }
     var listeningSeeds by remember { mutableStateOf<List<Song>>(emptyList()) }
+    var serverDiscovery by remember { mutableStateOf<MusicDiscovery?>(null) }
+    var discoveryFailed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(refreshToken) {
+        val result = withContext(Dispatchers.IO) { Innertube.musicDiscovery() }
+        serverDiscovery = result?.getOrNull()
+        discoveryFailed = result?.isFailure != false
+        isRefreshing = false
+    }
 
     LaunchedEffect(refreshToken) {
         if (refreshToken > 0) {
@@ -496,155 +508,127 @@ fun QuickPicks(
                 }
             }
 
-        // Keep chart-style Top Song and currently popular Trending Song as separate shelves.
-        // YouTube Music search does not expose a guaranteed live chart rank here.
-        OnlineSongShelf(
-            title = "TOP SONG",
-            query = "top chart highest ranked most popular hit songs India Hindi Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam",
-            thumbnailSizeDp = songThumbnailSizeDp,
-            thumbnailSizePx = songThumbnailSizePx,
-            onSongClick = { song ->
-                val mediaItem = song.asMediaItem
-                binder?.stopRadio()
-                binder?.player?.forcePlay(mediaItem)
-                binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-            },
-            onSongLongClick = { song ->
-                menuState.display {
-                    NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                }
-            },
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
-
-        OnlineSongShelf(
-            title = "TRENDING SONG",
-            query = "trending now viral popular songs India Hindi Marathi Punjabi Tamil Telugu Bengali Kannada Malayalam ${LocalDate.now().year}",
-            thumbnailSizeDp = songThumbnailSizeDp,
-            thumbnailSizePx = songThumbnailSizePx,
-            onSongClick = { song ->
-                val mediaItem = song.asMediaItem
-                binder?.stopRadio()
-                binder?.player?.forcePlay(mediaItem)
-                binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-            },
-            onSongLongClick = { song ->
-                menuState.display {
-                    NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                }
-            },
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
-
-        OnlineSongShelf(
-            title = "NEW RELEASE",
-            query = "new Hindi Marathi Indian regional English music releases",
-            thumbnailSizeDp = songThumbnailSizeDp,
-            thumbnailSizePx = songThumbnailSizePx,
-            onSongClick = { song ->
-                val mediaItem = song.asMediaItem
-                binder?.stopRadio()
-                binder?.player?.forcePlay(mediaItem)
-                binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-            },
-            onSongLongClick = { song ->
-                menuState.display {
-                    NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                }
-            },
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
-
-        MixForYouShelf(
-            seedArtists = trending?.artistsText.orEmpty(),
-            thumbnailSizeDp = playlistThumbnailSizeDp,
-            thumbnailSizePx = playlistThumbnailSizePx,
-            onPlaylistClick = onPlaylistClick,
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
-
-        val dailyMixDay = LocalDate.now().toEpochDay()
-        // Ten disjoint themes per day: every title changes on the next day.
-        // The six themed packs rotate as a six-day cycle, then start a fresh cycle.
-        val dailyMixPack = Math.floorMod(dailyMixDay, (DailyMixThemes.size / 10).toLong()).toInt()
-        val dailyMixes = remember(dailyMixDay) {
-            DailyMixThemes.drop(dailyMixPack * 10).take(10)
-        }
-
-        BasicText(
-            text = "DAILY MIXES",
-            style = typography.s.semiBold,
-            modifier = sectionTextModifier
-        )
-        dailyMixes.chunked(2).forEach { rowMixes ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                rowMixes.forEach { mix ->
-                    DailyMixPlaylistCard(
-                        mix = mix,
-                        dayKey = dailyMixDay,
-                        refreshKey = refreshToken,
-                        thumbnailSizeDp = playlistThumbnailSizeDp,
-                        thumbnailSizePx = playlistThumbnailSizePx,
-                        onPlaylistClick = onPlaylistClick
-                    )
-                }
-            }
-        }
-        relatedPageResult?.getOrNull()?.let { related ->
-            related.playlists?.let { playlists ->
-                    BasicText(
-                        text = "PLAYLISTS YOU MIGHT LIKE",
-                        style = typography.s.semiBold,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 24.dp, bottom = 8.dp)
-                    )
-
-                    LazyRow(contentPadding = endPaddingValues) {
-                        items(
-                            items = playlists,
-                            key = Innertube.PlaylistItem::key,
-                        ) { playlist ->
-                            PlaylistItem(
-                                playlist = playlist,
-                                thumbnailSizePx = playlistThumbnailSizePx,
-                                thumbnailSizeDp = playlistThumbnailSizeDp,
-                                alternative = true,
-                                modifier = Modifier
-                                    .clickable(onClick = { onPlaylistClick(playlist.key) })
-                            )
-                        }
+        when {
+            serverDiscovery != null -> ServerDrivenMusicShelves(
+                sections = serverDiscovery!!.sections,
+                songThumbnailSizeDp = songThumbnailSizeDp,
+                songThumbnailSizePx = songThumbnailSizePx,
+                albumThumbnailSizeDp = albumThumbnailSizeDp,
+                albumThumbnailSizePx = albumThumbnailSizePx,
+                artistThumbnailSizeDp = artistThumbnailSizeDp,
+                artistThumbnailSizePx = artistThumbnailSizePx,
+                playlistThumbnailSizeDp = playlistThumbnailSizeDp,
+                playlistThumbnailSizePx = playlistThumbnailSizePx,
+                sectionTextModifier = sectionTextModifier,
+                onSongClick = { song ->
+                    val mediaItem = song.asMediaItem
+                    binder?.stopRadio()
+                    binder?.player?.forcePlay(mediaItem)
+                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                },
+                onSongLongClick = { song ->
+                    menuState.display {
+                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
                     }
+                },
+                onAlbumClick = onAlbumClick,
+                onArtistClick = onArtistClick,
+                onPlaylistClick = onPlaylistClick
+            )
+            discoveryFailed -> BasicText(
+                text = "YouTube Music feed unavailable. Tap to retry.",
+                style = typography.s.secondary.center,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+                    .clickable { isRefreshing = true; refreshToken += 1 }
+                    .padding(16.dp)
+            )
+            else -> ShimmerHost {
+                repeat(3) { TextPlaceholder(modifier = sectionTextModifier) }
+                Row {
+                    repeat(3) { PlaylistItemPlaceholder(thumbnailSizeDp = playlistThumbnailSizeDp, alternative = true) }
                 }
-
-
-
             }
-
-        OnlinePlaylistShelf(
-            title = "TRENDING COMMUNITY PLAYLIST",
-            query = "trending Indian community music playlists Hindi Marathi Punjabi Tamil Telugu",
-            filter = Innertube.SearchFilter.CommunityPlaylist.value,
-            thumbnailSizeDp = playlistThumbnailSizeDp,
-            thumbnailSizePx = playlistThumbnailSizePx,
-            onPlaylistClick = onPlaylistClick,
-            sectionTextModifier = sectionTextModifier,
-            refreshKey = refreshToken
-        )
+        }
     }
     }
     }
 }
 
+
+
+/** Renders YouTube Music's own shelves in BlinkPlay's existing visual language. */
+@Composable
+private fun ServerDrivenMusicShelves(
+    sections: List<MusicBrowseSection>,
+    songThumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    songThumbnailSizePx: Int,
+    albumThumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    albumThumbnailSizePx: Int,
+    artistThumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    artistThumbnailSizePx: Int,
+    playlistThumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    playlistThumbnailSizePx: Int,
+    sectionTextModifier: Modifier,
+    onSongClick: (Innertube.SongItem) -> Unit,
+    onSongLongClick: (Innertube.SongItem) -> Unit,
+    onAlbumClick: (String) -> Unit,
+    onArtistClick: (String) -> Unit,
+    onPlaylistClick: (String) -> Unit
+) {
+    val (_, typography) = LocalAppearance.current
+    sections.forEach { section ->
+        if (section.items.isNotEmpty()) {
+            BasicText(
+                text = section.title,
+                style = typography.s.semiBold,
+                modifier = sectionTextModifier.clickable {
+                    section.browseId?.let { id ->
+                        val route = if (section.params.isNullOrBlank()) id
+                            else "$id|||BLINK_PARAMS|||\u0024{section.params}"
+                        onPlaylistClick(route)
+                    }
+                }
+            )
+            LazyRow {
+                items(section.items, key = { it.key }) { item ->
+                    when (item) {
+                        is Innertube.SongItem -> SongItem(
+                            song = item,
+                            thumbnailSizePx = songThumbnailSizePx,
+                            thumbnailSizeDp = songThumbnailSizeDp,
+                            modifier = Modifier.combinedClickable(
+                                onClick = { onSongClick(item) },
+                                onLongClick = { onSongLongClick(item) }
+                            )
+                        )
+                        is Innertube.PlaylistItem -> PlaylistItem(
+                            playlist = item,
+                            thumbnailSizePx = playlistThumbnailSizePx,
+                            thumbnailSizeDp = playlistThumbnailSizeDp,
+                            alternative = true,
+                            modifier = Modifier.clickable { onPlaylistClick(item.key) }
+                        )
+                        is Innertube.AlbumItem -> AlbumItem(
+                            album = item,
+                            thumbnailSizePx = albumThumbnailSizePx,
+                            thumbnailSizeDp = albumThumbnailSizeDp,
+                            alternative = true,
+                            modifier = Modifier.clickable { item.info?.endpoint?.browseId?.let(onAlbumClick) }
+                        )
+                        is Innertube.ArtistItem -> ArtistItem(
+                            artist = item,
+                            thumbnailSizePx = artistThumbnailSizePx,
+                            thumbnailSizeDp = artistThumbnailSizeDp,
+                            alternative = true,
+                            modifier = Modifier.clickable { item.info?.endpoint?.browseId?.let(onArtistClick) }
+                        )
+                        else -> Unit
+                    }
+                }
+            }
+        }
+    }
+}
 
 private suspend fun loadLanguageOrderedRelatedPage(
     seed: Song?,
