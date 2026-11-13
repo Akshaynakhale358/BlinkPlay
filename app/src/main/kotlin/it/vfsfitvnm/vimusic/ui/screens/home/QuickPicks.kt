@@ -97,7 +97,7 @@ private const val SeedPoolSize = 20
 private const val DefaultSeedVideoId = "J7p4bzqLvCw"
 
 // Each date selects a different 10-theme pack. Adjacent days never repeat a theme;
-// the 3-pack cycle keeps the daily list deterministic for everyone on that date.
+// the six-pack cycle keeps the daily list deterministic for everyone on that date.
 private data class DailyMixSpec(val title: String, val query: String)
 
 private val DailyMixThemes = listOf(
