@@ -23,6 +23,14 @@ object Innertube {
     val client = HttpClient(OkHttp) {
         expectSuccess = true
 
+        // Never leave Quick Picks shelves in an endless loading state when
+        // YouTube Music stalls or the connection cannot complete a request.
+        install(HttpTimeout) {
+            requestTimeoutMillis = 20000
+            connectTimeoutMillis = 10000
+            socketTimeoutMillis = 20000
+        }
+
         install(ContentNegotiation) {
             @OptIn(ExperimentalSerializationApi::class)
             json(Json {
