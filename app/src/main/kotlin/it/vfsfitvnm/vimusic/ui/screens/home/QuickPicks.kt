@@ -304,6 +304,7 @@ fun QuickPicks(
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
                 endPaddingValues = endPaddingValues,
+                verticalList = false,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -324,6 +325,7 @@ fun QuickPicks(
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
                 endPaddingValues = endPaddingValues,
+                verticalList = false,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -344,6 +346,7 @@ fun QuickPicks(
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
                 endPaddingValues = endPaddingValues,
+                verticalList = false,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -482,6 +485,7 @@ fun QuickPicks(
                     thumbnailSizeDp = songThumbnailSizeDp,
                     itemWidth = itemInHorizontalGridWidth,
                     endPaddingValues = endPaddingValues,
+                    verticalList = true,
                     onSongClick = { song ->
                         val mediaItem = song.asMediaItem
                         binder?.stopRadio()
@@ -546,6 +550,7 @@ private fun QuickPicksSongShelf(
     thumbnailSizeDp: androidx.compose.ui.unit.Dp,
     itemWidth: androidx.compose.ui.unit.Dp,
     endPaddingValues: androidx.compose.foundation.layout.PaddingValues,
+    verticalList: Boolean,
     onSongClick: (Innertube.SongItem) -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
@@ -560,45 +565,54 @@ private fun QuickPicksSongShelf(
             .padding(endPaddingValues)
     )
 
-    val shelfGridState = rememberLazyGridState()
     if (songs.isEmpty()) {
-        LazyHorizontalGrid(
-            rows = GridCells.Fixed(5),
-            contentPadding = endPaddingValues,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
-        ) {
-            items(5) {
-                SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
-            }
+        if (verticalList) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+            ) { repeat(5) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) } }
+        } else {
+            LazyHorizontalGrid(
+                rows = GridCells.Fixed(5),
+                contentPadding = endPaddingValues,
+                modifier = Modifier.fillMaxWidth().height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
+            ) { items(5) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) } }
         }
-    } else {
-        // Restore the original five-row horizontal shelf: five songs stack
-        // vertically in each column, and the user scrolls sideways for more.
-        LazyHorizontalGrid(
-            state = shelfGridState,
-            rows = GridCells.Fixed(5),
-            contentPadding = endPaddingValues,
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
+    } else if (verticalList) {
+        // Only the opened category detail page uses a vertical song list.
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
         ) {
-            items(
-                items = songs.distinctBy(Innertube.SongItem::key),
-                key = Innertube.SongItem::key
-            ) { song ->
+            songs.distinctBy(Innertube.SongItem::key).forEach { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = thumbnailSizePx,
                     thumbnailSizeDp = thumbnailSizeDp,
-                    modifier = Modifier
-                        .width(itemWidth)
-                        .combinedClickable(
-                            onLongClick = { onSongLongClick(song) },
-                            onClick = { onSongClick(song) }
-                        )
+                    modifier = Modifier.fillMaxWidth().combinedClickable(
+                        onLongClick = { onSongLongClick(song) },
+                        onClick = { onSongClick(song) }
+                    )
+                )
+            }
+        }
+    } else {
+        // Keep the Home screen's original five-row horizontally scrolling shelves.
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(5),
+            contentPadding = endPaddingValues,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
+        ) {
+            items(items = songs.distinctBy(Innertube.SongItem::key), key = Innertube.SongItem::key) { song ->
+                SongItem(
+                    song = song,
+                    thumbnailSizePx = thumbnailSizePx,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    modifier = Modifier.width(itemWidth).combinedClickable(
+                        onLongClick = { onSongLongClick(song) },
+                        onClick = { onSongClick(song) }
+                    )
                 )
             }
         }
