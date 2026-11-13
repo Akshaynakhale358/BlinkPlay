@@ -10,6 +10,7 @@ import it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicResponsiveHeaderRenderer
 import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
 import it.vfsfitvnm.innertube.models.MusicShelfRenderer
+import it.vfsfitvnm.innertube.models.PlaylistPanelVideoRenderer
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.models.SectionListRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
@@ -60,6 +61,28 @@ private fun JsonElement.playlistShelfSongs(): List<Innertube.SongItem> {
         .map { it.songRenderers() }
         .maxByOrNull { it.size }
         .orEmpty()
+}
+
+/**
+ * Playlist responses are not consistent across YouTube Music clients.
+ * Some use musicShelfRenderer, while others return playlistVideoListRenderer /
+ * playlistPanelRenderer entries containing playlistPanelVideoRenderer.
+ * Read both formats so a valid playlist does not appear empty.
+ */
+private fun JsonElement.playlistSongs(): List<Innertube.SongItem> {
+    val shelfSongs = playlistShelfSongs()
+    val panelSongs = descendants()
+        .mapNotNull { node ->
+            val renderer = (node as? JsonObject)?.get("playlistPanelVideoRenderer")
+                ?: return@mapNotNull null
+            runCatching {
+                playlistResponseJson.decodeFromJsonElement<PlaylistPanelVideoRenderer>(renderer)
+            }.getOrNull()?.let(Innertube.SongItem::from)
+        }
+        .toList()
+
+    return (shelfSongs + panelSongs)
+        .distinctBy(Innertube.SongItem::key)
 }
 
 private fun JsonElement.continuationToken(): String? =
@@ -114,7 +137,7 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
                 ?.mapNotNull { it.continuationItemRenderer?.continuationEndpoint?.token() }
                 ?.firstOrNull()
     )
-    val rawSongs = root.playlistShelfSongs()
+    val rawSongs = root.playlistSongs()
     val songsPage = if (rawSongs.isNotEmpty()) {
         Innertube.ItemsPage(
             items = rawSongs,
@@ -162,7 +185,7 @@ suspend fun Innertube.playlistPage(body: ContinuationBody) = runCatchingNonCance
             ?.continuationItems.orEmpty()
     }.mapNotNull { it.musicResponsiveListItemRenderer }.mapNotNull(Innertube.SongItem::from)
 
-    val rawSongs = root.songRenderers()
+    val rawSongs = root.playlistSongs()
     val songs = (if (rawSongs.isNotEmpty()) rawSongs else typedSongs)
         .distinctBy(Innertube.SongItem::key)
 
