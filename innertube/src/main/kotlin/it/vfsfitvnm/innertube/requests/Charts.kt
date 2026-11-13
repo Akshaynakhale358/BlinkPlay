@@ -42,8 +42,7 @@ private fun JsonElement.stringAt(vararg keys: String): String? {
 
 private fun JsonElement.arrayFor(key: String): List<JsonElement> =
     walkJson().mapNotNull { it as? JsonObject }
-        .firstNotNullOfOrNull { it[key] as? JsonArray }
-        ?.toList().orEmpty()
+        .flatMap { (it[key] as? JsonArray)?.toList().orEmpty() }
 
 private fun chartSong(element: JsonElement): Innertube.SongItem? {
     val videoId = element.stringAt("encryptedVideoId", "videoId", "id")
