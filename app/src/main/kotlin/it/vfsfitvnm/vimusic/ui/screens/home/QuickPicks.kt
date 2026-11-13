@@ -118,12 +118,31 @@ fun QuickPicks(
     var listeningSeeds by remember { mutableStateOf<List<Song>>(emptyList()) }
     var serverDiscovery by remember { mutableStateOf<MusicDiscovery?>(null) }
     var discoveryFailed by remember { mutableStateOf(false) }
+    var trendingSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
 
     LaunchedEffect(refreshToken) {
         val result = withContext(Dispatchers.IO) { Innertube.musicDiscovery(forceRefresh = refreshToken > 0) }
         serverDiscovery = result?.getOrNull() ?: serverDiscovery
         discoveryFailed = serverDiscovery?.sections.isNullOrEmpty()
         isRefreshing = false
+    }
+
+    // Independent search shelves: these do not depend on the Home discovery feed.
+    LaunchedEffect(refreshToken) {
+        val shelves = withContext(Dispatchers.IO) {
+            coroutineScope {
+                listOf(
+                    async { fetchHomeSongShelf("trending Hindi songs India") },
+                    async { fetchHomeSongShelf("top popular Hindi songs India") },
+                    async { fetchHomeSongShelf("latest new Hindi songs 2026 India") }
+                ).awaitAll()
+            }
+        }
+        trendingSongs = shelves[0]
+        topSongs = shelves[1]
+        newReleases = shelves[2]
     }
 
     LaunchedEffect(refreshToken) {
@@ -378,6 +397,66 @@ fun QuickPicks(
                 }
             }
 
+            QuickPicksSongShelf(
+                title = "TRENDING SONGS",
+                songs = trendingSongs,
+                thumbnailSizePx = songThumbnailSizePx,
+                thumbnailSizeDp = songThumbnailSizeDp,
+                itemWidth = itemInHorizontalGridWidth,
+                endPaddingValues = endPaddingValues,
+                onSongClick = { song ->
+                    val mediaItem = song.asMediaItem
+                    binder?.stopRadio()
+                    binder?.player?.forcePlay(mediaItem)
+                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                },
+                onSongLongClick = { song ->
+                    menuState.display {
+                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                    }
+                }
+            )
+
+            QuickPicksSongShelf(
+                title = "TOP SONGS",
+                songs = topSongs,
+                thumbnailSizePx = songThumbnailSizePx,
+                thumbnailSizeDp = songThumbnailSizeDp,
+                itemWidth = itemInHorizontalGridWidth,
+                endPaddingValues = endPaddingValues,
+                onSongClick = { song ->
+                    val mediaItem = song.asMediaItem
+                    binder?.stopRadio()
+                    binder?.player?.forcePlay(mediaItem)
+                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                },
+                onSongLongClick = { song ->
+                    menuState.display {
+                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                    }
+                }
+            )
+
+            QuickPicksSongShelf(
+                title = "NEW RELEASES",
+                songs = newReleases,
+                thumbnailSizePx = songThumbnailSizePx,
+                thumbnailSizeDp = songThumbnailSizeDp,
+                itemWidth = itemInHorizontalGridWidth,
+                endPaddingValues = endPaddingValues,
+                onSongClick = { song ->
+                    val mediaItem = song.asMediaItem
+                    binder?.stopRadio()
+                    binder?.player?.forcePlay(mediaItem)
+                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                },
+                onSongLongClick = { song ->
+                    menuState.display {
+                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                    }
+                }
+            )
+
         when {
             serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
                 sections = serverDiscovery!!.sections,
@@ -420,6 +499,72 @@ fun QuickPicks(
 }
 
 
+
+
+@Composable
+private fun QuickPicksSongShelf(
+    title: String,
+    songs: List<Innertube.SongItem>,
+    thumbnailSizePx: Int,
+    thumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    itemWidth: androidx.compose.ui.unit.Dp,
+    endPaddingValues: androidx.compose.foundation.layout.PaddingValues,
+    onSongClick: (Innertube.SongItem) -> Unit,
+    onSongLongClick: (Innertube.SongItem) -> Unit
+) {
+    val (_, typography) = LocalAppearance.current
+    val gridState = rememberLazyGridState()
+
+    BasicText(
+        text = title,
+        style = typography.s.semiBold,
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .padding(top = 24.dp, bottom = 8.dp)
+            .padding(endPaddingValues)
+    )
+
+    if (songs.isEmpty()) {
+        ShimmerHost {
+            repeat(5) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) }
+        }
+    } else {
+        LazyHorizontalGrid(
+            state = gridState,
+            rows = GridCells.Fixed(5),
+            flingBehavior = rememberSnapFlingBehavior(gridState, SnapPosition.Center),
+            contentPadding = endPaddingValues,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
+        ) {
+            items(items = songs.distinctBy { it.key }, key = Innertube.SongItem::key) { song ->
+                SongItem(
+                    song = song,
+                    thumbnailSizePx = thumbnailSizePx,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    modifier = Modifier
+                        .combinedClickable(
+                            onLongClick = { onSongLongClick(song) },
+                            onClick = { onSongClick(song) }
+                        )
+                        .animateItem()
+                        .width(itemWidth)
+                )
+            }
+        }
+    }
+}
+
+private suspend fun fetchHomeSongShelf(query: String): List<Innertube.SongItem> =
+    Innertube.searchPage(
+        body = SearchBody(
+            context = IndiaMusicContext,
+            query = query,
+            params = Innertube.SearchFilter.Song.value
+        ),
+        fromMusicShelfRendererContent = Innertube.SongItem::from
+    )?.getOrNull()?.items.orEmpty()
 
 private suspend fun loadLanguageOrderedRelatedPage(
     seed: Song?,
