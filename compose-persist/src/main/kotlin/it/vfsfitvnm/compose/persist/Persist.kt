@@ -11,7 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 fun <T> persist(tag: String, initialValue: T): MutableState<T> {
     val context = LocalContext.current
 
-    return remember {
+    return remember(context, tag) {
         context.persistMap?.getOrPut(tag) { mutableStateOf(initialValue) } as? MutableState<T>
             ?: mutableStateOf(initialValue)
     }
