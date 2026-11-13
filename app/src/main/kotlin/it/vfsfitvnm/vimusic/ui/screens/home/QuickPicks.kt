@@ -48,6 +48,7 @@ import it.vfsfitvnm.innertube.models.bodies.BrowseBody
 import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.albumPage
+import it.vfsfitvnm.innertube.requests.browsePage
 import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.MusicDiscovery
 import it.vfsfitvnm.innertube.requests.musicDiscovery
@@ -90,7 +91,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 import io.ktor.client.call.body
 import io.ktor.client.request.post
-import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.json.Json
@@ -99,8 +99,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
