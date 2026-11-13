@@ -54,6 +54,30 @@ private fun JsonObject.chartItems(
     return (group[viewKey] as? JsonArray)?.toList().orEmpty()
 }
 
+private fun chartThumbnail(element: JsonElement, videoId: String): Thumbnail {
+    // Prefer the largest thumbnail actually supplied by the chart response.
+    // The chart may include several sizes; taking the first often selects a tiny preview.
+    val candidates = element.walkJson().mapNotNull { node ->
+        val obj = node as? JsonObject ?: return@mapNotNull null
+        val entries = obj["thumbnails"] as? JsonArray ?: return@mapNotNull null
+        entries.mapNotNull { entry ->
+            val image = entry as? JsonObject ?: return@mapNotNull null
+            val url = (image["url"] as? JsonPrimitive)?.contentOrNull
+                ?.takeIf { it.startsWith("https://") } ?: return@mapNotNull null
+            val width = (image["width"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 0
+            val height = (image["height"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 0
+            Thumbnail(url = url, width = width.takeIf { it > 0 }, height = height.takeIf { it > 0 })
+        }
+    }.flatten().distinctBy(Thumbnail::url)
+
+    return candidates.maxByOrNull { (it.width ?: 0) * (it.height ?: 0) }
+        ?: Thumbnail(
+            url = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg",
+            height = 360,
+            width = 480
+        )
+}
+
 private fun chartSong(element: JsonElement): Innertube.SongItem? {
     val videoId = element.stringAt("encryptedVideoId", "videoId", "id")
         ?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) } ?: return null
@@ -69,10 +93,7 @@ private fun chartSong(element: JsonElement): Innertube.SongItem? {
         }
     }.firstOrNull().orEmpty().distinct()
 
-    // Chart payload thumbnail URLs can point to tiny 60px previews (or unrelated
-    // nested URLs). Build the stable YouTube video thumbnail from the chart videoId.
-    // hqdefault is consistently available and gives a clear 480x360 image.
-    val thumbnailUrl = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+    val thumbnail = chartThumbnail(element, videoId)
     return Innertube.SongItem(
         info = Innertube.Info(
             name = title,
@@ -81,7 +102,7 @@ private fun chartSong(element: JsonElement): Innertube.SongItem? {
         authors = artistNames.map { Innertube.Info<NavigationEndpoint.Endpoint.Browse>(it, null) },
         album = null,
         durationText = null,
-        thumbnail = thumbnailUrl?.let { Thumbnail(url = it, height = null, width = null) }
+        thumbnail = thumbnail
     )
 }
 
