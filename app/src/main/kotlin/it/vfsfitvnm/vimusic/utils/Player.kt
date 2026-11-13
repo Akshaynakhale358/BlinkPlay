@@ -31,10 +31,16 @@ fun Player.seamlessPlay(mediaItem: MediaItem) {
 }
 
 fun Player.shuffleQueue() {
-    val mediaItems = currentTimeline.mediaItems.toMutableList().apply { removeAt(currentMediaItemIndex) }
-    if (currentMediaItemIndex > 0) removeMediaItems(0, currentMediaItemIndex)
-    if (currentMediaItemIndex < mediaItemCount - 1) removeMediaItems(currentMediaItemIndex + 1, mediaItemCount)
-    addMediaItems(mediaItems.shuffled())
+    val currentIndex = currentMediaItemIndex
+    if (currentIndex !in 0 until mediaItemCount) return
+
+    // Keep the current item playing at its current position; only shuffle the rest.
+    val remainingItems = currentTimeline.mediaItems.filterIndexed { index, _ ->
+        index != currentIndex
+    }
+    if (currentIndex > 0) removeMediaItems(0, currentIndex)
+    if (mediaItemCount > 1) removeMediaItems(1, mediaItemCount)
+    if (remainingItems.isNotEmpty()) addMediaItems(1, remainingItems.shuffled())
 }
 
 fun Player.forcePlay(mediaItem: MediaItem) {
