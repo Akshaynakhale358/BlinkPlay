@@ -81,55 +81,50 @@ fun PlaylistSongList(
     val menuState = LocalMenuState.current
 
     // Bump the persisted cache key so empty pages saved by the old parser are fetched again.
-    var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage-v2")
+    var playlistPage by persist<Innertube.PlaylistOrAlbumPage?>("playlist/$browseId/playlistPage-v3")
     var playlistLoadError by rememberSaveable(browseId) { mutableStateOf(false) }
-    var playlistLoadErrorDetail by rememberSaveable(browseId) { mutableStateOf("") }
     var isLoadingPlaylist by rememberSaveable(browseId) { mutableStateOf(false) }
     var retryKey by rememberSaveable(browseId) { mutableStateOf(0) }
 
     LaunchedEffect(browseId, retryKey) {
         if (playlistPage?.songsPage == null) {
             isLoadingPlaylist = true
-            // YouTube Music may return an empty page for the VL-prefixed playlist
-            // browse id on some playlist types. Retry with the canonical id before
-            // showing an empty/error state.
+            // New playlist loader: use India Music WEB context first, then the
+            // default WEB context. Try both canonical and VL-prefixed playlist ids.
             val page = withContext(Dispatchers.IO) {
+                val indiaContext = Context.DefaultWeb.copy(
+                    client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+                )
+                val contexts = listOf(indiaContext, Context.DefaultWeb)
                 val candidateIds = buildList {
                     add(browseId)
-                    if (browseId.startsWith("VL")) {
-                        add(browseId.removePrefix("VL"))
-                    }
+                    if (browseId.startsWith("VL")) add(browseId.removePrefix("VL"))
+                    else add("VL$browseId")
                 }.distinct()
 
-                var lastPage: Innertube.PlaylistOrAlbumPage? = null
-                var lastError: String? = null
-                for (candidateId in candidateIds) {
-                    val result = Innertube.playlistPage(
-                        BrowseBody(browseId = candidateId)
-                    )
-                    val candidate = result?.getOrNull()
-                    if (candidate == null) {
-                        lastError = result?.exceptionOrNull()?.let { error ->
-                            "${error::class.simpleName}: ${error.message.orEmpty()}"
-                        } ?: "No response from YouTube Music"
+                var loaded: Innertube.PlaylistOrAlbumPage? = null
+                for (requestContext in contexts) {
+                    for (candidateId in candidateIds) {
+                        val candidate = Innertube.playlistPage(
+                            BrowseBody(context = requestContext, browseId = candidateId)
+                        )?.getOrNull()
+                        if (candidate?.songsPage?.items?.isNotEmpty() == true ||
+                            candidate?.songsPage?.continuation != null
+                        ) {
+                            loaded = candidate
+                            break
+                        }
+                        if (loaded == null && candidate?.songsPage != null) loaded = candidate
                     }
-
-                    if (candidate?.songsPage?.items?.isNotEmpty() == true ||
-                        candidate?.songsPage?.continuation != null
-                    ) {
-                        lastPage = candidate
-                        break
-                    }
-
-                    if (candidate != null) lastPage = candidate
+                    if (loaded?.songsPage?.items?.isNotEmpty() == true ||
+                        loaded?.songsPage?.continuation != null
+                    ) break
                 }
-                if (lastPage == null) playlistLoadErrorDetail = lastError.orEmpty()
-                lastPage
+                loaded
             }
             if (page?.songsPage != null) {
                 playlistPage = page
                 playlistLoadError = false
-                playlistLoadErrorDetail = ""
             } else {
                 playlistLoadError = true
             }
@@ -238,7 +233,9 @@ fun PlaylistSongList(
             val nextPage = withContext(Dispatchers.IO) {
                 Innertube.playlistPage(
                     ContinuationBody(
-                        context = Context.DefaultWeb,
+                        context = Context.DefaultWeb.copy(
+                            client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+                        ),
                         continuation = continuation
                     )
                 )?.getOrNull()
@@ -313,7 +310,7 @@ fun PlaylistSongList(
                     item(key = "playlist-loading") {
                         if (playlistLoadError) {
                             BasicText(
-                                text = "Playlist could not load. Tap to retry. ${playlistLoadErrorDetail.take(180)}",
+                                text = "Playlist could not load. Tap to retry.",
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { playlistLoadError = false; retryKey += 1 }
