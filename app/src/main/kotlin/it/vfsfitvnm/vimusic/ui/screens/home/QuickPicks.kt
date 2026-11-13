@@ -790,7 +790,8 @@ private fun MixForYouShelf(
                     query = query,
                     params = Innertube.SearchFilter.FeaturedPlaylist.value
                 ),
-                fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+                fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
+                    fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
             )?.getOrNull()?.items.orEmpty()
 
             val languageOrdered = mutableListOf<Innertube.PlaylistItem>()
@@ -808,7 +809,8 @@ private fun MixForYouShelf(
                         query = "$seed Indian Hindi Marathi regional music mix playlist",
                         params = Innertube.SearchFilter.CommunityPlaylist.value
                     ),
-                    fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+                    fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
+                    fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
                 )?.getOrNull()?.items.orEmpty()
             }
         }
@@ -861,7 +863,8 @@ private fun OnlinePlaylistShelf(
         val result = withContext(Dispatchers.IO) {
             Innertube.searchPage(
                 body = SearchBody(context = IndiaMusicContext, query = query, params = filter),
-                fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+                fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
+                    fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
             )
         }
         playlists = result?.getOrNull()?.items.orEmpty()
@@ -918,7 +921,8 @@ private fun DailyMixPlaylistCard(
                     query = query,
                     params = filter
                 ),
-                fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+                fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
+                    fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
             )?.getOrNull()?.items.orEmpty()
 
             // Featured playlists are preferred, but category searches often return better

@@ -6,6 +6,7 @@ import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.ContinuationResponse
 import it.vfsfitvnm.innertube.models.MusicShelfRenderer
+import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 import it.vfsfitvnm.innertube.models.SearchResponse
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
@@ -13,11 +14,12 @@ import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
 
 suspend fun <T : Innertube.Item> Innertube.searchPage(
     body: SearchBody,
-    fromMusicShelfRendererContent: (MusicShelfRenderer.Content) -> T?
+    fromMusicShelfRendererContent: (MusicShelfRenderer.Content) -> T?,
+    fromMusicTwoRowItemRenderer: (MusicTwoRowItemRenderer) -> T? = { null }
 ) = runCatchingNonCancellable {
     val response = client.post(search) {
         setBody(body)
-        mask("contents.tabbedSearchResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents.musicShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask)")
+        mask("contents.tabbedSearchResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents(musicShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask),gridRenderer(items.$musicTwoRowItemRendererMask))")
     }.body<SearchResponse>()
 
     response
@@ -29,14 +31,22 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
         ?.content
         ?.sectionListRenderer
         ?.contents
-        ?.lastOrNull()
-        ?.musicShelfRenderer
-        ?.toItemsPage(fromMusicShelfRendererContent)
+        ?.lastOrNull { it.musicShelfRenderer != null || it.gridRenderer != null }
+        ?.let { section ->
+            section.musicShelfRenderer?.toItemsPage(fromMusicShelfRendererContent)
+                ?: section.gridRenderer?.let { grid ->
+                    Innertube.ItemsPage(
+                        items = grid.items?.mapNotNull { it.musicTwoRowItemRenderer }?.mapNotNull(fromMusicTwoRowItemRenderer),
+                        continuation = null
+                    )
+                }
+        }
 }
 
 suspend fun <T : Innertube.Item> Innertube.searchPage(
     body: ContinuationBody,
-    fromMusicShelfRendererContent: (MusicShelfRenderer.Content) -> T?
+    fromMusicShelfRendererContent: (MusicShelfRenderer.Content) -> T?,
+    fromMusicTwoRowItemRenderer: (MusicTwoRowItemRenderer) -> T? = { null }
 ) = runCatchingNonCancellable {
     val response = client.post(search) {
         setBody(body)

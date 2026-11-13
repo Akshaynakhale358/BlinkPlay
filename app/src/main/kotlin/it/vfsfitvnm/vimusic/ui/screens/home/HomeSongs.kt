@@ -289,7 +289,8 @@ private fun CategoryPublicPlaylists(
                     query = "$query $category playlists",
                     params = Innertube.SearchFilter.CommunityPlaylist.value
                 ),
-                fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+                fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
+                fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
             )?.getOrNull()?.items.orEmpty()
         }
     }
