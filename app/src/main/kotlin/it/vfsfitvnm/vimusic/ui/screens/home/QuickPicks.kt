@@ -83,6 +83,7 @@ import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -510,7 +511,15 @@ fun QuickPicks(
             refreshKey = refreshToken
         )
 
-        val dailyMixDay = LocalDate.now().toEpochDay()
+        var dailyMixDay by remember { mutableStateOf(LocalDate.now().toEpochDay()) }
+        LaunchedEffect(Unit) {
+            // Keep the shelf current even if Quick Picks stays open across midnight.
+            while (true) {
+                delay(60_000L)
+                val today = LocalDate.now().toEpochDay()
+                if (today != dailyMixDay) dailyMixDay = today
+            }
+        }
         // Ten disjoint themes per day: every title changes on the next day.
         // The six themed packs rotate as a six-day cycle, then start a fresh cycle.
         val dailyMixPack = Math.floorMod(dailyMixDay, (DailyMixThemes.size / 10).toLong()).toInt()
