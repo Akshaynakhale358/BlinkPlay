@@ -91,16 +91,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 
-/** How many of the most-played songs Quick Picks may seed itself from. */
-private const val SeedPoolSize = 20
-
-/** Used when nothing has been played yet, so the page is not empty on a fresh install. */
-private const val DefaultSeedVideoId = "J7p4bzqLvCw"
-// India-localized context is used only for the personalized Songs for You shelf.
-private val IndiaMusicContext = Context.DefaultWeb.copy(
-    client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
-)
-
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
@@ -115,13 +105,10 @@ fun QuickPicks(
     val menuState = LocalMenuState.current
     val windowInsets = LocalPlayerAwareWindowInsets.current
 
-    var trending by persist<Song?>("home/trending")
-
-    var relatedPageResult by persist<Result<Innertube.RelatedPage?>?>(tag = "home/relatedPageResult")
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
-    var hasLoadedFreshRecommendations by remember { mutableStateOf(false) }
-    var listeningSeeds by remember { mutableStateOf<List<Song>>(emptyList()) }
+    var songsForYou by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var songsForYouFailed by remember { mutableStateOf(false) }
     var serverDiscovery by remember { mutableStateOf<MusicDiscovery?>(null) }
     var discoveryFailed by remember { mutableStateOf(false) }
     var trendingSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
@@ -135,51 +122,19 @@ fun QuickPicks(
         isRefreshing = false
     }
 
-    // Read the real India Explore shelves supplied by YouTube Music.
-    // This avoids presenting ordinary search results as official charts.
+    // Songs For You is a non-personalized automatic feed: it never reads play history
+    // or uses relatedPage. Prefer YouTube Music's Explore shelves, then use a neutral
+    // category-wide search fallback if Explore has no usable song items.
     LaunchedEffect(refreshToken) {
+        songsForYouFailed = false
+        val feed = withContext(Dispatchers.IO) { fetchAutomaticSongsForYou() }
+        songsForYou = feed
+        songsForYouFailed = feed.isEmpty()
         val shelves = withContext(Dispatchers.IO) { fetchIndiaDirectSongShelves() }
         trendingSongs = shelves.first
         topSongs = shelves.second
         newReleases = shelves.third
-    }
-
-    LaunchedEffect(refreshToken) {
-        if (refreshToken > 0) {
-            relatedPageResult = null
-            relatedPageResult = loadLanguageOrderedRelatedPage(trending, listeningSeeds)
-            isRefreshing = false
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        Database.trending(SeedPoolSize).distinctUntilChanged().collect { candidates ->
-            // Build a multi-artist profile from listening history. A single heavily
-            // replayed artist must not dominate every recommendation query.
-            val diverseCandidates = candidates.distinctBy {
-                it.artistsText?.trim()?.lowercase()?.takeIf { artist -> artist.isNotBlank() } ?: it.id
-            }
-            listeningSeeds = diverseCandidates.take(8)
-
-            // A seed is drawn at random from the most-played rather than always being the single
-            // top song, so one album in heavy rotation cannot own the page indefinitely.
-            //
-            // Once drawn it is kept for as long as it remains in the pool: this flow re-emits on
-            // every play event, and re-drawing each time would reshuffle the screen underneath
-            // whoever is reading it. Leaving home clears the persisted value, so the next visit
-            // draws again.
-            val current = trending
-            val seed = current?.takeIf { song -> diverseCandidates.any { it.id == song.id } }
-                ?: diverseCandidates.randomOrNull()
-
-            if (!hasLoadedFreshRecommendations || seed?.id != current?.id) {
-                // Discard recommendations persisted by older builds; they may start with English.
-                relatedPageResult = null
-                relatedPageResult = loadLanguageOrderedRelatedPage(seed, listeningSeeds)
-                hasLoadedFreshRecommendations = true
-            }
-            trending = seed
-        }
+        isRefreshing = false
     }
 
     val songThumbnailSizeDp = Dimensions.thumbnails.song
@@ -246,7 +201,7 @@ fun QuickPicks(
                 modifier = sectionTextModifier
             )
 
-            relatedPageResult?.getOrNull()?.let { related ->
+            if (songsForYou.isNotEmpty()) {
                 LazyHorizontalGrid(
                     state = quickPicksLazyGridState,
                     rows = GridCells.Fixed(5),
@@ -256,63 +211,7 @@ fun QuickPicks(
                         .fillMaxWidth()
                         .height((songThumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
                 ) {
-                    trending?.let { song ->
-                        item {
-                            SongItem(
-                                song = song,
-                                thumbnailSizePx = songThumbnailSizePx,
-                                thumbnailSizeDp = songThumbnailSizeDp,
-                                trailingContent = {
-                                    Image(
-                                        painter = painterResource(R.drawable.star),
-                                        contentDescription = null,
-                                        colorFilter = ColorFilter.tint(colorPalette.accent),
-                                        modifier = Modifier
-                                            .size(16.dp)
-                                    )
-                                },
-                                modifier = Modifier
-                                    .combinedClickable(
-                                        onLongClick = {
-                                            menuState.display {
-                                                NonQueuedMediaItemMenu(
-                                                    onDismiss = menuState::hide,
-                                                    mediaItem = song.asMediaItem,
-                                                    onRemoveFromQuickPicks = {
-                                                        query {
-                                                            Database.clearEventsFor(song.id)
-                                                        }
-                                                    }
-                                                )
-                                            }
-                                        },
-                                        onClick = {
-                                            val mediaItem = song.asMediaItem
-                                            binder?.stopRadio()
-                                            binder?.player?.forcePlay(mediaItem)
-                                            binder?.setupRadio(
-                                                NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
-                                            )
-                                        }
-                                    )
-                                    .animateItem()
-                                    .width(itemInHorizontalGridWidth)
-                            )
-                        }
-                    }
-
-                    items(
-                        items = related.songs.orEmpty().let { songs ->
-                            // The seed is rendered in its own starred tile above. Only remove
-                            // a trailing duplicate when the API actually returned that seed.
-                            if (trending != null && songs.lastOrNull()?.key == trending?.id) {
-                                songs.dropLast(1)
-                            } else {
-                                songs
-                            }
-                        },
-                        key = Innertube.SongItem::key
-                    ) { song ->
+                    items(items = songsForYou.distinctBy { it.key }, key = Innertube.SongItem::key) { song ->
                         SongItem(
                             song = song,
                             thumbnailSizePx = songThumbnailSizePx,
@@ -331,9 +230,7 @@ fun QuickPicks(
                                         val mediaItem = song.asMediaItem
                                         binder?.stopRadio()
                                         binder?.player?.forcePlay(mediaItem)
-                                        binder?.setupRadio(
-                                            NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
-                                        )
+                                        binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
                                     }
                                 )
                                 .animateItem()
@@ -341,58 +238,18 @@ fun QuickPicks(
                         )
                     }
                 }
-
-                Unit
-            } ?: relatedPageResult?.exceptionOrNull()?.let {
+            } else if (songsForYouFailed) {
                 BasicText(
-                    text = "Recommendations failed. Tap to retry.",
+                    text = "Songs feed unavailable. Tap to retry.",
                     style = typography.s.secondary.center,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
-                        .clickable {
-                            isRefreshing = true
-                            refreshToken += 1
-                        }
-                        .padding(all = 16.dp)
+                        .clickable { isRefreshing = true; refreshToken += 1 }
+                        .padding(16.dp)
                 )
-            } ?: ShimmerHost {
-                repeat(5) {
-                    SongItemPlaceholder(
-                        thumbnailSizeDp = songThumbnailSizeDp,
-                    )
-                }
-
-                TextPlaceholder(modifier = sectionTextModifier)
-
-                Row {
-                    repeat(2) {
-                        AlbumItemPlaceholder(
-                            thumbnailSizeDp = albumThumbnailSizeDp,
-                            alternative = true
-                        )
-                    }
-                }
-
-                TextPlaceholder(modifier = sectionTextModifier)
-
-                Row {
-                    repeat(2) {
-                        ArtistItemPlaceholder(
-                            thumbnailSizeDp = albumThumbnailSizeDp,
-                            alternative = true
-                        )
-                    }
-                }
-
-                TextPlaceholder(modifier = sectionTextModifier)
-
-                Row {
-                    repeat(2) {
-                        PlaylistItemPlaceholder(
-                            thumbnailSizeDp = albumThumbnailSizeDp,
-                            alternative = true
-                        )
-                    }
+            } else {
+                ShimmerHost {
+                    repeat(5) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) }
                 }
             }
 
@@ -555,6 +412,28 @@ private fun QuickPicksSongShelf(
     }
 }
 
+private suspend fun fetchAutomaticSongsForYou(): List<Innertube.SongItem> {
+    val explore = Innertube.musicExplorePage()?.getOrNull()
+    val exploreSongs = explore?.sections.orEmpty()
+        .flatMap { it.items }
+        .filterIsInstance<Innertube.SongItem>()
+        .distinctBy(Innertube.SongItem::key)
+    if (exploreSongs.size >= 5) return exploreSongs
+
+    val searchFallback = Innertube.searchPage(
+        body = SearchBody(
+            context = Context.DefaultWeb.copy(
+                client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
+            ),
+            query = "popular new songs India Hindi Marathi Punjabi Tamil Telugu Kannada Malayalam",
+            params = Innertube.SearchFilter.Song.value
+        ),
+        fromMusicShelfRendererContent = Innertube.SongItem::from
+    )?.getOrNull()?.items.orEmpty()
+
+    return (exploreSongs + searchFallback).distinctBy(Innertube.SongItem::key)
+}
+
 private val IndiaExploreContext = Context.DefaultWeb.copy(
     client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
 )
@@ -620,67 +499,3 @@ private suspend fun fetchIndiaDirectSongShelves(): Triple<
     Triple(trendingDeferred.await(), topDeferred.await(), releasesDeferred.await())
 }
 
-private suspend fun loadLanguageOrderedRelatedPage(
-    seed: Song?,
-    historySeeds: List<Song> = listOfNotNull(seed)
-): Result<Innertube.RelatedPage?> = coroutineScope {
-    // Related-page metadata is optional: a failure must not block personalized song search.
-    val baseDeferred = async {
-        Innertube.relatedPage(
-            NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
-        )?.getOrNull()
-    }
-
-    val seedContext = historySeeds
-        .take(6)
-        .joinToString(" ") { historySong ->
-            listOfNotNull(historySong.title, historySong.artistsText).joinToString(" ")
-        }
-        .take(240)
-        .ifBlank {
-            listOfNotNull(seed?.title, seed?.artistsText).joinToString(" ").ifBlank { "popular" }
-        }
-
-    suspend fun fetchRelatedSongs(languageQuery: String) = Innertube.searchPage(
-        body = SearchBody(
-            context = IndiaMusicContext,
-            query = "$languageQuery similar to $seedContext",
-            params = Innertube.SearchFilter.Song.value
-        ),
-        fromMusicShelfRendererContent = Innertube.SongItem::from
-    )?.getOrNull()?.items.orEmpty()
-
-    // Run language searches together, then restore the requested Hindi-first ordering.
-    val languageResults = listOf(
-        async { fetchRelatedSongs("Hindi Bollywood songs") },
-        async { fetchRelatedSongs("Marathi songs") },
-        async {
-            fetchRelatedSongs(
-                "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs"
-            )
-        },
-        async { fetchRelatedSongs("English international songs") }
-    ).awaitAll()
-
-    val hindi = languageResults[0]
-    val marathi = languageResults[1]
-        .filterNot { song -> hindi.any { it.key == song.key } }
-    val otherIndianLanguages = languageResults[2]
-    val indianSongs = (hindi + marathi + otherIndianLanguages).distinctBy { it.key }
-    val english = languageResults[3]
-        .filterNot { song -> indianSongs.any { it.key == song.key } }
-
-    val orderedSongs = (indianSongs + english).distinctBy { song ->
-        // Limit each recommendation batch to one result per lead artist.
-        song.authors
-            ?.firstOrNull()
-            ?.name
-            ?.trim()
-            ?.lowercase()
-            ?.takeIf { it.isNotBlank() }
-            ?: song.key
-    }
-
-    val base = baseDeferred.await() ?: Innertube.RelatedPage()
-    Result.success(base.copy(songs = orderedSongs))
-}
