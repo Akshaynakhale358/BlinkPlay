@@ -22,8 +22,9 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
         mask("contents.tabbedSearchResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents(musicShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask),gridRenderer(items.$musicTwoRowItemRendererMask))")
     }.body<SearchResponse>()
 
-    response
-        .contents
+    // Collect every matching section: YouTube may return multiple grids/shelves.
+    // Previously lastOrNull silently dropped playlist results when another section followed.
+    val sections = response.contents
         ?.tabbedSearchResultsRenderer
         ?.tabs
         ?.firstOrNull()
@@ -31,16 +32,30 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
         ?.content
         ?.sectionListRenderer
         ?.contents
-        ?.lastOrNull { it.musicShelfRenderer != null || it.gridRenderer != null }
-        ?.let { section ->
-            section.musicShelfRenderer?.toItemsPage(fromMusicShelfRendererContent)
-                ?: section.gridRenderer?.let { grid ->
-                    Innertube.ItemsPage(
-                        items = grid.items?.mapNotNull { it.musicTwoRowItemRenderer }?.mapNotNull(fromMusicTwoRowItemRenderer),
-                        continuation = null
-                    )
-                }
+        .orEmpty()
+        .filter { it.musicShelfRenderer != null || it.gridRenderer != null }
+
+    val items = sections.flatMap { section ->
+        buildList {
+            section.musicShelfRenderer
+                ?.contents
+                ?.mapNotNullTo(this, fromMusicShelfRendererContent)
+            section.gridRenderer
+                ?.items
+                ?.mapNotNull { it.musicTwoRowItemRenderer }
+                ?.mapNotNullTo(this, fromMusicTwoRowItemRenderer)
         }
+    }.distinctBy(Innertube.Item::key)
+
+    val continuation = sections.asReversed().mapNotNull { section ->
+        section.musicShelfRenderer
+            ?.continuations
+            ?.firstOrNull()
+            ?.nextContinuationData
+            ?.continuation
+    }.firstOrNull()
+
+    Innertube.ItemsPage(items = items, continuation = continuation)
 }
 
 suspend fun <T : Innertube.Item> Innertube.searchPage(
@@ -61,12 +76,6 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 
 private fun <T : Innertube.Item> MusicShelfRenderer?.toItemsPage(mapper: (MusicShelfRenderer.Content) -> T?) =
     Innertube.ItemsPage(
-        items = this
-            ?.contents
-            ?.mapNotNull(mapper),
-        continuation = this
-            ?.continuations
-            ?.firstOrNull()
-            ?.nextContinuationData
-            ?.continuation
+        items = this?.contents?.mapNotNull(mapper),
+        continuation = this?.continuations?.firstOrNull()?.nextContinuationData?.continuation
     )
