@@ -89,10 +89,34 @@ fun PlaylistSongList(
     LaunchedEffect(browseId, retryKey) {
         if (playlistPage?.songsPage == null) {
             isLoadingPlaylist = true
-            val result = withContext(Dispatchers.IO) {
-                Innertube.playlistPage(BrowseBody(browseId = browseId))
+            // YouTube Music may return an empty page for the VL-prefixed playlist
+            // browse id on some playlist types. Retry with the canonical id before
+            // showing an empty/error state.
+            val page = withContext(Dispatchers.IO) {
+                val candidateIds = buildList {
+                    add(browseId)
+                    if (browseId.startsWith("VL")) {
+                        add(browseId.removePrefix("VL"))
+                    }
+                }.distinct()
+
+                var lastPage: Innertube.PlaylistOrAlbumPage? = null
+                for (candidateId in candidateIds) {
+                    val candidate = Innertube.playlistPage(
+                        BrowseBody(browseId = candidateId)
+                    )?.getOrNull()
+
+                    if (candidate?.songsPage?.items?.isNotEmpty() == true ||
+                        candidate?.songsPage?.continuation != null
+                    ) {
+                        lastPage = candidate
+                        break
+                    }
+
+                    if (candidate != null) lastPage = candidate
+                }
+                lastPage
             }
-            val page = result?.getOrNull()
             if (page?.songsPage != null) {
                 playlistPage = page
                 playlistLoadError = false
