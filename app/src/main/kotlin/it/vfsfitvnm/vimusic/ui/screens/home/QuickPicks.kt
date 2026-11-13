@@ -80,6 +80,7 @@ import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import it.vfsfitvnm.vimusic.ui.screens.browse.MusicBrowseShelves
 import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeMusicDiscovery
+import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeSongLists
 import it.vfsfitvnm.vimusic.ui.screens.browse.browseCategoryRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -131,10 +132,13 @@ fun QuickPicks(
                 forYou.await() to shelvesDeferred.await()
             }
         }
+        val personalizedShelves = personalizeSongLists(
+            listOf(shelves.first, shelves.second, shelves.third)
+        )
         songsForYou = recommendations.distinctBy(Innertube.SongItem::key)
-        trendingSongs = shelves.first.distinctBy(Innertube.SongItem::key)
-        topSongs = shelves.second.distinctBy(Innertube.SongItem::key)
-        newReleases = shelves.third.distinctBy(Innertube.SongItem::key)
+        trendingSongs = personalizedShelves[0].distinctBy(Innertube.SongItem::key)
+        topSongs = personalizedShelves[1].distinctBy(Innertube.SongItem::key)
+        newReleases = personalizedShelves[2].distinctBy(Innertube.SongItem::key)
         isRefreshing = false
     }
 
