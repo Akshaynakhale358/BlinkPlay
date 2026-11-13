@@ -72,9 +72,15 @@ private suspend fun enrichSparseSongSections(
     page ?: return null
     val sections = page.sections.map { section ->
         val originalSongs = section.items.filterIsInstance<Innertube.SongItem>()
-        if (originalSongs.isEmpty() || originalSongs.size >= 10 ||
+        val isMixedOrNonSongShelf = section.items.isNotEmpty() &&
             originalSongs.size != section.items.size
-        ) return@map section
+        val isNonSongCategory = Regex(
+            "album|artist|playlist|video|podcast|radio|audiobook",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(section.title)
+        if (originalSongs.size >= 10 || isMixedOrNonSongShelf || isNonSongCategory) {
+            return@map section
+        }
 
         val queries = listOf(
             "${section.title} songs",
@@ -198,7 +204,6 @@ private fun parseBrowseSections(root: JsonElement): List<MusicBrowseSection> {
 
         null
     }
-        .filter { it.items.isNotEmpty() }
         .distinctBy { listOf(it.title, it.browseId, it.params) }
 }
 
