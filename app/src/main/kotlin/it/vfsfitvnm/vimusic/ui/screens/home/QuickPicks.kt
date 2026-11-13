@@ -44,13 +44,16 @@ import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
+import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.requests.indiaChartSongs
 import it.vfsfitvnm.innertube.requests.searchPage
+import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.MusicDiscovery
 import it.vfsfitvnm.innertube.requests.musicDiscovery
 import it.vfsfitvnm.innertube.requests.playlistPage
 import it.vfsfitvnm.innertube.utils.from
+import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
 import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
 import it.vfsfitvnm.vimusic.R
@@ -118,11 +121,7 @@ fun QuickPicks(
     LaunchedEffect(refreshToken) {
         val (recommendations, shelves) = withContext(Dispatchers.IO) {
             coroutineScope {
-                val forYou = async {
-                    fetchSongsByCategory(
-                        "recommended popular songs India Hindi Marathi Punjabi Tamil Telugu Kannada Malayalam"
-                    )
-                }
+                val forYou = async { fetchPersonalizedSongsForYou() }
                 val shelvesDeferred = async { fetchIndiaDirectSongShelves() }
                 forYou.await() to shelvesDeferred.await()
             }
@@ -404,6 +403,59 @@ private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem
     )?.getOrNull()?.items.orEmpty()
         .distinctBy(Innertube.SongItem::key)
 
+/**
+ * Personal recommendations use the listener's most-played and liked tracks.
+ * Four distinct history seeds are queried together so one song or artist cannot dominate.
+ * YouTube Music's related feed matches language, artist, genre and musical style.
+ */
+private suspend fun fetchPersonalizedSongsForYou(): List<Innertube.SongItem> = coroutineScope {
+    val history = Database.trending(30).first()
+    val favorites = Database.favorites().first()
+    val seeds = (history.take(4) + favorites.take(2)).distinctBy { it.id }.take(4)
+    val listenedIds = (history + favorites).map { it.id }.toSet()
+
+    // Cold start: until listening history exists, start with an India-wide discovery feed.
+    if (seeds.isEmpty()) {
+        return@coroutineScope fetchSongsByCategory(
+            "popular Indian songs Hindi Marathi Punjabi Tamil Telugu Kannada Malayalam"
+        )
+    }
+
+    val relatedFeeds = seeds.map { seed ->
+        async {
+            runCatching {
+                Innertube.relatedPage(NextBody(context = IndiaExploreContext, videoId = seed.id))
+                    ?.getOrNull()?.songs.orEmpty()
+            }.getOrDefault(emptyList())
+        }
+    }.awaitAll()
+
+    val related = relatedFeeds.flatten()
+        .filter { it.key !in listenedIds }
+        .distinctBy(Innertube.SongItem::key)
+
+    // When related feeds are sparse, search from the actual listened-to songs, not generic hits.
+    val candidates = if (related.size >= 12) related else {
+        val seedSearches = seeds.map { seed ->
+            async {
+                val artist = seed.artistsText.orEmpty().takeIf { it.isNotBlank() }.orEmpty()
+                val query = listOf(seed.title, artist, "similar songs")
+                    .filter { it.isNotBlank() }.joinToString(" ")
+                fetchSongsByCategory(query)
+            }
+        }.awaitAll().flatten()
+        (related + seedSearches).filter { it.key !in listenedIds }
+            .distinctBy(Innertube.SongItem::key)
+    }
+
+    // Interleave artist buckets to prevent one singer filling the shelf.
+    val artistBuckets = candidates.groupBy { song ->
+        song.authors?.firstOrNull()?.name?.trim()?.lowercase()?.takeIf { it.isNotBlank() } ?: song.key
+    }.values.toList()
+    val diversified = mutableListOf<Innertube.SongItem>()
+    for (round in 0 until 3) artistBuckets.forEach { bucket -> bucket.getOrNull(round)?.let(diversified::add) }
+    diversified.distinctBy(Innertube.SongItem::key).take(50)
+}
 private val IndiaExploreContext = Context.DefaultWeb.copy(
     client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
 )
