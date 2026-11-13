@@ -383,7 +383,7 @@ fun QuickPicks(
             }
 
         when {
-            serverDiscovery != null -> MusicBrowseShelves(
+            serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
                 sections = serverDiscovery!!.sections,
                 sectionTextModifier = sectionTextModifier,
                 onSongClick = { song ->
