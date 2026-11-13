@@ -47,6 +47,14 @@ private fun personalizeSongs(
     )
     .map { it.value }
 
+/** Applies the same listener preference scores to multiple independent song shelves. */
+suspend fun personalizeSongLists(
+    shelves: List<List<Innertube.SongItem>>,
+): List<List<Innertube.SongItem>> {
+    val scores = artistPreferenceScores()
+    return shelves.map { personalizeSongs(it, scores) }
+}
+
 /** Applies listening-history personalization to every song-only shelf in a browse page. */
 suspend fun personalizeSongSections(
     sections: List<MusicBrowseSection>,
