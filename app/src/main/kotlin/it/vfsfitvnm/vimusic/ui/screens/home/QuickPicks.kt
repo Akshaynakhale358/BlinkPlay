@@ -325,7 +325,7 @@ fun QuickPicks(
             LongListenCategories.forEach { category ->
                 QuickPicksLongListenShelf(
                     category = category,
-                    songs = longListenSongs[category.title].orEmpty(),
+                    songs = longListenSongs[category.title].orEmpty().take(10),
                     onViewAll = { selectedLongListenCategory = category },
                     onSongClick = { song ->
                         val mediaItem = song.asMediaItem
@@ -555,7 +555,13 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
             // appear if a category has too few long matches.
             val longFirst = personalized.distinctBy(Innertube.SongItem::key)
                 .sortedByDescending { it.durationText.toDurationSeconds() }
-            category.title to longFirst.take(40)
+
+            // Rotate in blocks of ten using the current day so each category refreshes
+            // its visible ten-song bunch daily while keeping the longer tracks prioritized.
+            val dailyOffset = if (longFirst.isEmpty()) 0
+                else (((System.currentTimeMillis() / 86_400_000L) * 10L) % longFirst.size).toInt()
+            val dailyOrder = longFirst.drop(dailyOffset) + longFirst.take(dailyOffset)
+            category.title to dailyOrder.take(40)
         }
     }.awaitAll().toMap()
 }
