@@ -79,6 +79,7 @@ import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import it.vfsfitvnm.vimusic.ui.screens.browse.MusicBrowseShelves
+import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeMusicDiscovery
 import it.vfsfitvnm.vimusic.ui.screens.browse.browseCategoryRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -111,8 +112,12 @@ fun QuickPicks(
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
 
     LaunchedEffect(refreshToken) {
-        val result = withContext(Dispatchers.IO) { Innertube.musicDiscovery(forceRefresh = refreshToken > 0) }
-        serverDiscovery = result?.getOrNull() ?: serverDiscovery
+        val discovery = withContext(Dispatchers.IO) {
+            Innertube.musicDiscovery(forceRefresh = refreshToken > 0)
+                ?.getOrNull()
+                ?.let { personalizeMusicDiscovery(it) }
+        }
+        serverDiscovery = discovery ?: serverDiscovery
         isRefreshing = false
     }
 
