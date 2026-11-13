@@ -25,52 +25,52 @@ data class BrowseResponse(
     ) {
         @Serializable
         data class MusicDetailHeaderRenderer(
-            val title: Runs?,
-            val subtitle: Runs?,
-            val secondSubtitle: Runs?,
-            val thumbnail: ThumbnailRenderer?,
+            val title: Runs? = null,
+            val subtitle: Runs? = null,
+            val secondSubtitle: Runs? = null,
+            val thumbnail: ThumbnailRenderer? = null,
         )
 
         @Serializable
         data class MusicImmersiveHeaderRenderer(
-            val description: Runs?,
-            val playButton: PlayButton?,
-            val startRadioButton: StartRadioButton?,
-            val thumbnail: ThumbnailRenderer?,
-            val foregroundThumbnail: ThumbnailRenderer?,
-            val title: Runs?,
-            val subscriptionButton: SubscriptionButton?
+            val description: Runs? = null,
+            val playButton: PlayButton? = null,
+            val startRadioButton: StartRadioButton? = null,
+            val thumbnail: ThumbnailRenderer? = null,
+            val foregroundThumbnail: ThumbnailRenderer? = null,
+            val title: Runs? = null,
+            val subscriptionButton: SubscriptionButton? = null
         ) {
             @Serializable
             data class SubscriptionButton(
-                val subscribeButtonRenderer: SubscribeButtonRenderer?
+                val subscribeButtonRenderer: SubscribeButtonRenderer? = null
             ) {
                 @Serializable
                 data class SubscribeButtonRenderer(
-                    val subscriberCountText: Runs?,
+                    val subscriberCountText: Runs? = null,
                     val subscribed: Boolean? = null
                 )
             }
 
             @Serializable
             data class PlayButton(
-                val buttonRenderer: ButtonRenderer?
+                val buttonRenderer: ButtonRenderer? = null
             )
 
             @Serializable
             data class StartRadioButton(
-                val buttonRenderer: ButtonRenderer?
+                val buttonRenderer: ButtonRenderer? = null
             )
         }
     }
 
     @Serializable
     data class Microformat(
-        val microformatDataRenderer: MicroformatDataRenderer?
+        val microformatDataRenderer: MicroformatDataRenderer? = null
     ) {
         @Serializable
         data class MicroformatDataRenderer(
-            val urlCanonical: String?
+            val urlCanonical: String? = null
         )
     }
 }
