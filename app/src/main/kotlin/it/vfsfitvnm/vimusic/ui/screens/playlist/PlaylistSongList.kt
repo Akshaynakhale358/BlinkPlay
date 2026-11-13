@@ -86,13 +86,13 @@ fun PlaylistSongList(
     var retryKey by rememberSaveable(browseId) { mutableStateOf(0) }
 
     LaunchedEffect(browseId, retryKey) {
-        if (playlistPage == null) {
+        if (playlistPage?.songsPage == null) {
             isLoadingPlaylist = true
             val result = withContext(Dispatchers.IO) {
                 Innertube.playlistPage(BrowseBody(browseId = browseId))
             }
             val page = result?.getOrNull()
-            if (page != null) {
+            if (page?.songsPage != null) {
                 playlistPage = page
                 playlistLoadError = false
             } else {
