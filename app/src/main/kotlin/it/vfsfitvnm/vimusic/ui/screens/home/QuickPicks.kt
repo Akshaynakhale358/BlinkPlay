@@ -55,6 +55,7 @@ import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.MusicDiscovery
 import it.vfsfitvnm.innertube.requests.musicDiscovery
 import it.vfsfitvnm.innertube.requests.musicExplorePage
+import it.vfsfitvnm.innertube.requests.prioritizeIndianLanguageSongs
 import it.vfsfitvnm.innertube.requests.playlistPage
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.utils.from
@@ -177,15 +178,26 @@ fun QuickPicks(
                 }.distinctBy(Innertube.SongItem::key)
             }
         } else emptyList()
-        songsForYou = if (currentVideoId == null) fetchAutomaticSongsForYou()
+        val recommendationSongs = if (currentVideoId == null) fetchAutomaticSongsForYou()
             else (recommendations + relatedSearch)
                 .filter { it.key != currentVideoId && it.key !in playedIds }
                 .distinctBy(Innertube.SongItem::key)
+        songsForYou = withContext(Dispatchers.IO) {
+            Innertube.prioritizeIndianLanguageSongs(
+                recommendationSongs, "popular", IndiaExploreContext
+            )
+        }
 
         val shelves = withContext(Dispatchers.IO) { fetchIndiaDirectSongShelves() }
-        trendingSongs = shelves.first
-        topSongs = shelves.second
-        newReleases = shelves.third
+        trendingSongs = withContext(Dispatchers.IO) {
+            Innertube.prioritizeIndianLanguageSongs(shelves.first, "trending", IndiaExploreContext)
+        }
+        topSongs = withContext(Dispatchers.IO) {
+            Innertube.prioritizeIndianLanguageSongs(shelves.second, "top chart", IndiaExploreContext)
+        }
+        newReleases = withContext(Dispatchers.IO) {
+            Innertube.prioritizeIndianLanguageSongs(shelves.third, "latest new", IndiaExploreContext)
+        }
         isRefreshing = false
     }
 
