@@ -207,6 +207,40 @@ private fun parseBrowseSections(root: JsonElement): List<MusicBrowseSection> {
         .distinctBy { listOf(it.title, it.browseId, it.params) }
 }
 
+/**
+ * Re-rank recommendation shelves toward Indian-language music. Language-specific
+ * YouTube Music searches are used as ordered preference buckets; original feed
+ * results remain as fallback, and English-search results are appended last.
+ * Existing browse/search roots and category filters are not modified.
+ */
+suspend fun prioritizeIndianLanguageSongs(
+    songs: List<Innertube.SongItem>,
+    categoryTitle: String,
+    context: Context,
+): List<Innertube.SongItem> {
+    if (songs.isEmpty()) return songs
+    val original = songs.distinctBy(Innertube.SongItem::key)
+    suspend fun find(query: String) =
+        Innertube.searchPage(
+            body = SearchBody(
+                context = context,
+                query = query,
+                params = Innertube.SearchFilter.Song.value
+            ),
+            fromMusicShelfRendererContent = Innertube.SongItem::from
+        )?.getOrNull()?.items.orEmpty()
+
+    val hindi = find("$categoryTitle Hindi songs")
+    val marathi = find("$categoryTitle Marathi songs")
+    val punjabi = find("$categoryTitle Punjabi songs")
+    val otherIndian = find("$categoryTitle Tamil Telugu Kannada Malayalam Bengali Gujarati songs")
+    val english = find("$categoryTitle English songs")
+    val englishIds = english.map(Innertube.SongItem::key).toSet()
+    return (hindi + marathi + punjabi + otherIndian +
+        original.filterNot { it.key in englishIds } + english)
+        .distinctBy(Innertube.SongItem::key)
+}
+
 /** Fetch and parse one server-defined browse feed. */
 suspend fun Innertube.browsePage(body: BrowseBody) = runCatchingNonCancellable {
     val clientVersion = currentWebClientVersion()
