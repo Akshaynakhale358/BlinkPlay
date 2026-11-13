@@ -369,6 +369,7 @@ fun QuickPicks(
                     repeat(3) { PlaylistItemPlaceholder(thumbnailSizeDp = playlistThumbnailSizeDp, alternative = true) }
                 }
             }
+            }
             } else {
                 val category = selectedLongListenCategory!!
                 BasicText(
@@ -527,6 +528,13 @@ private fun QuickPicksLongListenShelf(
     }
 }
 
+private fun String?.toDurationSeconds(): Int {
+    if (this.isNullOrBlank()) return 0
+    val parts = trim().split(":").mapNotNull { it.toIntOrNull() }
+    if (parts.isEmpty()) return 0
+    return parts.fold(0) { total, part -> total * 60 + part }
+}
+
 private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
     LongListenCategories.map { category ->
         async {
@@ -541,7 +549,13 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
             val personalized = runCatching {
                 personalizeSongLists(listOf(categoryOnly)).firstOrNull().orEmpty()
             }.getOrDefault(categoryOnly)
-            category.title to personalized.distinctBy(Innertube.SongItem::key).take(40)
+
+            // Keep category relevance first, then prefer longer tracks within that category.
+            // Duration is a ranking preference, not a hard filter, so short tracks can still
+            // appear if a category has too few long matches.
+            val longFirst = personalized.distinctBy(Innertube.SongItem::key)
+                .sortedByDescending { it.durationText.toDurationSeconds() }
+            category.title to longFirst.take(40)
         }
     }.awaitAll().toMap()
 }
