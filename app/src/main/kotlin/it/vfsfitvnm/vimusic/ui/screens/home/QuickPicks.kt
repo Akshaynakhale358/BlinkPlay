@@ -221,11 +221,13 @@ fun QuickPicks(
             // Database.trending is already ranked by recency-weighted listening time.
             // Keep several top taste signals so one repeatedly played track cannot define
             // the entire For You shelf.
-            tasteSeeds = candidates.take(4)
+            val nextTasteSeeds = candidates.take(4)
+            val tasteChanged = nextTasteSeeds.map { it.id } != tasteSeeds.map { it.id }
+            tasteSeeds = nextTasteSeeds
             val seed = current?.takeIf { song -> candidates.any { it.id == song.id } }
                 ?: candidates.firstOrNull()
 
-            if (!hasLoadedFreshRecommendations || seed?.id != current?.id || tasteSeeds.isNotEmpty()) {
+            if (!hasLoadedFreshRecommendations || seed?.id != current?.id || tasteChanged) {
                 // Build recommendations from several recently enjoyed tracks, not one random seed.
                 relatedPageResult = null
                 relatedPageResult = loadLanguageOrderedRelatedPage(seed, tasteSeeds)
@@ -518,6 +520,11 @@ fun QuickPicks(
 
         // Podcast discovery is deliberately separated from music shelves. These searches use
         // YouTube's Video filter so full talks and podcast episodes are not mixed with songs.
+        BasicText(
+            text = "PODCASTS FOR YOU",
+            style = typography.s.semiBold,
+            modifier = sectionTextModifier
+        )
         PodcastTopicShelf(
             title = "OSHO DISCOURSES",
             query = "Osho full discourse podcast Hindi English official talk",
