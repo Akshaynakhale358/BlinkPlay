@@ -593,12 +593,12 @@ private fun QuickPicksLongListenShelf(
             }
         }
 
-        if (songs.isEmpty()) {
+        if (songs.size != 5) {
             ShimmerHost {
                 repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
             }
         } else {
-            songs.take(5).forEach { song ->
+            songs.forEach { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = 64.dp.px,
@@ -642,39 +642,87 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
 
     dailyLongListenCategories().map { category ->
         async {
-            // Use several category-specific YouTube Music search roots. A single query
-            // often returns only 1-4 matches, so merge independent search variants.
+            // Keep discovery inside this category. These are search variations,
+            // not YouTube Music home-feed or Long Listen shelf requests.
             val queries = listOf(
-                "${category.query} 30 minute continuous mix full audio",
-                "${category.query} 30 min non stop long play",
-                "${category.query} extended full album live mix"
+                "${category.query} full album",
+                "${category.query} continuous mix",
+                "${category.query} nonstop jukebox",
+                "${category.query} live concert full set",
+                "${category.query} extended long play",
+                "${category.query} 30 minutes full audio"
             )
             val batches = queries.map { query ->
                 async { runCatching { fetchSongsByCategory(query) }.getOrDefault(emptyList()) }
             }.awaitAll()
 
-            val candidates = batches.flatten()
-                .distinctBy(Innertube.SongItem::key)
-
-            val personalized = runCatching {
-                personalizeSongLists(listOf(candidates)).firstOrNull().orEmpty()
-            }.getOrDefault(candidates)
-
-            val durationRanked = personalized
+            val eligible = batches.flatten()
                 .distinctBy(Innertube.SongItem::key)
                 .filter { it.durationText.toDurationSeconds() > 1800 }
-                .sortedByDescending { it.durationText.toDurationSeconds() }
 
-            // Rotate within the eligible long-form pool, but never pad with short
-            // or unrelated tracks. Five valid tracks are required for a complete card.
-            val pool = durationRanked.take(50)
-            val offset = if (pool.isEmpty()) 0 else ((indiaDay * 5L) % pool.size).toInt()
-            val rotated = if (pool.isEmpty()) emptyList() else pool.drop(offset) + pool.take(offset)
-            category.title to rotated.take(5)
+            // Personalization only reorders this category's already-matched,
+            // long-duration candidates; it cannot add short or cross-category songs.
+            val personalized = runCatching {
+                personalizeSongLists(listOf(eligible)).firstOrNull().orEmpty()
+            }.getOrDefault(eligible)
+            val personalRank = personalized
+                .distinctBy(Innertube.SongItem::key)
+                .mapIndexed { index, song -> song.key to index }
+                .toMap()
+
+            val categoryTerms = category.query
+                .lowercase()
+                .split(Regex("[^a-z0-9]+"))
+                .filter { it.length > 2 && it !in setOf("full", "songs", "song", "india", "indian", "mix") }
+                .distinct()
+            val longFormTerms = listOf(
+                "full album", "continuous", "nonstop", "non stop", "jukebox",
+                "long play", "extended", "live concert", "full set", "medley", "mix"
+            )
+
+            fun relevanceScore(song: Innertube.SongItem): Int {
+                val searchable = "${song.title} ${song.artistsText.orEmpty()}".lowercase()
+                val categoryScore = categoryTerms.count { term -> searchable.contains(term) } * 10
+                val longFormScore = longFormTerms.count { term -> searchable.contains(term) } * 3
+                return categoryScore + longFormScore
+            }
+
+            val ranked = eligible
+                .distinctBy(Innertube.SongItem::key)
+                .sortedWith(
+                    compareByDescending<Innertube.SongItem> { relevanceScore(it) }
+                        .thenBy { personalRank[it.key] ?: Int.MAX_VALUE }
+                        .thenByDescending { it.durationText.toDurationSeconds() }
+                )
+
+            // Spread artists where possible, then fill from the same ranked
+            // category pool. Never insert short tracks or duplicate songs.
+            val chosen = mutableListOf<Innertube.SongItem>()
+            val remaining = ranked.toMutableList()
+            val usedArtists = mutableSetOf<String>()
+            while (chosen.size < 5 && remaining.isNotEmpty()) {
+                val nextIndex = remaining.indexOfFirst { song ->
+                    val artist = song.authors?.firstOrNull()?.name
+                        ?.trim()?.lowercase().orEmpty()
+                    artist.isBlank() || artist !in usedArtists
+                }.let { if (it < 0) 0 else it }
+                val next = remaining.removeAt(nextIndex)
+                chosen += next
+                next.authors?.firstOrNull()?.name
+                    ?.trim()?.lowercase()
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(usedArtists::add)
+            }
+
+            // The card renders its five placeholders until five real eligible
+            // songs are available; it never displays a partial or oversized list.
+            val pool = chosen.take(5)
+            val offset = if (pool.size < 5) 0 else ((indiaDay * 5L) % pool.size).toInt()
+            val dailyOrder = if (pool.size < 5) pool else pool.drop(offset) + pool.take(offset)
+            category.title to dailyOrder
         }
     }.awaitAll().toMap()
 }
-
 private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem> =
     Innertube.searchPage(
         body = SearchBody(
