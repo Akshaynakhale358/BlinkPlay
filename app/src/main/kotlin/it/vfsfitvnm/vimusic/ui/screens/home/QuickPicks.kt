@@ -529,7 +529,7 @@ private val LongListenCategoryPool = listOf(
 private fun dailyLongListenCategories(): List<LongListenCategory> {
     val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
     val start = ((indiaDay * 10L) % LongListenCategoryPool.size).toInt()
-    return (0 until 10).map { index ->
+    return (0 until 5).map { index ->
         LongListenCategoryPool[(start + index) % LongListenCategoryPool.size]
     }
 }
