@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
@@ -60,24 +61,35 @@ inline fun <T : Innertube.Item> ItemsPage(
 
     var itemsPage by persist<Innertube.ItemsPage<T>?>(tag)
     var isRefreshing by remember { mutableStateOf(false) }
+    var hasLoadError by remember { mutableStateOf(false) }
+    var retryKey by remember { mutableStateOf(0) }
 
     LaunchedEffect(lazyListState, updatedItemsPageProvider) {
         if (refreshOnEnter) itemsPage = null
         val currentItemsPageProvider = updatedItemsPageProvider ?: return@LaunchedEffect
 
-        snapshotFlow { lazyListState.layoutInfo.visibleItemsInfo.any { it.key == "loading" } }
-            .collect { shouldLoadMore ->
-                if (!shouldLoadMore) return@collect
+        snapshotFlow {
+            Triple(
+                lazyListState.layoutInfo.visibleItemsInfo.any { it.key == "loading" },
+                retryKey,
+                itemsPage?.continuation
+            ) to (itemsPage?.items?.size ?: 0)
+        }
+            .collect { (loadState, _) ->
+                val (shouldLoadMore, _, _) = loadState
+                if (!shouldLoadMore || hasLoadError) return@collect
 
-                val result = withContext(Dispatchers.IO) {
-                    currentItemsPageProvider(itemsPage?.continuation)
+                val result: Result<Innertube.ItemsPage<T>?>? = try {
+                    withContext(Dispatchers.IO) {
+                        currentItemsPageProvider(itemsPage?.continuation)
+                    }
+                } catch (exception: Exception) {
+                    Result.failure(exception)
                 }
 
                 if (result == null) {
-                    // A cancelled or unavailable page must not leave a continuation spinner
-                    // attached to an otherwise usable list.
-                    itemsPage = itemsPage?.copy(continuation = null)
-                        ?: Innertube.ItemsPage(null, null)
+                    // Keep the current page and continuation intact so the failed request can be retried.
+                    hasLoadError = true
                 } else {
                     result
                         .onSuccess { page ->
@@ -89,19 +101,14 @@ inline fun <T : Innertube.Item> ItemsPage(
                                 val safePage = if (
                                     previousContinuation != null &&
                                     page.continuation == previousContinuation
-                                ) {
-                                    // Stop if the server repeats the same continuation token.
-                                    page.copy(continuation = null)
-                                } else {
-                                    page
-                                }
+                                ) page.copy(continuation = null) else page
                                 itemsPage += safePage
                             }
+                            hasLoadError = false
                         }
                         .onFailure {
-                            // Preserve already loaded items, but stop the failed continuation.
-                            itemsPage = itemsPage?.copy(continuation = null)
-                                ?: Innertube.ItemsPage(null, null)
+                            // Preserve loaded items and the failed continuation for retry.
+                            hasLoadError = true
                         }
                 }
                 isRefreshing = false
@@ -114,7 +121,9 @@ inline fun <T : Innertube.Item> ItemsPage(
         onRefresh = {
             if (!isRefreshing) {
                 isRefreshing = true
+                hasLoadError = false
                 itemsPage = null
+                retryKey += 1
                 onRefresh?.invoke()
             }
         },
@@ -155,15 +164,30 @@ inline fun <T : Innertube.Item> ItemsPage(
 
             if (!(itemsPage != null && itemsPage?.continuation == null)) {
                 item(key = "loading") {
-                    val isFirstLoad = itemsPage?.items.isNullOrEmpty()
-                    ShimmerHost(
-                        modifier = Modifier
-                            .run {
-                                if (isFirstLoad) fillParentMaxSize() else this
+                    if (hasLoadError) {
+                        BasicText(
+                            text = "Loading failed. Tap to retry.",
+                            style = typography.xs.secondary.center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    hasLoadError = false
+                                    isRefreshing = true
+                                    retryKey += 1
+                                }
+                                .padding(horizontal = 16.dp, vertical = 24.dp)
+                        )
+                    } else {
+                        val isFirstLoad = itemsPage?.items.isNullOrEmpty()
+                        ShimmerHost(
+                            modifier = Modifier
+                                .run {
+                                    if (isFirstLoad) fillParentMaxSize() else this
+                                }
+                        ) {
+                            repeat(if (isFirstLoad) initialPlaceholderCount else continuationPlaceholderCount) {
+                                itemPlaceholderContent()
                             }
-                    ) {
-                        repeat(if (isFirstLoad) initialPlaceholderCount else continuationPlaceholderCount) {
-                            itemPlaceholderContent()
                         }
                     }
                 }

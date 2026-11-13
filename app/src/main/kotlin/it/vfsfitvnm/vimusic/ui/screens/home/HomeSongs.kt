@@ -78,6 +78,12 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     var categoryPlaylistRefreshKey by remember { mutableStateOf(0) }
 
     Box(modifier = Modifier.fillMaxSize()) {
+    if (selectedCategory == "Podcast") {
+        PodcastDiscoveryPage(
+            categories = categories,
+            onCategorySelect = { selectedCategory = it }
+        )
+    } else {
     ItemsPage(
         tag = "home/category-songs-$selectedCategory",
         itemsPageProvider = { continuation ->
@@ -101,6 +107,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             val previousTokens = continuation?.split('\u001F')
             val nextTokens = mutableListOf<String?>()
             val combinedItems = mutableListOf<Innertube.SongItem>()
+            val failedLanguageSearches = mutableListOf<String>()
 
             languageQueries.forEachIndexed { index, languageQuery ->
                 val token = previousTokens?.getOrNull(index)?.takeIf { it.isNotBlank() }
@@ -158,21 +165,32 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                     )
                 }
                 val page = result?.getOrNull()
-                combinedItems += page?.items.orEmpty()
-                nextTokens += page?.continuation
+                if (result == null || result.isFailure || page == null) {
+                    failedLanguageSearches += languageQuery
+                    nextTokens += token
+                } else {
+                    combinedItems += page.items.orEmpty()
+                    nextTokens += page.continuation
+                }
             }
 
-            val orderedItems = combinedItems.distinctBy { it.key }
-            val nextContinuation = nextTokens
-                .takeIf { tokens -> tokens.any { it != null } }
-                ?.joinToString("\u001F") { it.orEmpty() }
-
-            Result.success(
-                Innertube.ItemsPage(
-                    items = orderedItems,
-                    continuation = nextContinuation
+            if (failedLanguageSearches.isNotEmpty()) {
+                Result.failure(
+                    IllegalStateException("Some language searches failed: " + failedLanguageSearches.joinToString())
                 )
-            )
+            } else {
+                val orderedItems = combinedItems.distinctBy { it.key }
+                val nextContinuation = nextTokens
+                    .takeIf { tokens -> tokens.any { it != null } }
+                    ?.joinToString("\u001F") { it.orEmpty() }
+
+                Result.success(
+                    Innertube.ItemsPage(
+                        items = orderedItems,
+                        continuation = nextContinuation
+                    )
+                )
+            }
         },
         emptyItemsText = "No online songs found. Try Search.",
         refreshOnEnter = true,
@@ -242,6 +260,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
         }
     )
+    }
     }
 }
 

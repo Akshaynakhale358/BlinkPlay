@@ -196,17 +196,25 @@ fun QuickPicks(
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
     var hasLoadedFreshRecommendations by remember { mutableStateOf(false) }
+    var listeningSeeds by remember { mutableStateOf<List<Song>>(emptyList()) }
 
     LaunchedEffect(refreshToken) {
         if (refreshToken > 0) {
             relatedPageResult = null
-            relatedPageResult = loadLanguageOrderedRelatedPage(trending)
+            relatedPageResult = loadLanguageOrderedRelatedPage(trending, listeningSeeds)
             isRefreshing = false
         }
     }
 
     LaunchedEffect(Unit) {
         Database.trending(SeedPoolSize).distinctUntilChanged().collect { candidates ->
+            // Build a multi-artist profile from listening history. A single heavily
+            // replayed artist must not dominate every recommendation query.
+            val diverseCandidates = candidates.distinctBy {
+                it.artistsText?.trim()?.lowercase()?.takeIf { artist -> artist.isNotBlank() } ?: it.id
+            }
+            listeningSeeds = diverseCandidates.take(8)
+
             // A seed is drawn at random from the most-played rather than always being the single
             // top song, so one album in heavy rotation cannot own the page indefinitely.
             //
@@ -215,13 +223,13 @@ fun QuickPicks(
             // whoever is reading it. Leaving home clears the persisted value, so the next visit
             // draws again.
             val current = trending
-            val seed = current?.takeIf { song -> candidates.any { it.id == song.id } }
-                ?: candidates.randomOrNull()
+            val seed = current?.takeIf { song -> diverseCandidates.any { it.id == song.id } }
+                ?: diverseCandidates.randomOrNull()
 
             if (!hasLoadedFreshRecommendations || seed?.id != current?.id) {
                 // Discard recommendations persisted by older builds; they may start with English.
                 relatedPageResult = null
-                relatedPageResult = loadLanguageOrderedRelatedPage(seed)
+                relatedPageResult = loadLanguageOrderedRelatedPage(seed, listeningSeeds)
                 hasLoadedFreshRecommendations = true
             }
             trending = seed
@@ -589,7 +597,8 @@ fun QuickPicks(
 
 
 private suspend fun loadLanguageOrderedRelatedPage(
-    seed: Song?
+    seed: Song?,
+    historySeeds: List<Song> = listOfNotNull(seed)
 ): Result<Innertube.RelatedPage?> {
     val baseResult = Innertube.relatedPage(
         NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
@@ -602,10 +611,15 @@ private suspend fun loadLanguageOrderedRelatedPage(
 
     // Keep Song for me personalized to the current listening seed, but request each
     // language group explicitly so English results can never lead the shelf.
-    val seedContext = listOfNotNull(seed?.title, seed?.artistsText)
-        .joinToString(" ")
-        .takeIf { it.isNotBlank() }
-        ?: "popular"
+    val seedContext = historySeeds
+        .take(6)
+        .joinToString(" ") { historySong ->
+            listOfNotNull(historySong.title, historySong.artistsText).joinToString(" ")
+        }
+        .take(240)
+        .ifBlank {
+            listOfNotNull(seed?.title, seed?.artistsText).joinToString(" ").ifBlank { "popular" }
+        }
 
     suspend fun fetchRelatedSongs(languageQuery: String) = Innertube.searchPage(
         body = SearchBody(
