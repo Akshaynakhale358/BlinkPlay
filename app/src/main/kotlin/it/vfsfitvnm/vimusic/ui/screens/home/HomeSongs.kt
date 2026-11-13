@@ -45,6 +45,7 @@ import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.semiBold
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -264,17 +265,23 @@ private fun CategoryPublicPlaylists(
     var playlists by remember(category, refreshKey) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
 
     LaunchedEffect(category, query, refreshKey) {
-        playlists = withContext(Dispatchers.IO) {
-            Innertube.searchPage(
-                body = SearchBody(
-                    context = Context.DefaultWeb.copy(
-                        client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+        playlists = try {
+            withContext(Dispatchers.IO) {
+                Innertube.searchPage(
+                    body = SearchBody(
+                        context = Context.DefaultWeb.copy(
+                            client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
+                        ),
+                        query = "$query $category playlists",
+                        params = Innertube.SearchFilter.CommunityPlaylist.value
                     ),
-                    query = "$query $category playlists",
-                    params = Innertube.SearchFilter.CommunityPlaylist.value
-                ),
-                fromMusicShelfRendererContent = Innertube.PlaylistItem::from
-            )?.getOrNull()?.items.orEmpty()
+                    fromMusicShelfRendererContent = Innertube.PlaylistItem::from
+                )?.getOrNull()?.items.orEmpty()
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
