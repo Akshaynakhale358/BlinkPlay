@@ -120,23 +120,13 @@ fun QuickPicks(
     var trendingSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
-    var longListenSongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
-    var longListenDailyToken by remember { mutableStateOf(0) }
-    var selectedLongListenCategory by remember { mutableStateOf<LongListenCategory?>(null) }
+    var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
+    var selectedDiscoveryCategory by remember { mutableStateOf<DiscoveryCategory?>(null) }
 
-    // Refresh only Long Listen at Indian midnight, without changing other Quick Picks shelves.
-    LaunchedEffect(Unit) {
-        while (true) {
-            val dayMillis = 86_400_000L
-            val indiaOffsetMillis = 19_800_000L
-            val indiaNow = System.currentTimeMillis() + indiaOffsetMillis
-            delay(dayMillis - (indiaNow % dayMillis))
-            longListenDailyToken += 1
-        }
-    }
-
-    LaunchedEffect(refreshToken, longListenDailyToken) {
-        longListenSongs = withContext(Dispatchers.IO) { fetchLongListenCategories() }
+    // These three recommendation cards refresh with Quick Picks and use BlinkPlay's
+    // existing Song Search + Related Songs roots.
+    LaunchedEffect(refreshToken) {
+        discoverySongs = withContext(Dispatchers.IO) { fetchQuickPickDiscoveryCategories() }
         isRefreshing = false
     }
 
@@ -223,7 +213,7 @@ fun QuickPicks(
                         .asPaddingValues()
                 )
         ) {
-            if (selectedLongListenCategory == null) {
+            if (selectedDiscoveryCategory == null) {
             Header(
                 title = "QUICK PICKS",
                 modifier = Modifier
@@ -343,7 +333,7 @@ fun QuickPicks(
 
 
             BasicText(
-                text = "LONG LISTEN",
+                text = "PERSONALIZED MIXES",
                 style = typography.s.semiBold,
                 modifier = sectionTextModifier
             )
@@ -353,10 +343,10 @@ fun QuickPicks(
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                lazyRowItems(items = dailyLongListenCategories(), key = LongListenCategory::title) { category ->
-                    QuickPicksLongListenShelf(
+                lazyRowItems(items = discoveryCategories(), key = DiscoveryCategory::title) { category ->
+                    QuickPicksDiscoveryShelf(
                         category = category,
-                        songs = longListenSongs[category.title].orEmpty().take(5),
+                        songs = discoverySongs[category.title].orEmpty().take(5),
                         onSongClick = { song ->
                             val mediaItem = song.asMediaItem
                             binder?.stopRadio()
@@ -364,11 +354,11 @@ fun QuickPicks(
                             binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
                         },
                         onPlayBundle = {
-                            val bundleMediaItems = longListenSongs[category.title]
+                            val bundleMediaItems = discoverySongs[category.title]
                                 .orEmpty()
                                 .take(5)
                                 .map(Innertube.SongItem::asMediaItem)
-                            if (bundleMediaItems.size == 5) {
+                            if (bundleMediaItems.isNotEmpty()) {
                                 binder?.stopRadio()
                                 binder?.player?.forcePlayFromBeginning(bundleMediaItems)
                             }
@@ -412,18 +402,18 @@ fun QuickPicks(
             }
             }
             } else {
-                val category = selectedLongListenCategory!!
+                val category = selectedDiscoveryCategory!!
                 BasicText(
                     text = "‹  BACK TO QUICK PICKS",
                     style = typography.s.semiBold,
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .clickable { selectedLongListenCategory = null }
+                        .clickable { selectedDiscoveryCategory = null }
                 )
                 Header(title = category.title.uppercase())
                 QuickPicksSongShelf(
-                    title = "ALL " + category.title.uppercase() + " SONGS",
-                    songs = longListenSongs[category.title].orEmpty(),
+                    title = category.title.uppercase() + " SONGS",
+                    songs = discoverySongs[category.title].orEmpty(),
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
                     itemWidth = itemInHorizontalGridWidth,
@@ -505,52 +495,17 @@ private fun QuickPicksSongShelf(
 }
 
 
-private data class LongListenCategory(val title: String, val query: String)
+private data class DiscoveryCategory(val title: String, val kind: String)
 
-private val LongListenCategoryPool = listOf(
-    LongListenCategory("Long Drive Mix", "long drive road trip journey full songs Hindi Marathi"),
-    LongListenCategory("Romantic Long Mix", "romantic love full songs Hindi Marathi"),
-    LongListenCategory("Peaceful Melody Mix", "peaceful relaxing melody full songs India"),
-    LongListenCategory("Emotional Long Mix", "emotional sad heartbreak full songs Hindi Marathi"),
-    LongListenCategory("Dance Long Mix", "dance party full songs Hindi Indian"),
-    LongListenCategory("Evergreen Classics Mix", "evergreen old classic full songs Hindi"),
-    LongListenCategory("Workout Energy Mix", "workout gym energetic full songs"),
-    LongListenCategory("Chill & Lofi Mix", "chill lofi mellow full songs"),
-    LongListenCategory("Marathi Long Mix", "Marathi full songs long melody"),
-    LongListenCategory("Bollywood Melody Mix", "Bollywood full melody songs"),
-    LongListenCategory("Sufi Soul Mix", "Sufi soulful full songs Hindi"),
-    LongListenCategory("Indian Indie Mix", "Indian indie independent full songs"),
-    LongListenCategory("Monsoon Mix", "rain monsoon baarish full songs Hindi"),
-    LongListenCategory("Friendship Mix", "friendship dosti yaari full songs"),
-    LongListenCategory("Tamil Melody Mix", "Tamil full melody songs"),
-    LongListenCategory("Telugu Melody Mix", "Telugu full melody songs"),
-    LongListenCategory("90s Nostalgia Mix", "90s Hindi evergreen full songs"),
-    LongListenCategory("2000s Bollywood Mix", "2000s Bollywood full songs"),
-    LongListenCategory("English Pop Mix", "English pop full songs"),
-    LongListenCategory("Live Performance Mix", "live concert full song performances"),
-    LongListenCategory("Acoustic Melody Mix", "acoustic guitar full songs Indian"),
-    LongListenCategory("Feel Good Mix", "feel good happy full songs Hindi Indian"),
-    LongListenCategory("Heartbreak Mix", "breakup heartbreak full songs Hindi"),
-    LongListenCategory("Bollywood Duets Mix", "Bollywood duet full songs"),
-    LongListenCategory("Retro Remix Mix", "retro remix full songs Hindi"),
-    LongListenCategory("Female Vocal Mix", "female vocal full songs Indian"),
-    LongListenCategory("Male Vocal Mix", "male vocal full songs Indian"),
-    LongListenCategory("Travel Memories Mix", "travel musafir safar full songs Hindi"),
-    LongListenCategory("Soft Melody Mix", "soft romantic melody full songs India"),
-    LongListenCategory("Festival Party Mix", "Indian festival celebration dance full songs")
+private fun discoveryCategories() = listOf(
+    DiscoveryCategory("Mix for You", "mix"),
+    DiscoveryCategory("Trending Community", "trending"),
+    DiscoveryCategory("Listen Together", "together")
 )
 
-private fun dailyLongListenCategories(): List<LongListenCategory> {
-    val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
-    val start = ((indiaDay * 10L) % LongListenCategoryPool.size).toInt()
-    return (0 until 5).map { index ->
-        LongListenCategoryPool[(start + index) % LongListenCategoryPool.size]
-    }
-}
-
 @Composable
-private fun QuickPicksLongListenShelf(
-    category: LongListenCategory,
+private fun QuickPicksDiscoveryShelf(
+    category: DiscoveryCategory,
     songs: List<Innertube.SongItem>,
     onSongClick: (Innertube.SongItem) -> Unit,
     onPlayBundle: () -> Unit,
@@ -566,7 +521,6 @@ private fun QuickPicksLongListenShelf(
             .background(Color(0xFF29231B))
             .padding(12.dp)
     ) {
-        // Bundle cover: use the first eligible track's artwork as the collection thumbnail.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -588,10 +542,7 @@ private fun QuickPicksLongListenShelf(
                     .padding(14.dp),
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.Bottom
             ) {
-                BasicText(
-                    text = category.title,
-                    style = typography.s.semiBold
-                )
+                BasicText(text = category.title, style = typography.s.semiBold)
                 BasicText(
                     text = "▶  PLAY BUNDLE",
                     style = typography.xs.semiBold,
@@ -606,12 +557,8 @@ private fun QuickPicksLongListenShelf(
         }
 
         if (songs.isEmpty()) {
-            ShimmerHost {
-                repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
-            }
+            ShimmerHost { repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
         } else {
-            // Never hide songs that have already loaded just because this category
-            // returned fewer than five eligible long tracks.
             songs.take(5).forEach { song ->
                 SongItem(
                     song = song,
@@ -626,9 +573,7 @@ private fun QuickPicksLongListenShelf(
                 )
             }
             if (songs.size < 5) {
-                ShimmerHost {
-                    repeat(5 - songs.size) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
-                }
+                ShimmerHost { repeat(5 - songs.size) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
             }
         }
     }
@@ -656,106 +601,84 @@ private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
     return dailyOrder.take(10)
 }
 
-private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
-    val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
-
-    dailyLongListenCategories().map { category ->
+private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
+    discoveryCategories().map { category ->
         async {
-            // Root 1: use BlinkPlay's existing YouTube Music Song Search parser.
-            // Root 2: use the existing Related Songs endpoint seeded only with
-            // songs found for this category. No separate Video Search root.
-            val queries = listOf(
-                category.query,
-                "${category.query} full album",
-                "${category.query} long songs mix"
-            )
-            val searchBatches = queries.map { query ->
-                async { runCatching { fetchSongsByCategory(query) }.getOrDefault(emptyList()) }
-            }.awaitAll()
+            val songs = when (category.kind) {
+                // Mix for You: use real listening history, favourites and related-song recommendations.
+                "mix" -> fetchPersonalizedSongsForYou()
 
-            val searchSeeds = searchBatches.flatten()
-                .distinctBy(Innertube.SongItem::key)
-            val relatedBatches = searchSeeds.take(4).map { seed ->
-                async {
-                    runCatching {
-                        Innertube.relatedPage(
-                            NextBody(context = IndiaExploreContext, videoId = seed.key)
-                        )?.getOrNull()?.songs.orEmpty()
-                    }.getOrDefault(emptyList())
-                }
-            }.awaitAll()
-
-            // Search results are already fetched with this card's own category query.
-            // Keep those category-specific long tracks, and admit related tracks only
-            // when their metadata also matches the same category.
-            val longSearchSeeds = searchSeeds
-                .filter { it.durationText.toDurationSeconds() > 1800 }
-                .filter { matchesLongListenCategory(category, it) }
-            val longRelated = relatedBatches.flatten()
-                .distinctBy(Innertube.SongItem::key)
-                .filter { it.durationText.toDurationSeconds() > 1800 }
-                .filter { matchesLongListenCategory(category, it) }
-            val allCandidates = (longSearchSeeds + longRelated)
-                .distinctBy(Innertube.SongItem::key)
-
-            // Personalize only inside this category's own search + related pool.
-            val personalized = runCatching {
-                personalizeSongLists(listOf(allCandidates)).firstOrNull().orEmpty()
-            }.getOrDefault(allCandidates)
-            val personalRank = personalized
-                .distinctBy(Innertube.SongItem::key)
-                .mapIndexed { index, song -> song.key to index }
-                .toMap()
-
-            val ranked = allCandidates
-                .distinctBy(Innertube.SongItem::key)
-                .sortedWith(
-                    compareBy<Innertube.SongItem> { personalRank[it.key] ?: Int.MAX_VALUE }
-                        .thenByDescending { it.durationText.toDurationSeconds() }
+                // Trending Community: search trend/community-playlist song themes, then expand
+                // only those search results through the existing Related Songs root.
+                "trending" -> fetchSearchAndRelatedBundle(
+                    listOf(
+                        "trending community playlist songs India",
+                        "popular community music playlist songs Hindi Marathi",
+                        "viral trending playlist songs India"
+                    )
                 )
 
-            val chosen = mutableListOf<Innertube.SongItem>()
-            val remaining = ranked.toMutableList()
-            val usedArtists = mutableSetOf<String>()
-            while (chosen.size < 5 && remaining.isNotEmpty()) {
-                val nextIndex = remaining.indexOfFirst { song ->
-                    val artist = song.authors?.firstOrNull()?.name
-                        ?.trim()?.lowercase().orEmpty()
-                    artist.isBlank() || artist !in usedArtists
-                }.let { if (it < 0) 0 else it }
-                val next = remaining.removeAt(nextIndex)
-                chosen += next
-                next.authors?.firstOrNull()?.name
-                    ?.trim()?.lowercase()
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let(usedArtists::add)
+                // Listen Together: create a shared-session style mix from broad group-listening
+                // searches and related feeds. It uses the same two existing song roots.
+                else -> fetchSearchAndRelatedBundle(
+                    listOf(
+                        "popular songs to listen together friends India",
+                        "best group listening party songs Hindi Marathi",
+                        "duet and sing along songs India"
+                    )
+                )
             }
-
-            val pool = chosen.take(5)
-            val offset = if (pool.size < 5) 0 else ((indiaDay * 5L) % pool.size).toInt()
-            val dailyOrder = if (pool.size < 5) pool else pool.drop(offset) + pool.take(offset)
-            category.title to dailyOrder
+            category.title to personalizeAndDiversify(songs).take(5)
         }
     }.awaitAll().toMap()
 }
 
-private fun matchesLongListenCategory(
-    category: LongListenCategory,
-    song: Innertube.SongItem
-): Boolean {
-    val searchable = "${song.info?.name.orEmpty()} ${song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }}".lowercase()
-    return when {
-        category.title.contains("Tamil", ignoreCase = true) ->
-            searchable.contains("tamil") || Regex("[\\u0B80-\\u0BFF]").containsMatchIn(searchable)
-        category.title.contains("Telugu", ignoreCase = true) ->
-            searchable.contains("telugu") || Regex("[\\u0C00-\\u0C7F]").containsMatchIn(searchable)
-        category.title.contains("Kannada", ignoreCase = true) ->
-            searchable.contains("kannada") || Regex("[\\u0C80-\\u0CFF]").containsMatchIn(searchable)
-        category.title.contains("Malayalam", ignoreCase = true) ->
-            searchable.contains("malayalam") || Regex("[\\u0D00-\\u0D7F]").containsMatchIn(searchable)
-        else -> true
-    }
+private suspend fun fetchSearchAndRelatedBundle(queries: List<String>): List<Innertube.SongItem> = coroutineScope {
+    val searchResults = queries.map { query ->
+        async { runCatching { fetchSongsByCategory(query) }.getOrDefault(emptyList()) }
+    }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
+
+    val relatedResults = searchResults.take(5).map { seed ->
+        async {
+            runCatching {
+                Innertube.relatedPage(
+                    NextBody(context = IndiaExploreContext, videoId = seed.key)
+                )?.getOrNull()?.songs.orEmpty()
+            }.getOrDefault(emptyList())
+        }
+    }.awaitAll().flatten()
+
+    (searchResults + relatedResults).distinctBy(Innertube.SongItem::key)
 }
+
+private suspend fun personalizeAndDiversify(
+    candidates: List<Innertube.SongItem>
+): List<Innertube.SongItem> {
+    if (candidates.isEmpty()) return emptyList()
+    val personalized = runCatching {
+        personalizeSongLists(listOf(candidates)).firstOrNull().orEmpty()
+    }.getOrDefault(candidates)
+    val rank = personalized.distinctBy(Innertube.SongItem::key)
+        .mapIndexed { index, song -> song.key to index }.toMap()
+    val ranked = candidates.distinctBy(Innertube.SongItem::key)
+        .sortedBy { rank[it.key] ?: Int.MAX_VALUE }
+
+    val selected = mutableListOf<Innertube.SongItem>()
+    val remaining = ranked.toMutableList()
+    val artists = mutableSetOf<String>()
+    while (selected.size < 5 && remaining.isNotEmpty()) {
+        val index = remaining.indexOfFirst { song ->
+            val artist = song.authors?.firstOrNull()?.name?.trim()?.lowercase().orEmpty()
+            artist.isBlank() || artist !in artists
+        }.let { if (it < 0) 0 else it }
+        val song = remaining.removeAt(index)
+        selected += song
+        song.authors?.firstOrNull()?.name?.trim()?.lowercase()
+            ?.takeIf { it.isNotBlank() }?.let(artists::add)
+    }
+    return selected
+}
+
 private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem> =
     Innertube.searchPage(
         body = SearchBody(
