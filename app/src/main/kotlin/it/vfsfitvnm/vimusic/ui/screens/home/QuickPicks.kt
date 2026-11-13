@@ -114,7 +114,6 @@ fun QuickPicks(
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var longListenSongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
-    var topTenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var longListenDailyToken by remember { mutableStateOf(0) }
     var selectedLongListenCategory by remember { mutableStateOf<LongListenCategory?>(null) }
 
@@ -130,15 +129,7 @@ fun QuickPicks(
     }
 
     LaunchedEffect(refreshToken, longListenDailyToken) {
-        val dailyFeeds = withContext(Dispatchers.IO) {
-            coroutineScope {
-                val categories = async { fetchLongListenCategories() }
-                val topTen = async { fetchTopTenSongs() }
-                categories.await() to topTen.await()
-            }
-        }
-        longListenSongs = dailyFeeds.first
-        topTenSongs = dailyFeeds.second
+        longListenSongs = withContext(Dispatchers.IO) { fetchLongListenCategories() }
         isRefreshing = false
     }
 
@@ -344,23 +335,7 @@ fun QuickPicks(
             )
 
 
-            QuickPicksLongListenShelf(
-                category = LongListenCategory("TOP 10", "", emptyList()),
-                songs = topTenSongs.take(10),
-                onSongClick = { song ->
-                    val mediaItem = song.asMediaItem
-                    binder?.stopRadio()
-                    binder?.player?.forcePlay(mediaItem)
-                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-                },
-                onSongLongClick = { song ->
-                    menuState.display {
-                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                    }
-                }
-            )
-
-            LongListenCategories.forEach { category ->
+            dailyLongListenCategories().forEach { category ->
                 QuickPicksLongListenShelf(
                     category = category,
                     songs = longListenSongs[category.title].orEmpty().take(5),
@@ -503,23 +478,56 @@ private fun QuickPicksSongShelf(
 
 private data class LongListenCategory(val title: String, val query: String, val matchTerms: List<String>)
 
-private val LongListenCategories = listOf(
-    LongListenCategory("Road Trip", "road trip playlist songs Hindi English Indian", listOf("road", "trip", "journey", "highway", "travel")),
-    LongListenCategory("Romantic", "romantic songs playlist Hindi Marathi Punjabi", listOf("romantic", "romance", "love", "pyaar", "ishq")),
-    LongListenCategory("Cover Songs", "best cover songs Indian Hindi Marathi", listOf("cover", "unplugged", "acoustic", "version")),
-    LongListenCategory("Love Songs", "love songs playlist Hindi Marathi Punjabi", listOf("love", "lover", "pyaar", "ishq", "dil")),
-    LongListenCategory("Sukoon Songs", "sukoon peaceful relaxing songs Hindi", listOf("sukoon", "peaceful", "calm", "relax", "soft")),
-    LongListenCategory("Sad Songs", "sad songs playlist Hindi Marathi Punjabi", listOf("sad", "broken", "heartbreak", "bewafa", "dard")),
-    LongListenCategory("Party Songs", "party dance songs playlist India", listOf("party", "dance", "club", "dj")),
-    LongListenCategory("Travel Songs", "travel songs playlist India Hindi English", listOf("travel", "journey", "safar", "musafir", "trip")),
-    LongListenCategory("Evergreen Hits", "evergreen classic hit songs India old Hindi", listOf("evergreen", "classic", "old", "golden", "retro")),
-    LongListenCategory("Long Drive", "long drive songs playlist Hindi English", listOf("drive", "driving", "road", "highway", "journey")),
-    LongListenCategory("Workout Songs", "workout gym motivation songs playlist", listOf("workout", "gym", "fitness", "motivation", "power")),
-    LongListenCategory("Chill Vibes", "chill vibes lofi relaxing songs playlist", listOf("chill", "lofi", "vibe", "relax", "mellow")),
-    LongListenCategory("Punjabi Hits", "Punjabi hit songs playlist latest classic", listOf("punjabi", "bhangra", "sidhu", "diljit")),
-    LongListenCategory("Marathi Hits", "Marathi hit songs playlist latest classic", listOf("marathi", "मराठी", "lavani", "maharashtra")),
-    LongListenCategory("90s Retro Hits", "90s Hindi retro hit songs playlist", listOf("90s", "1990", "retro", "old", "nineties"))
+private val LongListenCategoryPool = listOf(
+    LongListenCategory("Road Trip Anthems", "road trip long drive journey songs Hindi English", listOf("road trip", "journey", "highway", "safar")),
+    LongListenCategory("Romantic Melodies", "long romantic melody songs Hindi Marathi Punjabi", listOf("romantic", "romance", "love", "pyaar", "ishq")),
+    LongListenCategory("Acoustic Covers", "long acoustic cover songs Indian Hindi Marathi", listOf("cover", "acoustic", "unplugged")),
+    LongListenCategory("Heartfelt Love Songs", "long love songs playlist Hindi Marathi Punjabi", listOf("love", "lover", "pyaar", "ishq", "dil")),
+    LongListenCategory("Peaceful Sukoon", "peaceful relaxing sukoon songs Hindi", listOf("sukoon", "peaceful", "calm", "relax", "soft")),
+    LongListenCategory("Emotional Sad Songs", "emotional sad heartbreak songs Hindi Marathi", listOf("sad", "broken", "heartbreak", "bewafa", "dard")),
+    LongListenCategory("Dance Party Mix", "long party dance songs playlist India", listOf("party", "dance", "club", "dj")),
+    LongListenCategory("Safar Special", "safar musafir travel songs Hindi", listOf("safar", "musafir", "travel", "journey")),
+    LongListenCategory("Golden Era Classics", "evergreen classic old Hindi hit songs", listOf("evergreen", "classic", "old", "golden", "retro")),
+    LongListenCategory("Highway Drive Mix", "highway driving long drive songs Hindi English", listOf("drive", "driving", "highway", "road")),
+    LongListenCategory("Gym Motivation", "workout gym motivation power songs", listOf("workout", "gym", "fitness", "motivation", "power")),
+    LongListenCategory("Chill & Lofi", "chill lofi relaxing mellow songs playlist", listOf("chill", "lofi", "mellow", "relax")),
+    LongListenCategory("Punjabi Power Hits", "Punjabi hit songs playlist classic popular", listOf("punjabi", "bhangra", "diljit")),
+    LongListenCategory("Marathi Melodies", "Marathi hit songs long melody playlist", listOf("marathi", "मराठी", "lavani", "maharashtra")),
+    LongListenCategory("90s Nostalgia", "90s Hindi retro hit songs playlist", listOf("90s", "1990", "retro", "nineties")),
+    LongListenCategory("2000s Bollywood", "2000s Bollywood Hindi hit songs", listOf("2000", "bollywood", "hindi")),
+    LongListenCategory("Sufi Soul", "Sufi soulful songs Hindi Punjabi", listOf("sufi", "soulful", "sufiyana")),
+    LongListenCategory("Indie India", "Indian indie independent songs playlist", listOf("indie", "independent")),
+    LongListenCategory("Monsoon Memories", "rain monsoon romantic songs Hindi", listOf("rain", "baarish", "barsaat", "monsoon")),
+    LongListenCategory("Friendship Forever", "friendship dosti songs Hindi Marathi", listOf("friendship", "dosti", "yaari", "yaar")),
+    LongListenCategory("Wedding Celebration", "Indian wedding celebration songs playlist", listOf("wedding", "shaadi", "mehndi", "sangeet")),
+    LongListenCategory("Punjabi Romance", "Punjabi romantic love songs playlist", listOf("punjabi", "romantic", "love", "ishq")),
+    LongListenCategory("Hindi Unplugged", "Hindi unplugged acoustic songs", listOf("unplugged", "acoustic", "hindi")),
+    LongListenCategory("Marathi Classics", "old classic Marathi songs playlist", listOf("marathi", "मराठी", "classic", "old")),
+    LongListenCategory("Tamil Long Melodies", "Tamil long melody songs playlist", listOf("tamil", "தமிழ்", "melody")),
+    LongListenCategory("Telugu Melody Hits", "Telugu melody hit songs playlist", listOf("telugu", "తెలుగు", "melody")),
+    LongListenCategory("90s Love Classics", "90s romantic love songs Hindi", listOf("90s", "romantic", "love")),
+    LongListenCategory("Bollywood Duets", "Bollywood romantic duet songs Hindi", listOf("duet", "bollywood", "romantic")),
+    LongListenCategory("Motivational Anthems", "motivational inspirational songs India", listOf("motivation", "motivational", "inspire")),
+    LongListenCategory("Feel Good Vibes", "feel good happy songs Hindi Indian", listOf("happy", "feel good", "smile")),
+    LongListenCategory("Heartbreak Classics", "heartbreak breakup songs Hindi", listOf("heartbreak", "breakup", "broken", "bewafa")),
+    LongListenCategory("Live Concert Versions", "live concert performance songs India", listOf("live", "concert", "performance")),
+    LongListenCategory("Devotional-Free Calm", "instrumental meditation peaceful music India", listOf("instrumental", "meditation", "peaceful")),
+    LongListenCategory("English Pop Longplay", "English pop long songs playlist", listOf("english", "pop")),
+    LongListenCategory("Punjabi Folk Beats", "Punjabi folk traditional songs", listOf("punjabi", "folk", "traditional")),
+    LongListenCategory("Bollywood Mashups", "Bollywood mashup medley songs", listOf("mashup", "medley", "bollywood")),
+    LongListenCategory("Retro Remix Mix", "retro remix old Hindi songs", listOf("retro", "remix", "old")),
+    LongListenCategory("Female Vocal Favourites", "female singer Hindi melody songs", listOf("female", "singer", "voice")),
+    LongListenCategory("Male Vocal Classics", "male singer Hindi classic songs", listOf("male", "singer", "classic")),
+    LongListenCategory("Rainy Day Chill", "rainy day chill songs playlist", listOf("rain", "rainy", "baarish", "chill"))
 )
+
+private fun dailyLongListenCategories(): List<LongListenCategory> {
+    val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
+    val start = ((indiaDay * 10L) % LongListenCategoryPool.size).toInt()
+    return (0 until 10).map { index ->
+        LongListenCategoryPool[(start + index) % LongListenCategoryPool.size]
+    }
+}
 
 @Composable
 private fun QuickPicksLongListenShelf(
@@ -536,7 +544,7 @@ private fun QuickPicksLongListenShelf(
         BasicText(text = category.title.uppercase(), style = typography.s.semiBold)
     }
     if (songs.isEmpty()) {
-        ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 76.dp) } }
+        ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 108.dp) } }
     } else {
         LazyRow(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp),
@@ -545,9 +553,9 @@ private fun QuickPicksLongListenShelf(
             lazyRowItems(items = songs, key = Innertube.SongItem::key) { song ->
                 SongItem(
                     song = song,
-                    thumbnailSizePx = 76.dp.px,
-                    thumbnailSizeDp = 76.dp,
-                    modifier = Modifier.width(260.dp).combinedClickable(
+                    thumbnailSizePx = 108.dp.px,
+                    thumbnailSizeDp = 108.dp,
+                    modifier = Modifier.width(300.dp).combinedClickable(
                         onClick = { onSongClick(song) },
                         onLongClick = { onSongLongClick(song) }
                     )
@@ -580,7 +588,7 @@ private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
 }
 
 private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
-    LongListenCategories.map { category ->
+    dailyLongListenCategories().map { category ->
         async {
             val fetched = fetchSongsByCategory(category.query)
             val categoryOnly = fetched.filter { song ->
@@ -603,10 +611,7 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
             // Rotate in blocks of ten using the current day so each category refreshes
             // its visible ten-song bunch daily while keeping the longer tracks prioritized.
             val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
-            val dailyOffset = if (longFirst.isEmpty()) 0
-                else ((indiaDay * 5L) % longFirst.size).toInt()
-            val dailyOrder = longFirst.drop(dailyOffset) + longFirst.take(dailyOffset)
-            category.title to dailyOrder.take(40)
+            category.title to longFirst.take(40)
         }
     }.awaitAll().toMap()
 }
