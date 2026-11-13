@@ -111,7 +111,6 @@ fun QuickPicks(
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
     var songsForYou by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
-    var songsForYouFailed by remember { mutableStateOf(false) }
     var currentVideoId by remember { mutableStateOf(binder?.player?.currentMediaItem?.mediaId) }
 
     binder?.player?.DisposableListener {
@@ -122,7 +121,6 @@ fun QuickPicks(
         }
     }
     var serverDiscovery by remember { mutableStateOf<MusicDiscovery?>(null) }
-    var discoveryFailed by remember { mutableStateOf(false) }
     var trendingSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
@@ -130,14 +128,12 @@ fun QuickPicks(
     LaunchedEffect(refreshToken) {
         val result = withContext(Dispatchers.IO) { Innertube.musicDiscovery(forceRefresh = refreshToken > 0) }
         serverDiscovery = result?.getOrNull() ?: serverDiscovery
-        discoveryFailed = serverDiscovery?.sections.isNullOrEmpty()
         isRefreshing = false
     }
 
     // Recommendations are based on the song currently playing, never on a history-derived seed.
     // Exclude the current track and tracks already listened to from the returned suggestions.
     LaunchedEffect(refreshToken, currentVideoId) {
-        songsForYouFailed = false
         val related = if (!currentVideoId.isNullOrBlank()) {
             withContext(Dispatchers.IO) {
                 Innertube.relatedPage(
@@ -185,7 +181,6 @@ fun QuickPicks(
             else (recommendations + relatedSearch)
                 .filter { it.key != currentVideoId && it.key !in playedIds }
                 .distinctBy(Innertube.SongItem::key)
-        songsForYouFailed = songsForYou.isEmpty()
 
         val shelves = withContext(Dispatchers.IO) { fetchIndiaDirectSongShelves() }
         trendingSongs = shelves.first
@@ -295,15 +290,6 @@ fun QuickPicks(
                         )
                     }
                 }
-            } else if (songsForYouFailed) {
-                BasicText(
-                    text = "Songs feed unavailable. Tap to retry.",
-                    style = typography.s.secondary.center,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .clickable { isRefreshing = true; refreshToken += 1 }
-                        .padding(16.dp)
-                )
             } else {
                 ShimmerHost {
                     repeat(5) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) }
@@ -391,13 +377,6 @@ fun QuickPicks(
                 onCategoryClick = { id, params ->
                     onPlaylistClick(browseCategoryRoute(id, params))
                 }
-            )
-            discoveryFailed -> BasicText(
-                text = "YouTube Music feed unavailable. Tap to retry.",
-                style = typography.s.secondary.center,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-                    .clickable { isRefreshing = true; refreshToken += 1 }
-                    .padding(16.dp)
             )
             else -> ShimmerHost {
                 repeat(3) { TextPlaceholder(modifier = sectionTextModifier) }
