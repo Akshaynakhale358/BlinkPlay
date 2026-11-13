@@ -99,7 +99,12 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
             .microformat
             ?.microformatDataRenderer
             ?.urlCanonical,
-        songsPage = musicShelfRenderer?.toSongsPage(),
+        songsPage = musicShelfRenderer?.toSongsPage(
+            continuation = sectionListRendererContents
+                .orEmpty()
+                .mapNotNull { it.continuationItemRenderer?.continuationEndpoint?.token() }
+                .firstOrNull()
+        ),
         otherVersions = musicCarouselShelfRenderer
             ?.contents
             ?.mapNotNull(MusicCarouselShelfRenderer.Content::musicTwoRowItemRenderer)
@@ -114,21 +119,49 @@ suspend fun Innertube.playlistPage(body: ContinuationBody) = runCatchingNonCance
         mask("*")
     }.body<ContinuationResponse>()
 
-    response
-        .continuationContents
-        ?.musicShelfContinuation
-        ?.toSongsPage()
+    val shelf = response.continuationContents?.musicShelfContinuation
+    val appendedItems = (response.onResponseReceivedActions.orEmpty() +
+        response.onResponseReceivedEndpoints.orEmpty())
+        .flatMap { action ->
+            (action.appendContinuationItemsAction
+                ?: action.reloadContinuationItemsCommand)
+                ?.continuationItems
+                .orEmpty()
+        }
+
+    val songs = shelf
+        ?.contents
+        ?.mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
+        ?.mapNotNull(Innertube.SongItem::from)
+        .orEmpty() + appendedItems
+        .mapNotNull { it.musicResponsiveListItemRenderer }
+        .mapNotNull(Innertube.SongItem::from)
+
+    val nextToken = appendedItems
+        .mapNotNull { it.continuationItemRenderer?.continuationEndpoint?.token() }
+        .lastOrNull()
+        ?: shelf
+            ?.continuations
+            ?.firstOrNull()
+            ?.nextContinuationData
+            ?.continuation
+
+    Innertube.ItemsPage(
+        items = songs.distinctBy(Innertube.SongItem::key),
+        continuation = nextToken
+    )
 }
 
-private fun MusicShelfRenderer?.toSongsPage() =
+private fun MusicShelfRenderer?.toSongsPage(continuation: String? = null) =
     Innertube.ItemsPage(
         items = this
             ?.contents
             ?.mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
             ?.mapNotNull(Innertube.SongItem::from),
-        continuation = this
-            ?.continuations
-            ?.firstOrNull()
-            ?.nextContinuationData
-            ?.continuation
+        continuation = continuation
+            ?: this
+                ?.continuations
+                ?.firstOrNull()
+                ?.nextContinuationData
+                ?.continuation
     )
