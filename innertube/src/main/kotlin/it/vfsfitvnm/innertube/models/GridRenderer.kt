@@ -8,6 +8,7 @@ data class GridRenderer(
 ) {
     @Serializable
     data class Item(
-        val musicTwoRowItemRenderer: MusicTwoRowItemRenderer? = null
+        val musicTwoRowItemRenderer: MusicTwoRowItemRenderer? = null,
+        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null,
     )
 }
