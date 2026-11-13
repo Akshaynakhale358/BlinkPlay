@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
@@ -18,6 +19,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.shape.RoundedCornerShape
+import coil.compose.AsyncImage
 import it.vfsfitvnm.compose.persist.persist
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -47,6 +53,9 @@ import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
 @ExperimentalFoundationApi
@@ -112,64 +121,66 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 )
             }
             val previousTokens = continuation?.split('\u001F')
+            val pageResults = coroutineScope {
+                languageQueries.mapIndexed { index, languageQuery ->
+                    async {
+                        val token = previousTokens?.getOrNull(index)?.takeIf { it.isNotBlank() }
+                        // An exhausted language group stays exhausted on continuation pages.
+                        if (continuation != null && token == null) {
+                            null
+                        } else if (token == null) {
+                            Innertube.searchPage(
+                                body = SearchBody(
+                                    context = indiaHindiContext,
+                                    query = if (isPodcastCategory) {
+                                        languageQuery
+                                    } else {
+                                        "$languageQuery $selectedQuery"
+                                    },
+                                    params = categoryFilter
+                                ),
+                                fromMusicShelfRendererContent = { content ->
+                                    if (isPodcastCategory) {
+                                        Innertube.VideoItem.from(content)?.let { video ->
+                                            Innertube.SongItem(
+                                                info = video.info,
+                                                authors = video.authors,
+                                                album = null,
+                                                durationText = video.durationText,
+                                                thumbnail = video.thumbnail
+                                            )
+                                        }
+                                    } else {
+                                        Innertube.SongItem.from(content)
+                                    }
+                                }
+                            )
+                        } else {
+                            Innertube.searchPage(
+                                body = ContinuationBody(context = indiaHindiContext, continuation = token),
+                                fromMusicShelfRendererContent = { content ->
+                                    if (isPodcastCategory) {
+                                        Innertube.VideoItem.from(content)?.let { video ->
+                                            Innertube.SongItem(
+                                                info = video.info,
+                                                authors = video.authors,
+                                                album = null,
+                                                durationText = video.durationText,
+                                                thumbnail = video.thumbnail
+                                            )
+                                        }
+                                    } else {
+                                        Innertube.SongItem.from(content)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }.awaitAll()
+            }
             val nextTokens = mutableListOf<String?>()
             val combinedItems = mutableListOf<Innertube.SongItem>()
-
-            languageQueries.forEachIndexed { index, languageQuery ->
-                val token = previousTokens?.getOrNull(index)?.takeIf { it.isNotBlank() }
-                // On later pages, an exhausted language group must stay exhausted;
-                // do not restart its first page and append duplicate songs.
-                if (continuation != null && token == null) {
-                    nextTokens += null
-                    return@forEachIndexed
-                }
-                val result = if (token == null) {
-                    Innertube.searchPage(
-                        body = SearchBody(
-                            context = indiaHindiContext,
-                            query = if (isPodcastCategory) {
-                                languageQuery
-                            } else {
-                                "$languageQuery $selectedQuery"
-                            },
-                            params = categoryFilter
-                        ),
-                        fromMusicShelfRendererContent = { content ->
-                            if (isPodcastCategory) {
-                                Innertube.VideoItem.from(content)?.let { video ->
-                                    Innertube.SongItem(
-                                        info = video.info,
-                                        authors = video.authors,
-                                        album = null,
-                                        durationText = video.durationText,
-                                        thumbnail = video.thumbnail
-                                    )
-                                }
-                            } else {
-                                Innertube.SongItem.from(content)
-                            }
-                        }
-                    )
-                } else {
-                    Innertube.searchPage(
-                        body = ContinuationBody(context = indiaHindiContext, continuation = token),
-                        fromMusicShelfRendererContent = { content ->
-                            if (isPodcastCategory) {
-                                Innertube.VideoItem.from(content)?.let { video ->
-                                    Innertube.SongItem(
-                                        info = video.info,
-                                        authors = video.authors,
-                                        album = null,
-                                        durationText = video.durationText,
-                                        thumbnail = video.thumbnail
-                                    )
-                                }
-                            } else {
-                                Innertube.SongItem.from(content)
-                            }
-                        }
-                    )
-                }
+            pageResults.forEach { result ->
                 val page = result?.getOrNull()
                 combinedItems += page?.items.orEmpty()
                 nextTokens += page?.continuation
@@ -188,6 +199,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             )
         },
         emptyItemsText = "No online songs found. Try Search.",
+        itemsPerRow = if (selectedCategory == "Podcast") 5 else 1,
         refreshOnEnter = true,
         onRefresh = { categoryPlaylistRefreshKey += 1 },
         headerContent = {
@@ -216,12 +228,14 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                         )
                     }
                 }
-                CategoryPublicPlaylists(
-                    category = selectedCategory,
-                    query = selectedQuery,
-                    refreshKey = categoryPlaylistRefreshKey,
-                    onPlaylistClick = onPlaylistClick
-                )
+                if (selectedCategory != "Podcast") {
+                    CategoryPublicPlaylists(
+                        category = selectedCategory,
+                        query = selectedQuery,
+                        refreshKey = categoryPlaylistRefreshKey,
+                        onPlaylistClick = onPlaylistClick
+                    )
+                }
                 BasicText(
                     text = selectedCategory.uppercase(),
                     style = typography.s.semiBold,
@@ -230,26 +244,72 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             }
         },
         itemContent = { song ->
-            SongItem(
-                song = song,
-                thumbnailSizePx = thumbnailSizePx,
-                thumbnailSizeDp = thumbnailSizeDp,
-                modifier = Modifier.combinedClickable(
-                    onLongClick = {
-                        menuState.display {
-                            NonQueuedMediaItemMenu(
-                                onDismiss = menuState::hide,
-                                mediaItem = song.asMediaItem
-                            )
+            if (selectedCategory == "Podcast") {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .combinedClickable(
+                            onLongClick = {
+                                menuState.display {
+                                    NonQueuedMediaItemMenu(
+                                        onDismiss = menuState::hide,
+                                        mediaItem = song.asMediaItem
+                                    )
+                                }
+                            },
+                            onClick = {
+                                binder?.stopRadio()
+                                binder?.player?.forcePlay(song.asMediaItem)
+                                binder?.setupRadio(song.info?.endpoint)
+                            }
+                        )
+                        .padding(vertical = 8.dp)
+                ) {
+                    AsyncImage(
+                        model = song.thumbnail?.url,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(thumbnailSizeDp)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                    BasicText(
+                        text = song.info?.name.orEmpty(),
+                        style = typography.xs.semiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    BasicText(
+                        text = song.authors?.joinToString("") { it.name.orEmpty() }.orEmpty(),
+                        style = typography.xs,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else {
+                SongItem(
+                    song = song,
+                    thumbnailSizePx = thumbnailSizePx,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    modifier = Modifier.combinedClickable(
+                        onLongClick = {
+                            menuState.display {
+                                NonQueuedMediaItemMenu(
+                                    onDismiss = menuState::hide,
+                                    mediaItem = song.asMediaItem
+                                )
+                            }
+                        },
+                        onClick = {
+                            binder?.stopRadio()
+                            binder?.player?.forcePlay(song.asMediaItem)
+                            binder?.setupRadio(song.info?.endpoint)
                         }
-                    },
-                    onClick = {
-                        binder?.stopRadio()
-                        binder?.player?.forcePlay(song.asMediaItem)
-                        binder?.setupRadio(song.info?.endpoint)
-                    }
+                    )
                 )
-            )
+            }
         },
         itemPlaceholderContent = {
             SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
