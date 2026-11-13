@@ -19,7 +19,7 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 ) = runCatchingNonCancellable {
     val response = client.post(search) {
         setBody(body)
-        mask("contents.tabbedSearchResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents(musicShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask),gridRenderer(items.$musicTwoRowItemRendererMask))")
+        mask("contents.tabbedSearchResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents(musicShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask),musicPlaylistShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask),gridRenderer(items.$musicTwoRowItemRendererMask))")
     }.body<SearchResponse>()
 
     // Search filters can return the requested results on a non-first tab.
