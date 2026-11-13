@@ -736,16 +736,21 @@ private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
 private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
     discoveryBundles().flatMap { it.categories }.map { category ->
         async {
-            val songs = when (category.kind) {
-                "personal" -> fetchPersonalizedSongsForYou()
-                "mix" -> fetchPersonalizedMixCategory(category.query)
-                // Trending shelves are search-led, like YT Music's trend/mood shelves;
-                // Related Songs expands only tracks already found by that category search.
-                "trending" -> fetchSearchAndRelatedBundle(listOf(category.query))
-                // Listen Together shelves are activity-led (party, duet, chill, dance);
-                // the same two roots keep every result tied to the selected activity.
-                else -> fetchSearchAndRelatedBundle(listOf(category.query))
+            // Every card uses both roots: category Song Search -> Related Songs.
+            // For the taste card, merge those candidates with listening-history recommendations.
+            val categoryFeed = if (category.kind == "personal") {
+                fetchSearchAndRelatedBundle(
+                    listOf("popular Indian songs Hindi Marathi Punjabi Tamil Telugu Kannada Malayalam")
+                )
+            } else {
+                fetchSearchAndRelatedBundle(listOf(category.query))
             }
+            val historyFeed = if (category.kind == "personal" || category.kind == "mix") {
+                fetchPersonalizedSongsForYou()
+            } else {
+                emptyList()
+            }
+            val songs = (categoryFeed + historyFeed).distinctBy(Innertube.SongItem::key)
             category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(songs))
         }
     }.awaitAll().toMap()
@@ -760,11 +765,8 @@ private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innert
  */
 private suspend fun fetchPersonalizedMixCategory(query: String): List<Innertube.SongItem> {
     val categoryCandidates = fetchSearchAndRelatedBundle(listOf(query))
-    if (categoryCandidates.isEmpty()) return emptyList()
-    val personalized = runCatching {
-        personalizeSongLists(listOf(categoryCandidates)).firstOrNull().orEmpty()
-    }.getOrDefault(categoryCandidates)
-    return personalizeAndDiversify(personalized.ifEmpty { categoryCandidates })
+    val historyCandidates = fetchPersonalizedSongsForYou()
+    return personalizeAndDiversify((categoryCandidates + historyCandidates).distinctBy(Innertube.SongItem::key))
 }
 
 private suspend fun fetchSearchAndRelatedBundle(queries: List<String>): List<Innertube.SongItem> = coroutineScope {
