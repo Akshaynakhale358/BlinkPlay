@@ -9,14 +9,21 @@ import it.vfsfitvnm.compose.routing.RouteHandler
 import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.themed.Scaffold
 import it.vfsfitvnm.vimusic.ui.screens.globalRoutes
+import it.vfsfitvnm.vimusic.ui.screens.albumRoute
+import it.vfsfitvnm.vimusic.ui.screens.artistRoute
+import it.vfsfitvnm.vimusic.ui.screens.playlistRoute
+import it.vfsfitvnm.vimusic.ui.screens.browse.BrowseCategoryRoutePrefix
+import it.vfsfitvnm.vimusic.ui.screens.browse.BrowseCategoryScreen
 
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
 fun PlaylistScreen(browseId: String) {
-    val parts = browseId.split("|||BLINK_PARAMS|||", limit = 2)
+    val isBrowseCategory = browseId.startsWith(BrowseCategoryRoutePrefix)
+    val routeValue = if (isBrowseCategory) browseId.removePrefix(BrowseCategoryRoutePrefix) else browseId
+    val parts = routeValue.split("|||BLINK_PARAMS|||", limit = 2)
     val actualBrowseId = parts.first()
-    val browseParams = parts.getOrNull(1)
+    val browseParams = parts.getOrNull(1)?.takeIf { it.isNotBlank() }
     val saveableStateHolder = rememberSaveableStateHolder()
     PersistMapCleanup(tagPrefix = "playlist/$browseId")
 
@@ -35,7 +42,17 @@ fun PlaylistScreen(browseId: String) {
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
                     when (currentTabIndex) {
-                        0 -> PlaylistSongList(browseId = actualBrowseId, params = browseParams)
+                        0 -> if (isBrowseCategory) {
+                            BrowseCategoryScreen(
+                                browseId = actualBrowseId,
+                                params = browseParams,
+                                onAlbumClick = { albumRoute(it) },
+                                onArtistClick = { artistRoute(it) },
+                                onPlaylistClick = { playlistRoute(it) }
+                            )
+                        } else {
+                            PlaylistSongList(browseId = actualBrowseId, params = browseParams)
+                        }
                     }
                 }
             }
