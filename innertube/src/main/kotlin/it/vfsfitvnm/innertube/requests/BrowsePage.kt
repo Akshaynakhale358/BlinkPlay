@@ -88,10 +88,10 @@ suspend fun Innertube.musicExplorePage(context: Context = IndiaMusicBrowseContex
 suspend fun Innertube.musicDiscovery(context: Context = IndiaMusicBrowseContext) =
     runCatchingNonCancellable {
         coroutineScope {
-            val home = async { musicHomePage(context) }.await()
-            val explore = async { musicExplorePage(context) }.await()
-            val homePage = home.getOrNull()
-            val explorePage = explore.getOrNull()
+            val homeRequest = async { musicHomePage(context) }
+            val exploreRequest = async { musicExplorePage(context) }
+            val homePage = homeRequest.await().getOrNull()
+            val explorePage = exploreRequest.await().getOrNull()
             check(homePage != null || explorePage != null) {
                 "YouTube Music Home and Explore feeds are both unavailable"
             }
