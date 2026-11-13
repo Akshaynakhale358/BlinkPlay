@@ -276,8 +276,9 @@ private fun CategoryPublicPlaylists(
     val playlistThumbnailSizeDp = 108.dp
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
     var playlists by remember(category, refreshKey) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
+    var retryKey by remember(category, refreshKey) { mutableStateOf(0) }
 
-    LaunchedEffect(category, query, refreshKey) {
+    LaunchedEffect(category, query, refreshKey, retryKey) {
         playlists = withContext(Dispatchers.IO) {
             Innertube.searchPage(
                 body = SearchBody(
@@ -307,6 +308,14 @@ private fun CategoryPublicPlaylists(
                 )
             }
         }
+    } else if (playlists.isNullOrEmpty()) {
+        BasicText(
+            text = "Playlists could not load. Tap to retry.",
+            style = typography.xs.secondary,
+            modifier = Modifier
+                .clickable { retryKey += 1 }
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        )
     } else {
         LazyRow {
             items(playlists.orEmpty(), key = Innertube.PlaylistItem::key) { playlist ->
