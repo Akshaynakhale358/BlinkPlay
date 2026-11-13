@@ -1,7 +1,10 @@
 package it.vfsfitvnm.vimusic.ui.screens.searchresult
 
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,6 +51,7 @@ inline fun <T : Innertube.Item> ItemsPage(
     modifier: Modifier = Modifier,
     initialPlaceholderCount: Int = 8,
     continuationPlaceholderCount: Int = 3,
+    itemsPerRow: Int = 1,
     emptyItemsText: String = "No items found",
     refreshOnEnter: Boolean = false,
     noinline itemsPageProvider: (suspend (String?) -> Result<Innertube.ItemsPage<T>?>?)? = null,
@@ -144,11 +148,32 @@ inline fun <T : Innertube.Item> ItemsPage(
                 headerContent(null)
             }
 
-            items(
-                items = itemsPage?.items ?: emptyList(),
-                key = Innertube.Item::key,
-                itemContent = itemContent
-            )
+            if (itemsPerRow <= 1) {
+                items(
+                    items = itemsPage?.items ?: emptyList(),
+                    key = Innertube.Item::key,
+                    itemContent = itemContent
+                )
+            } else {
+                items(
+                    items = itemsPage?.items.orEmpty().chunked(itemsPerRow),
+                    key = { row -> row.first().key }
+                ) { row ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        row.forEach { item ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                itemContent(item)
+                            }
+                        }
+                        repeat(itemsPerRow - row.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
 
             if (itemsPage != null && itemsPage?.items.isNullOrEmpty()) {
                 item(key = "empty") {
