@@ -81,6 +81,7 @@ import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
@@ -592,6 +593,7 @@ fun QuickPicks(
 private suspend fun loadLanguageOrderedRelatedPage(
     seed: Song?
 ): Result<Innertube.RelatedPage?> {
+    try {
     val baseResult = Innertube.relatedPage(
         NextBody(videoId = seed?.id ?: DefaultSeedVideoId)
     ) ?: return Result.failure(IllegalStateException("Related recommendations are unavailable"))
@@ -633,6 +635,11 @@ private suspend fun loadLanguageOrderedRelatedPage(
     // Never fall back to the unfiltered related list: it can put English tracks first.
     // An empty language search is preferable to violating the requested language order.
     return Result.success(base.copy(songs = orderedSongs))
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
 }
 
 @Composable
@@ -650,7 +657,8 @@ private fun OnlineSongShelf(
     var songs by remember(query, refreshKey) { mutableStateOf<List<Innertube.SongItem>?>(null) }
 
     LaunchedEffect(query, refreshKey) {
-        songs = withContext(Dispatchers.IO) {
+        songs = try {
+            withContext(Dispatchers.IO) {
             // New Release must target the current release period, not a timeless
             // "new music" search that can keep surfacing old catalogue tracks.
             // Keep the existing language order: Hindi, other Indian languages, English.
@@ -688,6 +696,11 @@ private fun OnlineSongShelf(
                 .filterNot { song -> indianSongs.any { it.key == song.key } }
 
             indianSongs + english
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
@@ -740,7 +753,8 @@ private fun MixForYouShelf(
     }
 
     LaunchedEffect(seedArtists, refreshKey) {
-        playlists = withContext(Dispatchers.IO) {
+        playlists = try {
+            withContext(Dispatchers.IO) {
             val seed = seedArtists.takeIf { it.isNotBlank() } ?: "popular Indian music"
             val languageQueries = listOf(
                 "$seed Hindi Bollywood songs playlist mix",
@@ -776,6 +790,11 @@ private fun MixForYouShelf(
                     fromMusicShelfRendererContent = Innertube.PlaylistItem::from
                 )?.getOrNull()?.items.orEmpty()
             }
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
@@ -816,11 +835,17 @@ private fun OnlinePlaylistShelf(
     var playlists by remember(query, refreshKey) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
 
     LaunchedEffect(query, filter, refreshKey) {
-        val result = withContext(Dispatchers.IO) {
+        val result = try {
+            withContext(Dispatchers.IO) {
             Innertube.searchPage(
                 body = SearchBody(context = IndiaMusicContext, query = query, params = filter),
                 fromMusicShelfRendererContent = Innertube.PlaylistItem::from
             )
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
         }
         playlists = result?.getOrNull()?.items.orEmpty()
     }
@@ -863,7 +888,8 @@ private fun DailyMixPlaylistCard(
     var loaded by remember(mix.query, dayKey, refreshKey) { mutableStateOf(false) }
 
     LaunchedEffect(mix.query, dayKey, refreshKey) {
-        playlist = withContext(Dispatchers.IO) {
+        playlist = try {
+            withContext(Dispatchers.IO) {
             suspend fun fetch(query: String, filter: String) = Innertube.searchPage(
                 body = SearchBody(
                     context = IndiaMusicContext,
@@ -885,6 +911,11 @@ private fun DailyMixPlaylistCard(
                 val index = Math.floorMod(dayKey, results.size.toLong()).toInt()
                 results[index]
             }
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
         }
         loaded = true
     }
