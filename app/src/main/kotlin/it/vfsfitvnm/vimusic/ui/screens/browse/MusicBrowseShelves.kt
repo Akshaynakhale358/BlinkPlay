@@ -1,8 +1,8 @@
 package it.vfsfitvnm.vimusic.ui.screens.browse
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicText
@@ -21,6 +21,7 @@ import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.semiBold
 
 /** Shared renderer for YouTube Music's live shelves; both Quick Picks and category pages use it. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MusicBrowseShelves(
     sections: List<MusicBrowseSection>,
