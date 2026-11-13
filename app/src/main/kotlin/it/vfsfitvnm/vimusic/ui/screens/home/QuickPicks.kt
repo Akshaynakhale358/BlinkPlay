@@ -601,33 +601,32 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
 
     dailyLongListenCategories().map { category ->
         async {
-            // Search within the requested music category. Do not apply broad title/artist
-            // keyword filters here: those were discarding valid results and leaving empty rows.
-            val primary = fetchSongsByCategory("${category.query} 30 minute long mix full audio")
-            val fallback = if (primary.size < 5) {
-                fetchSongsByCategory("${category.query} 30 minutes extended full mix")
-            } else {
-                emptyList()
-            }
+            // Use several category-specific YouTube Music search roots. A single query
+            // often returns only 1-4 matches, so merge independent search variants.
+            val queries = listOf(
+                "${category.query} 30 minute continuous mix full audio",
+                "${category.query} 30 min non stop long play",
+                "${category.query} extended full album live mix"
+            )
+            val batches = queries.map { query ->
+                async { runCatching { fetchSongsByCategory(query) }.getOrDefault(emptyList()) }
+            }.awaitAll()
 
-            val candidates = (primary + fallback)
+            val candidates = batches.flatten()
                 .distinctBy(Innertube.SongItem::key)
 
             val personalized = runCatching {
                 personalizeSongLists(listOf(candidates)).firstOrNull().orEmpty()
             }.getOrDefault(candidates)
 
-            val durationRanked = personalized.distinctBy(Innertube.SongItem::key)
+            val durationRanked = personalized
+                .distinctBy(Innertube.SongItem::key)
+                .filter { it.durationText.toDurationSeconds() >= 1800 }
                 .sortedByDescending { it.durationText.toDurationSeconds() }
 
-            // Strict minimum requested: show only tracks whose individual duration is 30+ minutes.
-            // Do not substitute shorter tracks when the source cannot find enough long audio.
-            val thirtyMinuteTracks = durationRanked.filter {
-                it.durationText.toDurationSeconds() >= 1800
-            }
-            val pool = thirtyMinuteTracks.take(40)
-
-            // Rotate five-song selections daily so both songs and the ten bunches refresh.
+            // Rotate within the eligible long-form pool, but never pad with short
+            // or unrelated tracks. Five valid tracks are required for a complete card.
+            val pool = durationRanked.take(50)
             val offset = if (pool.isEmpty()) 0 else ((indiaDay * 5L) % pool.size).toInt()
             val rotated = if (pool.isEmpty()) emptyList() else pool.drop(offset) + pool.take(offset)
             category.title to rotated.take(5)
