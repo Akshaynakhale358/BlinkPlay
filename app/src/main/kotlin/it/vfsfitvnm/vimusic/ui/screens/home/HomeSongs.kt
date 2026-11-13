@@ -92,12 +92,17 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             } else {
                 Innertube.SearchFilter.Song.value
             }
-            val languageQueries = listOf(
-                "Hindi Bollywood songs",
-                "Marathi songs",
-                "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs",
-                "English language songs international"
-            )
+            val languageQueries = if (isPodcastCategory) {
+                // Podcasts are videos, not language-specific music shelves.
+                listOf("podcast episodes full episodes interviews conversations India")
+            } else {
+                listOf(
+                    "Hindi Bollywood songs",
+                    "Marathi songs",
+                    "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs",
+                    "English language songs international"
+                )
+            }
             val previousTokens = continuation?.split('\u001F')
             val nextTokens = mutableListOf<String?>()
             val combinedItems = mutableListOf<Innertube.SongItem>()
