@@ -662,7 +662,7 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
 
             val durationRanked = personalized
                 .distinctBy(Innertube.SongItem::key)
-                .filter { it.durationText.toDurationSeconds() >= 1800 }
+                .filter { it.durationText.toDurationSeconds() > 1800 }
                 .sortedByDescending { it.durationText.toDurationSeconds() }
 
             // Rotate within the eligible long-form pool, but never pad with short
