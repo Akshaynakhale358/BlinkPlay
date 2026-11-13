@@ -788,8 +788,6 @@ private fun MixForYouShelf(
     var playlists by remember(seedArtists, refreshKey) {
         mutableStateOf<List<Innertube.PlaylistItem>?>(null)
     }
-    var retryKey by remember(seedArtists, refreshKey) { mutableStateOf(0) }
-
     LaunchedEffect(seedArtists, refreshKey, retryKey) {
         playlists = withContext(Dispatchers.IO) {
             val seed = seedArtists.takeIf { it.isNotBlank() } ?: "popular Indian music"
@@ -800,33 +798,37 @@ private fun MixForYouShelf(
                 "$seed English international songs playlist mix"
             )
 
-            suspend fun fetch(query: String) = Innertube.searchPage(
+            suspend fun fetch(query: String, filter: String) = Innertube.searchPage(
                 body = SearchBody(
                     context = IndiaMusicContext,
                     query = query,
-                    params = Innertube.SearchFilter.FeaturedPlaylist.value
+                    params = filter
                 ),
                 fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
-                    fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
+                fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
             )?.getOrNull()?.items.orEmpty()
 
+            // Try the same category with featured playlists first, then community
+            // playlists. A failed language query must not block the other shelves.
             val languageOrdered = coroutineScope {
-                languageQueries.map { query -> async { fetch(query) } }.awaitAll().flatten()
+                languageQueries.map { query ->
+                    async {
+                        fetch(query, Innertube.SearchFilter.FeaturedPlaylist.value)
+                            .ifEmpty {
+                                fetch(query, Innertube.SearchFilter.CommunityPlaylist.value)
+                            }
+                    }
+                }.awaitAll().flatten()
             }
             val uniqueLanguageOrdered = languageOrdered.distinctBy { it.key }
 
             if (uniqueLanguageOrdered.isNotEmpty()) {
                 uniqueLanguageOrdered
             } else {
-                Innertube.searchPage(
-                    body = SearchBody(
-                        context = IndiaMusicContext,
-                        query = "$seed Indian Hindi Marathi regional music mix playlist",
-                        params = Innertube.SearchFilter.CommunityPlaylist.value
-                    ),
-                    fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
-                    fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
-                )?.getOrNull()?.items.orEmpty()
+                fetch(
+                    "$seed Indian Hindi Marathi regional music mix playlist",
+                    Innertube.SearchFilter.CommunityPlaylist.value
+                )
             }
         }
     }
@@ -839,11 +841,11 @@ private fun MixForYouShelf(
             }
         }
     } else if (playlists.isNullOrEmpty()) {
-        BasicText(
-            text = "Mixes could not load. Tap to retry.",
-            style = typography.xs.secondary,
-            modifier = Modifier.clickable { retryKey += 1 }.padding(horizontal = 16.dp, vertical = 12.dp)
-        )
+        ShimmerHost {
+            repeat(2) {
+                PlaylistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true)
+            }
+        }
     } else {
         LazyRow {
             items(playlists.orEmpty(), key = Innertube.PlaylistItem::key) { playlist ->
@@ -872,17 +874,26 @@ private fun OnlinePlaylistShelf(
 ) {
     val (_, typography) = LocalAppearance.current
     var playlists by remember(query, refreshKey) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
-    var retryKey by remember(query, refreshKey) { mutableStateOf(0) }
 
-    LaunchedEffect(query, filter, refreshKey, retryKey) {
-        val result = withContext(Dispatchers.IO) {
-            Innertube.searchPage(
-                body = SearchBody(context = IndiaMusicContext, query = query, params = filter),
-                fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
+    LaunchedEffect(query, filter, refreshKey) {
+        playlists = withContext(Dispatchers.IO) {
+            suspend fun fetch(searchQuery: String, searchFilter: String) =
+                Innertube.searchPage(
+                    body = SearchBody(
+                        context = IndiaMusicContext,
+                        query = searchQuery,
+                        params = searchFilter
+                    ),
+                    fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
                     fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
-            )
+                )?.getOrNull()?.items.orEmpty()
+
+            fetch(query, filter).ifEmpty {
+                fetch(query, Innertube.SearchFilter.FeaturedPlaylist.value)
+            }.ifEmpty {
+                fetch("$query official music mix", Innertube.SearchFilter.CommunityPlaylist.value)
+            }.distinctBy { it.key }
         }
-        playlists = result?.getOrNull()?.items.orEmpty()
     }
 
     BasicText(text = title, style = typography.s.semiBold, modifier = sectionTextModifier)
@@ -891,11 +902,9 @@ private fun OnlinePlaylistShelf(
             repeat(2) { PlaylistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true) }
         }
     } else if (playlists.isNullOrEmpty()) {
-        BasicText(
-            text = "Playlists could not load. Tap to retry.",
-            style = typography.xs.secondary,
-            modifier = Modifier.clickable { retryKey += 1 }.padding(horizontal = 16.dp, vertical = 12.dp)
-        )
+        ShimmerHost {
+            repeat(2) { PlaylistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true) }
+        }
     } else {
         LazyRow {
             items(playlists.orEmpty(), key = Innertube.PlaylistItem::key) { playlist ->
@@ -926,9 +935,7 @@ private fun DailyMixPlaylistCard(
         mutableStateOf<Innertube.PlaylistItem?>(null)
     }
     var loaded by remember(mix.query, dayKey, refreshKey) { mutableStateOf(false) }
-    var retryKey by remember(mix.query, dayKey, refreshKey) { mutableStateOf(0) }
-
-    LaunchedEffect(mix.query, dayKey, refreshKey, retryKey) {
+    LaunchedEffect(mix.query, dayKey, refreshKey) {
         playlist = withContext(Dispatchers.IO) {
             suspend fun fetch(query: String, filter: String) = Innertube.searchPage(
                 body = SearchBody(
@@ -974,14 +981,9 @@ private fun DailyMixPlaylistCard(
             thumbnailSizeDp = thumbnailSizeDp,
             alternative = true
         )
-        else -> {
-            BasicText(
-                text = "${mix.title} unavailable",
-                style = LocalAppearance.current.typography.xs,
-                modifier = Modifier
-                    .clickable { retryKey += 1 }
-                    .padding(12.dp)
-            )
-        }
+        else -> PlaylistItemPlaceholder(
+            thumbnailSizeDp = thumbnailSizeDp,
+            alternative = true
+        )
     }
 }
