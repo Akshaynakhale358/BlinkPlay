@@ -339,7 +339,6 @@ fun QuickPicks(
                 QuickPicksLongListenShelf(
                     category = category,
                     songs = longListenSongs[category.title].orEmpty().take(5),
-                    onViewAll = { selectedLongListenCategory = category },
                     onSongClick = { song ->
                         val mediaItem = song.asMediaItem
                         binder?.stopRadio()
@@ -502,7 +501,6 @@ private val LongListenCategories = listOf(
 private fun QuickPicksLongListenShelf(
     category: LongListenCategory,
     songs: List<Innertube.SongItem>,
-    onViewAll: () -> Unit,
     onSongClick: (Innertube.SongItem) -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
@@ -512,12 +510,6 @@ private fun QuickPicksLongListenShelf(
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
     ) {
         BasicText(text = category.title.uppercase(), style = typography.s.semiBold)
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
-        BasicText(
-            text = "VIEW ALL",
-            style = typography.xs.semiBold.secondary,
-            modifier = Modifier.clickable(onClick = onViewAll).padding(6.dp)
-        )
     }
     if (songs.isEmpty()) {
         ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 76.dp) } }
