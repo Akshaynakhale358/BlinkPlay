@@ -74,7 +74,11 @@ class PlayerMediaBrowserService : MediaBrowserService(), ServiceConnection {
         }
     }
 
-    override fun onServiceDisconnected(name: ComponentName) = Unit
+    override fun onServiceDisconnected(name: ComponentName) {
+        // The player process may be recreated; never keep using its released cache/binder.
+        bound = false
+        binder = null
+    }
 
     override fun onGetRoot(
         clientPackageName: String,
