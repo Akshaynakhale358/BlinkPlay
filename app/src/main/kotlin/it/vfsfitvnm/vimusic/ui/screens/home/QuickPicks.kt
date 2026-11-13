@@ -44,11 +44,14 @@ import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
+import it.vfsfitvnm.innertube.models.bodies.BrowseBody
 import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
+import it.vfsfitvnm.innertube.requests.albumPage
 import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.MusicDiscovery
 import it.vfsfitvnm.innertube.requests.musicDiscovery
+import it.vfsfitvnm.innertube.requests.musicExplorePage
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
@@ -129,20 +132,13 @@ fun QuickPicks(
         isRefreshing = false
     }
 
-    // Independent search shelves: these do not depend on the Home discovery feed.
+    // Read the real India Explore shelves supplied by YouTube Music.
+    // This avoids presenting ordinary search results as official charts.
     LaunchedEffect(refreshToken) {
-        val shelves = withContext(Dispatchers.IO) {
-            coroutineScope {
-                listOf(
-                    async { fetchHomeSongShelf("trending Hindi songs India") },
-                    async { fetchHomeSongShelf("top popular Hindi songs India") },
-                    async { fetchHomeSongShelf("latest new Hindi songs 2026 India") }
-                ).awaitAll()
-            }
-        }
-        trendingSongs = shelves[0]
-        topSongs = shelves[1]
-        newReleases = shelves[2]
+        val shelves = withContext(Dispatchers.IO) { fetchIndiaExploreSongShelves() }
+        trendingSongs = shelves.first
+        topSongs = shelves.second
+        newReleases = shelves.third
     }
 
     LaunchedEffect(refreshToken) {
@@ -556,15 +552,66 @@ private fun QuickPicksSongShelf(
     }
 }
 
-private suspend fun fetchHomeSongShelf(query: String): List<Innertube.SongItem> =
-    Innertube.searchPage(
-        body = SearchBody(
-            context = IndiaMusicContext,
-            query = query,
-            params = Innertube.SearchFilter.Song.value
-        ),
-        fromMusicShelfRendererContent = Innertube.SongItem::from
-    )?.getOrNull()?.items.orEmpty()
+private val IndiaExploreContext = Context.DefaultWeb.copy(
+    client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
+)
+
+/**
+ * Uses YouTube Music's own Explore feed:
+ * - VLOLA playlist shelves are its trending music feed.
+ * - The Top Songs shelf is used only when YouTube actually returns it.
+ * - New-release albums are opened and their real track lists are collected.
+ */
+private suspend fun fetchIndiaExploreSongShelves(): Triple<
+    List<Innertube.SongItem>,
+    List<Innertube.SongItem>,
+    List<Innertube.SongItem>
+> = coroutineScope {
+    val explore = Innertube.musicExplorePage(IndiaExploreContext)?.getOrNull()
+    val sections = explore?.sections.orEmpty()
+
+    val trending = sections
+        .firstOrNull { it.browseId?.startsWith("VLOLA") == true }
+        ?.items.orEmpty()
+        .filterIsInstance<Innertube.SongItem>()
+        .distinctBy(Innertube.SongItem::key)
+
+    val topSongs = sections
+        .firstOrNull { it.title.contains("top songs", ignoreCase = true) }
+        ?.items.orEmpty()
+        .filterIsInstance<Innertube.SongItem>()
+        .distinctBy(Innertube.SongItem::key)
+
+    val releaseAlbums = sections
+        .firstOrNull {
+            it.browseId == "FEmusic_new_releases_albums" ||
+                it.title.contains("new release", ignoreCase = true)
+        }
+        ?.items.orEmpty()
+        .filterIsInstance<Innertube.AlbumItem>()
+        .distinctBy(Innertube.AlbumItem::key)
+        .take(8)
+
+    val releaseSongs = releaseAlbums.map { album ->
+        async {
+            val endpoint = album.info?.endpoint
+            val browseId = endpoint?.browseId
+            if (browseId.isNullOrBlank()) {
+                emptyList()
+            } else {
+                Innertube.albumPage(
+                    BrowseBody(
+                        context = IndiaExploreContext,
+                        browseId = browseId,
+                        params = endpoint.params
+                    )
+                )?.getOrNull()?.songsPage?.items.orEmpty()
+            }
+        }
+    }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
+
+    Triple(trending, topSongs, releaseSongs)
+}
 
 private suspend fun loadLanguageOrderedRelatedPage(
     seed: Song?,
