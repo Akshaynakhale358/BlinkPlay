@@ -50,6 +50,7 @@ import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.requests.MusicDiscovery
 import it.vfsfitvnm.innertube.requests.musicDiscovery
 import it.vfsfitvnm.innertube.requests.playlistPage
+import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
 import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
 import it.vfsfitvnm.vimusic.R
