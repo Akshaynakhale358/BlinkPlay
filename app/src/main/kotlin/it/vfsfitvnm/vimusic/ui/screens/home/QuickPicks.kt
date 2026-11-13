@@ -114,6 +114,7 @@ fun QuickPicks(
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var longListenSongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
+    var topTenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var longListenDailyToken by remember { mutableStateOf(0) }
     var selectedLongListenCategory by remember { mutableStateOf<LongListenCategory?>(null) }
 
@@ -129,7 +130,15 @@ fun QuickPicks(
     }
 
     LaunchedEffect(refreshToken, longListenDailyToken) {
-        longListenSongs = withContext(Dispatchers.IO) { fetchLongListenCategories() }
+        val dailyFeeds = withContext(Dispatchers.IO) {
+            coroutineScope {
+                val categories = async { fetchLongListenCategories() }
+                val topTen = async { fetchTopTenSongs() }
+                categories.await() to topTen.await()
+            }
+        }
+        longListenSongs = dailyFeeds.first
+        topTenSongs = dailyFeeds.second
         isRefreshing = false
     }
 
@@ -335,6 +344,22 @@ fun QuickPicks(
             )
 
 
+            QuickPicksLongListenShelf(
+                category = LongListenCategory("TOP 10", "", emptyList()),
+                songs = topTenSongs.take(10),
+                onSongClick = { song ->
+                    val mediaItem = song.asMediaItem
+                    binder?.stopRadio()
+                    binder?.player?.forcePlay(mediaItem)
+                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                },
+                onSongLongClick = { song ->
+                    menuState.display {
+                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                    }
+                }
+            )
+
             LongListenCategories.forEach { category ->
                 QuickPicksLongListenShelf(
                     category = category,
@@ -538,6 +563,21 @@ private fun String?.toDurationSeconds(): Int {
     val parts = trim().split(":").mapNotNull { it.toIntOrNull() }
     if (parts.isEmpty()) return 0
     return parts.fold(0) { total, part -> total * 60 + part }
+}
+
+private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
+    val chartQuery =
+        "chart_params_type=WEEK&perspective=CHART&flags=viral_video_chart&selected_chart=TRACKS&chart_params_id=weekly:0:0:IN"
+    val chartSongs = Innertube.indiaChartSongs(chartQuery, "trackTypes", 0, "trackViews")
+        .distinctBy(Innertube.SongItem::key)
+        .sortedByDescending { it.durationText.toDurationSeconds() }
+
+    // Rotate ten long tracks each day in India time; the source remains the India Top Songs chart.
+    val indiaDay = (System.currentTimeMillis() + 19_800_000L) / 86_400_000L
+    if (chartSongs.isEmpty()) return emptyList()
+    val offset = ((indiaDay * 10L) % chartSongs.size).toInt()
+    val dailyOrder = chartSongs.drop(offset) + chartSongs.take(offset)
+    return dailyOrder.take(10)
 }
 
 private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
