@@ -550,7 +550,6 @@ private fun QuickPicksSongShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    val gridState = rememberLazyGridState()
 
     BasicText(
         text = title,
@@ -562,37 +561,34 @@ private fun QuickPicksSongShelf(
     )
 
     if (songs.isEmpty()) {
-        ShimmerHost {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             repeat(5) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) }
         }
     } else {
-        LazyHorizontalGrid(
-            state = gridState,
-            rows = GridCells.Fixed(5),
-            flingBehavior = rememberSnapFlingBehavior(gridState, SnapPosition.Center),
-            contentPadding = endPaddingValues,
+        // Opened category pages show a normal vertical song list, never a
+        // horizontally scrolling shelf or multi-column grid.
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
         ) {
-            items(items = songs.distinctBy { it.key }, key = Innertube.SongItem::key) { song ->
+            songs.distinctBy(Innertube.SongItem::key).forEach { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = thumbnailSizePx,
                     thumbnailSizeDp = thumbnailSizeDp,
                     modifier = Modifier
+                        .fillMaxWidth()
                         .combinedClickable(
                             onLongClick = { onSongLongClick(song) },
                             onClick = { onSongClick(song) }
                         )
-                        .animateItem()
-                        .width(itemWidth)
                 )
             }
         }
     }
 }
-
 
 private data class DiscoverySubcategory(
     val key: String,
