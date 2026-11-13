@@ -47,6 +47,20 @@ private fun personalizeSongs(
     )
     .map { it.value }
 
+private fun personalizeSection(
+    section: MusicBrowseSection,
+    artistScores: Map<String, Int>,
+): MusicBrowseSection {
+    val songs = section.items.filterIsInstance<Innertube.SongItem>()
+    if (songs.isEmpty()) return section
+    val rankedSongs = personalizeSongs(songs, artistScores).iterator()
+    return section.copy(
+        items = section.items.map { item ->
+            if (item is Innertube.SongItem) rankedSongs.next() else item
+        }
+    )
+}
+
 /** Applies the same listener preference scores to multiple independent song shelves. */
 suspend fun personalizeSongLists(
     shelves: List<List<Innertube.SongItem>>,
@@ -60,12 +74,7 @@ suspend fun personalizeSongSections(
     sections: List<MusicBrowseSection>,
 ): List<MusicBrowseSection> {
     val scores = artistPreferenceScores()
-    return sections.map { section ->
-        val songs = section.items.filterIsInstance<Innertube.SongItem>()
-        if (songs.isNotEmpty() && songs.size == section.items.size) {
-            section.copy(items = personalizeSongs(songs, scores))
-        } else section
-    }
+    return sections.map { section -> personalizeSection(section, scores) }
 }
 
 /** Applies the same preference ranking to both YouTube Music Home and Explore categories. */
@@ -76,12 +85,7 @@ suspend fun personalizeMusicDiscovery(
 
     fun personalizePage(page: MusicBrowsePage?): MusicBrowsePage? =
         page?.copy(
-            sections = page.sections.map { section ->
-                val songs = section.items.filterIsInstance<Innertube.SongItem>()
-                if (songs.isNotEmpty() && songs.size == section.items.size) {
-                    section.copy(items = personalizeSongs(songs, scores))
-                } else section
-            }
+            sections = page.sections.map { section -> personalizeSection(section, scores) }
         )
 
     return discovery.copy(
