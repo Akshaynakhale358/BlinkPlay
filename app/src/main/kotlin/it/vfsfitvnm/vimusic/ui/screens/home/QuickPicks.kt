@@ -193,6 +193,7 @@ fun QuickPicks(
     val windowInsets = LocalPlayerAwareWindowInsets.current
 
     var trending by persist<Song?>("home/trending")
+    var tasteSeeds by remember { mutableStateOf<List<Song>>(emptyList()) }
 
     var relatedPageResult by persist<Result<Innertube.RelatedPage?>?>(tag = "home/relatedPageResult")
     var refreshToken by remember { mutableStateOf(0) }
@@ -202,7 +203,7 @@ fun QuickPicks(
     LaunchedEffect(refreshToken) {
         if (refreshToken > 0) {
             relatedPageResult = null
-            relatedPageResult = loadLanguageOrderedRelatedPage(trending)
+            relatedPageResult = loadLanguageOrderedRelatedPage(trending, tasteSeeds)
             isRefreshing = false
         }
     }
@@ -217,13 +218,17 @@ fun QuickPicks(
             // whoever is reading it. Leaving home clears the persisted value, so the next visit
             // draws again.
             val current = trending
+            // Database.trending is already ranked by recency-weighted listening time.
+            // Keep several top taste signals so one repeatedly played track cannot define
+            // the entire For You shelf.
+            tasteSeeds = candidates.take(4)
             val seed = current?.takeIf { song -> candidates.any { it.id == song.id } }
-                ?: candidates.randomOrNull()
+                ?: candidates.firstOrNull()
 
-            if (!hasLoadedFreshRecommendations || seed?.id != current?.id) {
-                // Discard recommendations persisted by older builds; they may start with English.
+            if (!hasLoadedFreshRecommendations || seed?.id != current?.id || tasteSeeds.isNotEmpty()) {
+                // Build recommendations from several recently enjoyed tracks, not one random seed.
                 relatedPageResult = null
-                relatedPageResult = loadLanguageOrderedRelatedPage(seed)
+                relatedPageResult = loadLanguageOrderedRelatedPage(seed, tasteSeeds)
                 hasLoadedFreshRecommendations = true
             }
             trending = seed
@@ -511,6 +516,49 @@ fun QuickPicks(
             refreshKey = refreshToken
         )
 
+        // Podcast discovery is deliberately separated from music shelves. These searches use
+        // YouTube's Video filter so full talks and podcast episodes are not mixed with songs.
+        PodcastTopicShelf(
+            title = "OSHO DISCOURSES",
+            query = "Osho full discourse podcast Hindi English official talk",
+            thumbnailSizeDp = songThumbnailSizeDp,
+            thumbnailSizePx = songThumbnailSizePx,
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
+        )
+        PodcastTopicShelf(
+            title = "SPIRITUALITY & MEDITATION",
+            query = "spirituality meditation mindfulness philosophy podcast Hindi Marathi",
+            thumbnailSizeDp = songThumbnailSizeDp,
+            thumbnailSizePx = songThumbnailSizePx,
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
+        )
+        PodcastTopicShelf(
+            title = "MOTIVATION & SELF IMPROVEMENT",
+            query = "motivation self improvement discipline success podcast Hindi Marathi",
+            thumbnailSizeDp = songThumbnailSizeDp,
+            thumbnailSizePx = songThumbnailSizePx,
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
+        )
+        PodcastTopicShelf(
+            title = "KNOWLEDGE & INTERVIEWS",
+            query = "educational knowledge science history technology long form podcast India",
+            thumbnailSizeDp = songThumbnailSizeDp,
+            thumbnailSizePx = songThumbnailSizePx,
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
+        )
+        PodcastTopicShelf(
+            title = "MARATHI PODCASTS",
+            query = "Marathi podcast मुलाखत विचार ज्ञान गप्पा full episode",
+            thumbnailSizeDp = songThumbnailSizeDp,
+            thumbnailSizePx = songThumbnailSizePx,
+            sectionTextModifier = sectionTextModifier,
+            refreshKey = refreshToken
+        )
+
         var dailyMixDay by remember { mutableStateOf(LocalDate.now().toEpochDay()) }
         LaunchedEffect(Unit) {
             // Keep the shelf current even if Quick Picks stays open across midnight.
@@ -599,8 +647,95 @@ fun QuickPicks(
 }
 
 
+@Composable
+private fun PodcastTopicShelf(
+    title: String,
+    query: String,
+    thumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    thumbnailSizePx: Int,
+    sectionTextModifier: Modifier,
+    refreshKey: Int
+) {
+    val (_, typography) = LocalAppearance.current
+    val binder = LocalPlayerServiceBinder.current
+    val menuState = LocalMenuState.current
+    var episodes by remember(query, refreshKey) {
+        mutableStateOf<List<Innertube.SongItem>?>(null)
+    }
+
+    LaunchedEffect(query, refreshKey) {
+        episodes = try {
+            withContext(Dispatchers.IO) {
+                Innertube.searchPage(
+                    body = SearchBody(
+                        context = IndiaMusicContext,
+                        query = query,
+                        params = Innertube.SearchFilter.Video.value
+                    ),
+                    fromMusicShelfRendererContent = { content ->
+                        Innertube.VideoItem.from(content)?.let { video ->
+                            Innertube.SongItem(
+                                info = video.info,
+                                authors = video.authors,
+                                album = null,
+                                durationText = video.durationText,
+                                thumbnail = video.thumbnail
+                            )
+                        }
+                    }
+                )?.getOrNull()?.items.orEmpty()
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    BasicText(
+        text = title,
+        style = typography.s.semiBold,
+        modifier = sectionTextModifier
+    )
+
+    LazyRow {
+        if (episodes == null) {
+            items(4) {
+                SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
+            }
+        } else {
+            items(episodes.orEmpty(), key = Innertube.SongItem::key) { episode ->
+                SongItem(
+                    song = episode,
+                    thumbnailSizePx = thumbnailSizePx,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    modifier = Modifier.combinedClickable(
+                        onLongClick = {
+                            menuState.display {
+                                NonQueuedMediaItemMenu(
+                                    onDismiss = menuState::hide,
+                                    mediaItem = episode.asMediaItem
+                                )
+                            }
+                        },
+                        onClick = {
+                            val mediaItem = episode.asMediaItem
+                            binder?.stopRadio()
+                            binder?.player?.forcePlay(mediaItem)
+                            binder?.setupRadio(
+                                NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
+                            )
+                        }
+                    )
+                )
+            }
+        }
+    }
+}
+
 private suspend fun loadLanguageOrderedRelatedPage(
-    seed: Song?
+    seed: Song?,
+    tasteSeeds: List<Song> = listOfNotNull(seed)
 ): Result<Innertube.RelatedPage?> {
     return try {
         val baseResult = Innertube.relatedPage(
@@ -618,9 +753,13 @@ private suspend fun loadLanguageOrderedRelatedPage(
 
         // Keep Song for me personalized to the current listening seed, but request each
         // language group explicitly so English results can never lead the shelf.
-        val seedContext = listOfNotNull(seed?.title, seed?.artistsText)
+        val seedContext = tasteSeeds
+            .take(4)
+            .flatMap { song -> listOfNotNull(song.title, song.artistsText) }
             .joinToString(" ")
             .takeIf { it.isNotBlank() }
+            ?: listOfNotNull(seed?.title, seed?.artistsText).joinToString(" ")
+                .takeIf { it.isNotBlank() }
             ?: "popular"
 
         suspend fun fetchRelatedSongs(languageQuery: String) = Innertube.searchPage(
