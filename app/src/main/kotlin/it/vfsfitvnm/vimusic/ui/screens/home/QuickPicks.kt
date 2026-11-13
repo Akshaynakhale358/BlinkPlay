@@ -162,16 +162,23 @@ fun QuickPicks(
         val artist = binder?.player?.currentMediaItem?.mediaMetadata?.artist?.toString().orEmpty()
         val relatedSearch = if (currentVideoId != null && title.isNotBlank()) {
             withContext(Dispatchers.IO) {
-                Innertube.searchPage(
-                    body = SearchBody(
-                        context = Context.DefaultWeb.copy(
-                            client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
+                val searchContext = Context.DefaultWeb.copy(
+                    client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
+                )
+                val queries = listOf(
+                    "$title $artist similar songs",
+                    "songs like $title $artist"
+                )
+                queries.flatMap { query ->
+                    Innertube.searchPage(
+                        body = SearchBody(
+                            context = searchContext,
+                            query = query,
+                            params = Innertube.SearchFilter.Song.value
                         ),
-                        query = "$title $artist similar songs",
-                        params = Innertube.SearchFilter.Song.value
-                    ),
-                    fromMusicShelfRendererContent = Innertube.SongItem::from
-                )?.getOrNull()?.items.orEmpty()
+                        fromMusicShelfRendererContent = Innertube.SongItem::from
+                    )?.getOrNull()?.items.orEmpty()
+                }.distinctBy(Innertube.SongItem::key)
             }
         } else emptyList()
         songsForYou = if (currentVideoId == null) fetchAutomaticSongsForYou()
