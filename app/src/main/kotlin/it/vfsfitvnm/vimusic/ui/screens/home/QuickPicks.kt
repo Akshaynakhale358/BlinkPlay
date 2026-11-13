@@ -126,11 +126,6 @@ fun QuickPicks(
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
 
-    // A category's VIEW ALL page is an in-screen destination. Consume system
-    // Back here so Android does not finish MainActivity while that page is open.
-    BackHandler(enabled = selectedDiscoveryCategory != null) {
-        selectedDiscoveryCategory = null
-    }
     var discoveryDailyToken by remember { mutableStateOf(0) }
 
     // Refresh only the three discovery bundles at Indian midnight so their songs
@@ -199,6 +194,24 @@ fun QuickPicks(
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
 
     val scrollState = rememberScrollState()
+    var savedHomeScrollOffset by remember { mutableStateOf(0) }
+    var restoreHomeScroll by remember { mutableStateOf(false) }
+
+    // Keep the opened category at the top, then restore the exact Home scroll
+    // position when Back returns from that category.
+    BackHandler(enabled = selectedDiscoveryCategory != null) {
+        restoreHomeScroll = true
+        selectedDiscoveryCategory = null
+    }
+    LaunchedEffect(selectedDiscoveryCategory) {
+        if (selectedDiscoveryCategory != null) {
+            scrollState.scrollTo(0)
+        } else if (restoreHomeScroll) {
+            scrollState.scrollTo(savedHomeScrollOffset)
+            restoreHomeScroll = false
+        }
+    }
+
     val quickPicksLazyGridState = rememberLazyGridState()
 
     val endPaddingValues = windowInsets.only(WindowInsetsSides.End).asPaddingValues()
@@ -382,7 +395,7 @@ fun QuickPicks(
                                 binder?.player?.forcePlay(mediaItem)
                                 binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
                             },
-                            onViewAll = { selectedDiscoveryCategory = category },
+                            onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedDiscoveryCategory = category },
                             onPlayBundle = {
                                 val bundleMediaItems = (discoverySongs[category.key] ?: calmCategorySongs[category.key]).orEmpty()
                                     .map(Innertube.SongItem::asMediaItem)
@@ -475,7 +488,7 @@ fun QuickPicks(
                     style = typography.s.semiBold,
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .clickable { selectedDiscoveryCategory = null }
+                        .clickable { restoreHomeScroll = true; selectedDiscoveryCategory = null }
                 )
                 Header(title = category.parentTitle.uppercase() + " · " + category.title.uppercase())
                 QuickPicksSongShelf(
