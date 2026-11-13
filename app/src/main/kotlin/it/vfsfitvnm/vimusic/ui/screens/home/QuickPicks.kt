@@ -777,13 +777,11 @@ private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innert
             } else {
                 fetchSearchAndRelatedBundle(listOf(category.query))
             }
-            val historyFeed = if (category.kind == "personal" || category.kind == "mix") {
-                fetchPersonalizedSongsForYou()
-            } else {
-                emptyList()
-            }
-            val songs = (categoryFeed + historyFeed).distinctBy(Innertube.SongItem::key)
-            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(songs))
+            // Keep every card's candidate pool category-pure. Listening history is
+            // used only to rank these candidates; never append a generic history feed
+            // to Hindi/Marathi/regional cards, which caused language crossover.
+            val categoryFiltered = filterDiscoverySongs(category, categoryFeed)
+            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(categoryFiltered))
         }
     }.awaitAll().toMap()
 }
@@ -799,6 +797,44 @@ private suspend fun fetchPersonalizedMixCategory(query: String): List<Innertube.
     val categoryCandidates = fetchSearchAndRelatedBundle(listOf(query))
     val historyCandidates = fetchPersonalizedSongsForYou()
     return personalizeAndDiversify((categoryCandidates + historyCandidates).distinctBy(Innertube.SongItem::key))
+}
+
+/**
+ * Apply language boundaries after both Song Search and Related Songs have been merged.
+ * Related Songs can drift into another language even when the seed query is correct.
+ * Use title + artist metadata so transliterated tracks remain eligible while scripts
+ * that clearly belong to another language are excluded.
+ */
+private fun filterDiscoverySongs(
+    category: DiscoverySubcategory,
+    candidates: List<Innertube.SongItem>
+): List<Innertube.SongItem> {
+    val language = when (category.key) {
+        "mix_hindi", "trend_hindi" -> "hindi"
+        "mix_marathi", "trend_marathi" -> "marathi"
+        "mix_punjabi" -> "punjabi"
+        else -> return candidates.distinctBy(Innertube.SongItem::key)
+    }
+
+    fun containsScript(value: String, first: Int, last: Int): Boolean =
+        value.codePoints().anyMatch { it in first..last }
+
+    return candidates.distinctBy(Innertube.SongItem::key).filter { song ->
+        val metadata = (song.title + " " + song.artistsText.orEmpty()).lowercase()
+        val hasTamil = containsScript(metadata, 0x0B80, 0x0BFF)
+        val hasTelugu = containsScript(metadata, 0x0C00, 0x0C7F)
+        val hasKannada = containsScript(metadata, 0x0C80, 0x0CFF)
+        val hasMalayalam = containsScript(metadata, 0x0D00, 0x0D7F)
+        val hasGurmukhi = containsScript(metadata, 0x0A00, 0x0A7F)
+        val hasDevanagari = containsScript(metadata, 0x0900, 0x097F)
+
+        when (language) {
+            "hindi" -> !hasTamil && !hasTelugu && !hasKannada && !hasMalayalam && !hasGurmukhi
+            "marathi" -> !hasTamil && !hasTelugu && !hasKannada && !hasMalayalam && !hasGurmukhi
+            "punjabi" -> !hasTamil && !hasTelugu && !hasKannada && !hasMalayalam && !hasDevanagari
+            else -> true
+        }
+    }
 }
 
 private suspend fun fetchSearchAndRelatedBundle(queries: List<String>): List<Innertube.SongItem> = coroutineScope {
