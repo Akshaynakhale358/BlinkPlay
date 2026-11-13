@@ -685,10 +685,18 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
                 }
             }.awaitAll()
 
-            val allCandidates = (searchSeeds + relatedBatches.flatten())
+            // Search results are already fetched with this card's own category query.
+            // Keep those category-specific long tracks, and admit related tracks only
+            // when their metadata also matches the same category.
+            val longSearchSeeds = searchSeeds
+                .filter { it.durationText.toDurationSeconds() > 1800 }
+                .filter { matchesLongListenCategory(category, it) }
+            val longRelated = relatedBatches.flatten()
                 .distinctBy(Innertube.SongItem::key)
                 .filter { it.durationText.toDurationSeconds() > 1800 }
                 .filter { matchesLongListenCategory(category, it) }
+            val allCandidates = (longSearchSeeds + longRelated)
+                .distinctBy(Innertube.SongItem::key)
 
             // Personalize only inside this category's own search + related pool.
             val personalized = runCatching {
@@ -702,7 +710,7 @@ private suspend fun fetchLongListenCategories(): Map<String, List<Innertube.Song
             val ranked = allCandidates
                 .distinctBy(Innertube.SongItem::key)
                 .sortedWith(
-                    compareByDescending<Innertube.SongItem> { personalRank[it.key] ?: Int.MAX_VALUE }
+                    compareBy<Innertube.SongItem> { personalRank[it.key] ?: Int.MAX_VALUE }
                         .thenByDescending { it.durationText.toDurationSeconds() }
                 )
 
