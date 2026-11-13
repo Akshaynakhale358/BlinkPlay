@@ -120,7 +120,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                         body = SearchBody(
                             context = indiaHindiContext,
                             query = if (isPodcastCategory) {
-                                "$languageQuery podcast episodes full episodes interviews conversations"
+                                languageQuery
                             } else {
                                 "$languageQuery $selectedQuery"
                             },
