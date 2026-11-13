@@ -40,22 +40,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.Player
 import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
+import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
-import it.vfsfitvnm.innertube.models.bodies.BrowseBody
-import it.vfsfitvnm.innertube.models.bodies.NextBody
-import it.vfsfitvnm.innertube.requests.albumPage
-import it.vfsfitvnm.innertube.requests.browsePage
 import it.vfsfitvnm.innertube.requests.indiaChartSongs
-import it.vfsfitvnm.innertube.requests.relatedPage
+import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.requests.MusicDiscovery
 import it.vfsfitvnm.innertube.requests.musicDiscovery
-import it.vfsfitvnm.innertube.requests.musicExplorePage
 import it.vfsfitvnm.innertube.requests.playlistPage
-import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
 import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
 import it.vfsfitvnm.vimusic.R
@@ -74,7 +68,6 @@ import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
-import it.vfsfitvnm.vimusic.utils.DisposableListener
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.center
 import it.vfsfitvnm.vimusic.utils.forcePlay
@@ -108,15 +101,6 @@ fun QuickPicks(
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
     var songsForYou by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
-    var currentVideoId by remember { mutableStateOf(binder?.player?.currentMediaItem?.mediaId) }
-
-    binder?.player?.DisposableListener {
-        object : Player.Listener {
-            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
-                currentVideoId = mediaItem?.mediaId
-            }
-        }
-    }
     var serverDiscovery by remember { mutableStateOf<MusicDiscovery?>(null) }
     var trendingSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
@@ -128,43 +112,21 @@ fun QuickPicks(
         isRefreshing = false
     }
 
-    // Recommendations are based on the song currently playing, never on a history-derived seed.
-    // Exclude the current track and tracks already listened to from the returned suggestions.
-    LaunchedEffect(refreshToken, currentVideoId) {
-        val related = if (!currentVideoId.isNullOrBlank()) {
-            withContext(Dispatchers.IO) {
-                Innertube.relatedPage(
-                    NextBody(
-                        context = Context.DefaultWeb.copy(
-                            client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
-                        ),
-                        videoId = currentVideoId
+    // Songs For You and New Releases use the same YouTube Music song-search
+    // endpoint. Only the category query changes, so both shelves share one parser.
+    LaunchedEffect(refreshToken) {
+        val (recommendations, shelves) = withContext(Dispatchers.IO) {
+            coroutineScope {
+                val forYou = async {
+                    fetchSongsByCategory(
+                        "recommended popular songs India Hindi Marathi Punjabi Tamil Telugu Kannada Malayalam"
                     )
-                )?.getOrNull()?.songs.orEmpty()
+                }
+                val shelvesDeferred = async { fetchIndiaDirectSongShelves() }
+                forYou.await() to shelvesDeferred.await()
             }
-        } else emptyList()
-
-        val playedIds = withContext(Dispatchers.IO) {
-            Database.trending(100).first().map { it.id }.toSet()
         }
-        val recommendations = related
-            .filter { it.key != currentVideoId && it.key !in playedIds }
-            .distinctBy(Innertube.SongItem::key)
-
-        // Use YouTube Music's related-track feed as the primary recommendation source.
-        // When nothing is playing (or the related feed is empty), use the Explore feed.
-        // Avoid broad generic searches here: they can return unrelated songs and make
-        // this shelf appear to load indefinitely while several searches run in sequence.
-        val recommendationSongs = if (recommendations.isNotEmpty()) {
-            recommendations
-        } else {
-            fetchAutomaticSongsForYou()
-        }
-        songsForYou = recommendationSongs.distinctBy(Innertube.SongItem::key)
-
-        val shelves = withContext(Dispatchers.IO) { fetchIndiaDirectSongShelves() }
-        // Keep the exact order and membership returned by each dedicated category root.
-        // Do not run additional sequential language searches that delay rendering or mix feeds.
+        songsForYou = recommendations.distinctBy(Innertube.SongItem::key)
         trendingSongs = shelves.first.distinctBy(Innertube.SongItem::key)
         topSongs = shelves.second.distinctBy(Innertube.SongItem::key)
         newReleases = shelves.third.distinctBy(Innertube.SongItem::key)
@@ -430,15 +392,16 @@ private fun QuickPicksSongShelf(
     }
 }
 
-private suspend fun fetchAutomaticSongsForYou(): List<Innertube.SongItem> {
-    // YouTube Music Explore is the fallback when no current-track related feed exists.
-    // Do not append broad search results to a recommendation shelf.
-    val explore = Innertube.musicExplorePage()?.getOrNull()
-    return explore?.sections.orEmpty()
-        .flatMap { it.items }
-        .filterIsInstance<Innertube.SongItem>()
+private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem> =
+    Innertube.searchPage(
+        body = SearchBody(
+            context = IndiaExploreContext,
+            query = query,
+            params = Innertube.SearchFilter.Song.value
+        ),
+        fromMusicShelfRendererContent = Innertube.SongItem::from
+    )?.getOrNull()?.items.orEmpty()
         .distinctBy(Innertube.SongItem::key)
-}
 
 private val IndiaExploreContext = Context.DefaultWeb.copy(
     client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
@@ -464,27 +427,12 @@ private suspend fun fetchIndiaDirectSongShelves(): Triple<
         Innertube.indiaChartSongs(chartQuery, "trackTypes", 0, "trackViews")
     }
 
-    // New releases are fetched from YouTube Music's own dedicated browse root, not Explore text matching.
+    // New Releases uses the same song-search endpoint and song-only filter.
+    // Its query is category-specific; no album expansion or cross-category merge.
     val releasesDeferred = async {
-        val page = Innertube.browsePage(
-            BrowseBody(context = IndiaExploreContext, browseId = "FEmusic_new_releases_albums")
-        )?.getOrNull()
-        val albums = page?.sections.orEmpty()
-            .flatMap { it.items }
-            .filterIsInstance<Innertube.AlbumItem>()
-            .distinctBy(Innertube.AlbumItem::key)
-            .take(12)
-
-        val songs = mutableListOf<Innertube.SongItem>()
-        for (album in albums) {
-            val endpoint = album.info?.endpoint ?: continue
-            val id = endpoint.browseId ?: continue
-            val albumPage = Innertube.albumPage(
-                BrowseBody(context = IndiaExploreContext, browseId = id, params = endpoint.params)
-            )?.getOrNull()
-            songs += albumPage?.songsPage?.items.orEmpty()
-        }
-        songs.distinctBy(Innertube.SongItem::key)
+        fetchSongsByCategory(
+            "latest new release songs India 2026 Hindi Marathi Punjabi Tamil Telugu Kannada Malayalam"
+        )
     }
 
     Triple(trendingDeferred.await(), topDeferred.await(), releasesDeferred.await())
