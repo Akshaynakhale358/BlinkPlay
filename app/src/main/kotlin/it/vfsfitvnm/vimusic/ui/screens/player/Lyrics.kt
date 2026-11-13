@@ -80,6 +80,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun Lyrics(
@@ -110,7 +111,7 @@ fun Lyrics(
             mutableStateOf(false)
         }
 
-        var lyrics by remember {
+        var lyrics by remember(mediaId) {
             mutableStateOf<Lyrics?>(null)
         }
 
@@ -125,15 +126,24 @@ fun Lyrics(
                 Database.lyrics(mediaId).collect {
                     if (isShowingSynchronizedLyrics && it?.synced == null) {
                         val mediaMetadata = mediaMetadataProvider()
-                        var duration = withContext(Dispatchers.Main) {
-                            durationProvider()
-                        }
-
-                        while (duration == C.TIME_UNSET) {
-                            delay(100)
-                            duration = withContext(Dispatchers.Main) {
+                        val duration = withTimeoutOrNull(10_000L) {
+                            var currentDuration = withContext(Dispatchers.Main) {
                                 durationProvider()
                             }
+
+                            while (currentDuration == C.TIME_UNSET) {
+                                delay(100)
+                                currentDuration = withContext(Dispatchers.Main) {
+                                    durationProvider()
+                                }
+                            }
+
+                            currentDuration
+                        }
+
+                        if (duration == null) {
+                            isError = true
+                            return@collect
                         }
 
                         KuGou.lyrics(
