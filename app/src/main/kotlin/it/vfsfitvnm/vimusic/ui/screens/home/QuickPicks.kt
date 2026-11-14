@@ -115,9 +115,9 @@ suspend fun fetchQuickPicksPodcastSongs(
     val context = Context.DefaultWeb.copy(
         client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
     )
-    // Root 1: discover Podcast shows using YouTube Music's dedicated Podcast filter.
-    // Root 2: discover actual podcast episodes using the dedicated Episodes filter.
-    // Both roots use only the requested keyword; no generic video/topic fallbacks.
+    // Root 1: discover dedicated Podcast shows.
+    // Root 2: extract playable episodes from the broad result for the same keyword.
+    // Both roots use only the single requested keyword: podcast.
     val showRootsJob = async(Dispatchers.IO) {
         runCatching {
             Innertube.searchPodcastPage(
@@ -144,7 +144,8 @@ suspend fun fetchQuickPicksPodcastSongs(
     val directEpisodes = directEpisodesJob.await()
     val shows = showRoots.distinctBy(Innertube.PlaylistItem::key)
 
-    // Expand each Podcast show into its full episode feed, including continuation pages.
+    // Expand each Podcast show into its episode feed. Read two pages per show
+    // to keep first load responsive while still collecting more than one shelf.
     val episodeFeeds = shows.map { show ->
         async(Dispatchers.IO) {
             runCatching {
@@ -208,10 +209,6 @@ fun QuickPicks(
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var podcastSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var isLoadingPodcasts by remember { mutableStateOf(true) }
-    var podcastBatchIndex by remember { mutableStateOf(0) }
-    var isLoadingMorePodcasts by remember { mutableStateOf(false) }
-    var emptyPodcastBatches by remember { mutableStateOf(0) }
-    var hasMorePodcastResults by remember { mutableStateOf(true) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var isLoadingLongListen by remember { mutableStateOf(true) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
@@ -262,23 +259,16 @@ fun QuickPicks(
     // Load the first podcast batch on refresh; more batches are fetched on scroll.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         isLoadingPodcasts = true
-        podcastBatchIndex = 0
-        emptyPodcastBatches = 0
-        isLoadingMorePodcasts = false
-        hasMorePodcastResults = true
         var loadedPodcasts = emptyList<Innertube.SongItem>()
-        var lastPodcastBatch = 0
         withContext(Dispatchers.IO) {
             // Load one batch immediately; the View All page fetches later batches on scroll.
             for (batch in 0 until 1) {
-                lastPodcastBatch = batch
                 val next = runCatching { fetchQuickPicksPodcastSongs(batch + refreshToken + discoveryDailyToken) }.getOrDefault(emptyList())
                 loadedPodcasts = (loadedPodcasts + next).distinctBy(Innertube.SongItem::key)
                 if (loadedPodcasts.size >= 15) break
             }
         }
         podcastSongs = loadedPodcasts
-        podcastBatchIndex = lastPodcastBatch
         isLoadingPodcasts = false
         markRefreshTaskComplete("podcast")
     }
@@ -357,49 +347,6 @@ fun QuickPicks(
     val scope = rememberCoroutineScope()
     val longListenLazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
 
-    // Keep one pagination collector alive while the Podcast page is open.
-    // Do not key this effect on scrollState.value: doing so cancels an in-flight
-    // network request on every scroll event and can leave the loading flag stuck.
-    LaunchedEffect(selectedPodcastPage) {
-        if (!selectedPodcastPage) return@LaunchedEffect
-
-        snapshotFlow {
-            scrollState.value >= (scrollState.maxValue - 500).coerceAtLeast(0)
-        }.distinctUntilChanged().collect { nearBottom ->
-            if (nearBottom) {
-                // If the current list is shorter than the screen, keep requesting
-                // batches until it can scroll or the source is genuinely exhausted.
-                while (
-                    selectedPodcastPage &&
-                    hasMorePodcastResults &&
-                    !isLoadingPodcasts &&
-                    !isLoadingMorePodcasts &&
-                    scrollState.value >= (scrollState.maxValue - 500).coerceAtLeast(0)
-                ) {
-                    isLoadingMorePodcasts = true
-                    try {
-                        val nextBatch = podcastBatchIndex + 1
-                        val moreSongs = withContext(Dispatchers.IO) {
-                            runCatching { fetchQuickPicksPodcastSongs(nextBatch + refreshToken + discoveryDailyToken) }
-                                .getOrDefault(emptyList())
-                        }
-                        val existingKeys = podcastSongs.map(Innertube.SongItem::key).toHashSet()
-                        val uniqueMore = moreSongs.filter { it.key !in existingKeys }
-                        if (uniqueMore.isNotEmpty()) {
-                            podcastSongs = podcastSongs + uniqueMore
-                            emptyPodcastBatches = 0
-                        } else {
-                            emptyPodcastBatches += 1
-                            if (emptyPodcastBatches >= 6) hasMorePodcastResults = false
-                        }
-                        podcastBatchIndex = nextBatch
-                    } finally {
-                        isLoadingMorePodcasts = false
-                    }
-                }
-            }
-        }
-    }
     // Built-in shelf detail pages keep loading batches as the vertical list is scrolled.
     LaunchedEffect(selectedQuickPicksShelf) {
         val shelfKey = selectedQuickPicksShelf ?: return@LaunchedEffect
@@ -945,9 +892,6 @@ fun QuickPicks(
                         }
                     }
                 )
-                if (isLoadingMorePodcasts) {
-                    ShimmerHost { repeat(2) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) } }
-                }
             } else {
                 val category = selectedDiscoveryCategory!!
                 BasicText(
@@ -1286,7 +1230,7 @@ private fun QuickPicksPodcastShelf(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 lazyRowItems(
-                    items = songs.distinctBy(Innertube.SongItem::key).take(15).chunked(5),
+                    items = songs.distinctBy(Innertube.SongItem::key).chunked(5),
                     key = { column -> column.firstOrNull()?.key.orEmpty() }
                 ) { songColumn ->
                     Column(
