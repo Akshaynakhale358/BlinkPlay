@@ -98,9 +98,20 @@ private suspend fun fetchHomeSongCategory(
     refreshToken: Int = 0
 ): Result<Innertube.ItemsPage<Innertube.SongItem>?>? {
     val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN"))
-    val refreshTerms = listOf("latest", "new songs", "popular hits", "trending songs")
-    val refreshTerm = refreshTerms[Math.floorMod(refreshToken, refreshTerms.size)]
-    val query = if (category.podcast) "${category.query} $refreshTerm" else "Hindi Bollywood songs ${category.query} $refreshTerm"
+    // Podcast has its own video-only search rotation. Never append generic song terms:
+    // that was causing the Podcast card to return ordinary songs and appear unchanged.
+    val podcastRefreshTerms = listOf(
+        "latest Hindi podcast episodes",
+        "new Marathi podcast episodes",
+        "popular Indian podcast full episodes",
+        "trending interview podcast episodes"
+    )
+    val songRefreshTerms = listOf("latest", "new songs", "popular hits", "trending songs")
+    val query = if (category.podcast) {
+        "${category.query} ${podcastRefreshTerms[Math.floorMod(refreshToken, podcastRefreshTerms.size)]}"
+    } else {
+        "Hindi Bollywood songs ${category.query} ${songRefreshTerms[Math.floorMod(refreshToken, songRefreshTerms.size)]}"
+    }
     val filter = if (category.podcast) Innertube.SearchFilter.Video.value else Innertube.SearchFilter.Song.value
     val result = if (continuation == null) {
         Innertube.searchPage(
