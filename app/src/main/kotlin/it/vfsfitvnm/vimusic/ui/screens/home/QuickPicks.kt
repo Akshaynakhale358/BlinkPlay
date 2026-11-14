@@ -425,6 +425,7 @@ fun QuickPicks(
                         QuickPicksDiscoveryShelf(
                             category = category,
                             songs = discoverySongs[category.key].orEmpty(),
+                            refreshToken = refreshToken + discoveryDailyToken,
                             onSongClick = { song ->
                                 val mediaItem = song.asMediaItem
                                 binder?.stopRadio()
