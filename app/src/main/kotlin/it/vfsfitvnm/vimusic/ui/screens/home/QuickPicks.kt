@@ -817,10 +817,13 @@ private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innert
         async {
             // Every card uses both roots: category Song Search -> Related Songs.
             // For the taste card, merge those candidates with listening-history recommendations.
-            val categoryQueries = discoverySearchQueries(category)
-            val categoryFeed = fetchSearchAndRelatedBundle(categoryQueries)
-            // Personal history changes ranking only. It never adds unrelated songs
-            // to a category; devotional tracks are excluded from secular shelves.
+            val categoryFeed = if (category.kind == "personal") {
+                // The taste shelf is sourced from listening history and favourites.
+                fetchPersonalizedSongsForYou()
+            } else {
+                fetchSearchAndRelatedBundle(discoverySearchQueries(category))
+            }
+            // Filter category relevance first; personalization only reorders valid candidates.
             val categoryFiltered = filterDiscoverySongs(category, categoryFeed)
             category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(categoryFiltered))
         }
@@ -852,25 +855,30 @@ private suspend fun fetchPersonalizedMixCategory(query: String): List<Innertube.
  */
 private fun discoverySearchQueries(category: DiscoverySubcategory): List<String> {
     val targeted = when (category.key) {
-        "together_romance" -> listOf(
-            "romantic duet songs Hindi Bollywood male female",
-            "best romantic duets Hindi love songs",
-            "romantic Marathi duet songs"
-        )
-        "mix_romantic" -> listOf("romantic Hindi love songs", "romantic Marathi songs", "Bollywood love songs")
-        "together_duet" -> listOf("Hindi duet songs male female", "popular Bollywood duet songs", "Marathi duet songs")
-        "together_party" -> listOf("Hindi party dance songs", "Bollywood party hits", "Punjabi party songs")
-        "together_dance" -> listOf("Hindi dance hits", "Bollywood dance songs", "Punjabi dance party songs")
-        "together_chill" -> listOf("chill Hindi songs", "relaxing Indian pop songs", "soft acoustic Hindi songs")
-        "together_classics" -> listOf("evergreen Hindi film songs", "classic Bollywood duets", "old Hindi hit songs")
-        "together_friends" -> listOf("friendship songs Hindi", "Bollywood friendship songs", "popular friends songs India")
-        "trend_reels" -> listOf("viral Instagram reels songs India", "trending reels Hindi songs", "viral Marathi reels songs")
-        "trend_pop" -> listOf("trending Indian pop songs", "latest Hindi pop hits", "Indian pop chart songs")
+        "mix_hindi" -> listOf("popular Hindi hit songs Bollywood", "latest Hindi film songs")
+        "mix_marathi" -> listOf("popular Marathi film songs", "latest Marathi hit songs", "Marathi romantic songs")
+        "mix_punjabi" -> listOf("popular Punjabi pop songs", "latest Punjabi hit songs")
+        "mix_regional" -> listOf("popular Tamil Telugu Kannada Malayalam film songs", "latest South Indian songs")
+        "mix_romantic" -> listOf("romantic Hindi love songs", "romantic Marathi film songs", "Bollywood love duets")
+        "mix_chill" -> listOf("chill Hindi acoustic songs", "soft Marathi songs", "relaxing Indian indie music")
+        "trend_india" -> listOf("India trending popular film songs", "viral Indian music hits")
+        "trend_hindi" -> listOf("viral trending Hindi film songs", "Hindi chart hits")
+        "trend_marathi" -> listOf("trending Marathi film songs", "viral Marathi songs")
+        "trend_reels" -> listOf("viral Instagram reels songs India", "trending reels Hindi Marathi songs")
+        "trend_pop" -> listOf("trending Indian pop songs", "latest Hindi indie pop hits")
+        "trend_regional" -> listOf("trending Tamil Telugu Punjabi songs", "viral South Indian songs")
         "trend_new" -> listOf("latest new Hindi songs 2026", "new Marathi songs 2026", "latest Indian music releases")
-        "mix_hindi" -> listOf("popular Hindi hit songs", "Hindi Bollywood songs", "latest Hindi songs")
-        "mix_marathi" -> listOf("popular Marathi songs", "latest Marathi songs", "Marathi hit songs")
-        "mix_punjabi" -> listOf("popular Punjabi songs", "latest Punjabi hits", "Punjabi pop songs")
-        "mix_regional" -> listOf("popular Tamil Telugu Kannada Malayalam songs", "latest South Indian songs")
+        "together_party" -> listOf("Hindi Bollywood party dance hits", "Punjabi party songs")
+        "together_duet" -> listOf("Hindi male female duet songs", "popular Bollywood duet songs", "Marathi duet songs")
+        "together_romance" -> listOf("romantic duet songs Hindi Bollywood male female", "best romantic Bollywood duets", "romantic Marathi duet songs")
+        "together_chill" -> listOf("chill Hindi songs", "relaxing Indian indie acoustic songs", "soft Marathi songs")
+        "together_classics" -> listOf("evergreen Hindi film songs", "classic Bollywood duets", "old Hindi hit songs")
+        "together_dance" -> listOf("Hindi Bollywood dance hits", "Punjabi dance party songs")
+        "together_friends" -> listOf("Hindi friendship songs", "Bollywood friendship songs", "popular friends songs India")
+        "calm_alpha" -> listOf("alpha waves focus instrumental music", "8hz alpha relaxation instrumental")
+        "calm_beta" -> listOf("beta waves focus instrumental music", "concentration instrumental music")
+        "calm_gamma" -> listOf("gamma waves meditation instrumental music", "gamma focus ambient music")
+        "calm_meditation" -> listOf("peaceful meditation instrumental music", "calm mindfulness music")
         else -> listOf(category.query).filter { it.isNotBlank() }
     }
     return targeted.distinct()
@@ -880,26 +888,26 @@ private fun filterDiscoverySongs(
     category: DiscoverySubcategory,
     candidates: List<Innertube.SongItem>
 ): List<Innertube.SongItem> {
-    val language = when (category.key) {
-        "mix_hindi", "trend_hindi" -> "hindi"
-        "mix_marathi", "trend_marathi" -> "marathi"
-        "mix_punjabi" -> "punjabi"
-        else -> null
-    }
+    // Devotional content is valid only for the personal taste shelf if the listener
+    // actually listens to it. All named entertainment/mood shelves exclude it.
     val devotionalTerms = listOf(
-        "hanuman chalisa", "chalisa", "bhajan", "bhakti", "aarti", "arti",
-        "mantra", "stotra", "kirtan", "devotional", "sankirtan",
-        "ram dhun", "krishna bhajan", "shiv bhajan", "mata bhajan"
+        "hanuman chalisa", "hanuman", "chalisa", "bhajan", "bhakti", "aarti", "arti",
+        "abhang", "abhanga", "kirtan", "kirtana", "haripath", "haripath", "gondhal",
+        "bharud", "vitthal", "vithal", "pandurang", "ganpati", "ganesh aarti",
+        "shiv bhajan", "shankar", "mahadev", "krishna bhajan", "ram dhun",
+        "mata bhajan", "durga", "stotra", "mantra", "devotional", "sankirtan",
+        "भजन", "अभंग", "आरती", "कीर्तन", "हरिपाठ", "गोंधळ", "भारूड",
+        "विठ्ठल", "पांडुरंग", "गणपती", "गणेश", "चालीसा", "स्तोत्र", "मंत्र"
     )
     fun containsScript(value: String, first: Int, last: Int): Boolean =
         value.any { it.code in first..last }
 
     return candidates.distinctBy(Innertube.SongItem::key).filter { song ->
-        val metadata = (song.info?.name.orEmpty() + " " +
-            song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
         val title = song.info?.name.orEmpty().lowercase()
-        val isDevotional = devotionalTerms.any { term -> metadata.contains(term) }
-        if (isDevotional) return@filter false
+        val metadata = (title + " " +
+            song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
+        val isPersonalTaste = category.kind == "personal"
+        if (!isPersonalTaste && devotionalTerms.any(metadata::contains)) return@filter false
 
         val hasTamil = containsScript(metadata, 0x0B80, 0x0BFF)
         val hasTelugu = containsScript(metadata, 0x0C00, 0x0C7F)
@@ -908,14 +916,30 @@ private fun filterDiscoverySongs(
         val hasGurmukhi = containsScript(metadata, 0x0A00, 0x0A7F)
         val hasDevanagari = containsScript(metadata, 0x0900, 0x097F)
 
-        val languageMatches = when (language) {
-            "hindi", "marathi" -> !hasTamil && !hasTelugu && !hasKannada && !hasMalayalam && !hasGurmukhi
-            "punjabi" -> !hasTamil && !hasTelugu && !hasKannada && !hasMalayalam && !hasDevanagari
+        val languageMatches = when (category.key) {
+            "mix_hindi", "trend_hindi" ->
+                !hasTamil && !hasTelugu && !hasKannada && !hasMalayalam && !hasGurmukhi
+            "mix_marathi", "trend_marathi" ->
+                !hasTamil && !hasTelugu && !hasKannada && !hasMalayalam && !hasGurmukhi
+            "mix_punjabi" ->
+                !hasTamil && !hasTelugu && !hasKannada && !hasMalayalam && !hasDevanagari
+            "mix_regional", "trend_regional" ->
+                hasTamil || hasTelugu || hasKannada || hasMalayalam || metadata.contains("tamil") ||
+                    metadata.contains("telugu") || metadata.contains("kannada") || metadata.contains("malayalam")
             else -> true
         }
+
         val categoryMatches = when (category.key) {
-            "together_romance", "mix_romantic" ->
-                !listOf("religious", "prayer", "worship", "temple", "qawwali").any(title::contains)
+            "mix_romantic", "together_romance" ->
+                listOf("party", "remix", "dj mix", "devotional", "qawwali").none(metadata::contains)
+            "mix_chill", "together_chill" ->
+                listOf("dj remix", "party mix", "hardstyle", "devotional").none(metadata::contains)
+            "together_party", "together_dance" ->
+                listOf("bhajan", "aarti", "sad songs", "sleep music", "meditation").none(metadata::contains)
+            "together_classics" ->
+                listOf("new release", "latest 2026", "remix").none(metadata::contains)
+            "together_friends" ->
+                listOf("bhajan", "aarti", "devotional", "sad songs").none(metadata::contains)
             else -> true
         }
         languageMatches && categoryMatches
