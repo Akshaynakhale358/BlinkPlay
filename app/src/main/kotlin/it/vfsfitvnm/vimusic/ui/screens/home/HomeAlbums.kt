@@ -183,7 +183,7 @@ fun HomeAlbums(
             refreshOnEnter = true,
             headerContent = {
                 Column {
-                    Header(title = "Albums") {}
+                    Header(title = "Albums", titleScale = 1.404f) {}
                     BasicText(
                         text = shelf.title.replaceFirstChar { it.uppercase() },
                         style = typography.m.semiBold.copy(
@@ -263,7 +263,7 @@ fun HomeAlbums(
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
             item {
-                Header(title = "Albums") {}
+                Header(title = "Albums", titleScale = 1.404f) {}
             }
             items(shelves, key = { it.key }) { shelf ->
                 val albums = shelfAlbums[shelf.key].orEmpty()
