@@ -879,7 +879,7 @@ fun QuickPicks(
                 )
                 Header(title = shelfTitle)
                 QuickPicksSongShelf(
-                    title = shelfTitle + " · ALL SONGS",
+                    title = if (shelfKey == "podcast") "ALL PODCAST EPISODES" else shelfTitle + " · ALL SONGS",
                     songs = shelfSongs,
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
