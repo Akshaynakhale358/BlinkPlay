@@ -136,7 +136,10 @@ private suspend fun fetchQuickPicksPodcastSongs(
     val startIndex = Math.floorMod(batchIndex * batchSize, podcastQueries.size)
     val queries = (0 until batchSize).map { podcastQueries[(startIndex + it) % podcastQueries.size] }
 
-    val podcastShows = queries.map { query ->
+    // Two independent discovery roots, both using YouTube Music's Podcast
+    // filter. Do not use generic YouTube Video/Episode search here: those
+    // result types were returning empty or irrelevant content in this app.
+    suspend fun searchPodcastRoot(rootQueries: List<String>) = rootQueries.map { query ->
         async(Dispatchers.IO) {
             runCatching {
                 Innertube.searchPodcastPage(
@@ -149,9 +152,19 @@ private suspend fun fetchQuickPicksPodcastSongs(
             }.getOrDefault(emptyList())
         }
     }.awaitAll().flatten()
+
+    val firstRootQueries = queries.take((queries.size + 1) / 2)
+    val secondRootQueries = queries.drop(firstRootQueries.size)
+    val podcastRoots = listOf(
+        async { searchPodcastRoot(firstRootQueries) },
+        async { searchPodcastRoot(secondRootQueries.ifEmpty { firstRootQueries }) }
+    )
+    val podcastShows = podcastRoots.awaitAll().flatten()
         .distinctBy(Innertube.PlaylistItem::key)
 
-
+    // Fetch episodes from every discovered podcast show. Continue through one
+    // additional page per show now; View All pagination discovers more shows
+    // and episodes in subsequent batches.
     val showEpisodes = podcastShows.map { show ->
         async(Dispatchers.IO) {
             runCatching {
@@ -161,7 +174,6 @@ private suspend fun fetchQuickPicksPodcastSongs(
                 val episodes = firstPage?.items.orEmpty().toMutableList()
                 var continuation = firstPage?.continuation
                 var pageCount = 0
-                // Keep the initial load responsive; remaining pages arrive through scroll pagination.
                 while (!continuation.isNullOrBlank() && pageCount < 1) {
                     val page = Innertube.playlistPage(
                         ContinuationBody(context = context, continuation = continuation)
@@ -175,56 +187,6 @@ private suspend fun fetchQuickPicksPodcastSongs(
                     pageCount += 1
                 }
                 episodes.distinctBy(Innertube.SongItem::key)
-            }.getOrDefault(emptyList())
-        }
-    }.awaitAll().flatten()
-
-    // Path 2: dedicated Episodes filter. The filter is useful, but its results
-    // are still checked against title + creator to prevent ordinary songs.
-    val searchedEpisodes = queries.map { query ->
-        async(Dispatchers.IO) {
-            runCatching {
-                Innertube.searchPage(
-                    body = SearchBody(
-                        context = context,
-                        query = query,
-                        params = Innertube.SearchFilter.Episode.value
-                    ),
-                    fromMusicShelfRendererContent = { content ->
-                        // The dedicated Episodes search root already classifies these
-                        // as podcast episodes. Fetch its returned content directly;
-                        // only apply the shared long-form/music exclusion below.
-                        Innertube.SongItem.from(content)
-                    }
-                )?.getOrNull()?.items.orEmpty()
-            }.getOrDefault(emptyList())
-        }
-    }.awaitAll().flatten()
-
-    // Fallback path: YouTube Music's Episode filter can return an empty renderer
-    // even when podcast/interview videos exist. Search the same podcast-specific
-    // queries in the Video tab and convert only long-form results to episodes.
-    val searchedVideoEpisodes = queries.map { query ->
-        async(Dispatchers.IO) {
-            runCatching {
-                Innertube.searchPage(
-                    body = SearchBody(
-                        context = context,
-                        query = query,
-                        params = Innertube.SearchFilter.Video.value
-                    ),
-                    fromMusicShelfRendererContent = { content ->
-                        Innertube.VideoItem.from(content)?.let { video ->
-                            Innertube.SongItem(
-                                info = video.info,
-                                authors = video.authors,
-                                album = null,
-                                durationText = video.durationText,
-                                thumbnail = video.thumbnail
-                            )
-                        }
-                    }
-                )?.getOrNull()?.items.orEmpty()
             }.getOrDefault(emptyList())
         }
     }.awaitAll().flatten()
@@ -268,27 +230,18 @@ private suspend fun fetchQuickPicksPodcastSongs(
         "best moments", "snippet"
     )
 
-    // Trust the dedicated Podcast show feeds and Episode search filter as the
-    // primary sources. Their titles/channels are not consistently labelled with
-    // the word "podcast" (especially Osho pravachans and regional-language talks),
-    // so do not force title-keyword matching on these two typed sources.
-    // Keep stricter classification only for generic Video-tab fallback results.
+    // Trust content returned from the two Podcast-filter roots and their
+    // podcast-show episode feeds. Osho discourses and regional-language talks
+    // need not contain the literal word "podcast" in title/channel.
     fun isCleanLongFormEpisode(song: Innertube.SongItem): Boolean {
         val title = song.info?.name.orEmpty().lowercase()
         val duration = durationSeconds(song.durationText) ?: 0L
         return duration >= 5 * 60 && excludedTerms.none(title::contains)
     }
 
-    val trustedShowEpisodes = showEpisodes.filter(::isCleanLongFormEpisode)
-    val trustedEpisodeSearch = searchedEpisodes.filter(::isCleanLongFormEpisode)
-    val trustedVideoFallback = searchedVideoEpisodes.filter(::isCleanLongFormEpisode)
-    val candidates = (trustedShowEpisodes + trustedEpisodeSearch + trustedVideoFallback)
+    val candidates = showEpisodes
+        .filter(::isCleanLongFormEpisode)
         .distinctBy(Innertube.SongItem::key)
-        .filter { song ->
-            val title = song.info?.name.orEmpty().lowercase()
-            val duration = durationSeconds(song.durationText) ?: 0L
-            duration >= 5 * 60 && excludedTerms.none(title::contains)
-        }
 
     personalizeAndDiversify(candidates)
 }
