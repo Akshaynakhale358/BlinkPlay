@@ -273,80 +273,40 @@ fun HomeAlbums(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         BasicText(text = shelf.title, style = typography.s.semiBold, modifier = Modifier.weight(1f))
-                        androidx.compose.foundation.layout.Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.size(32.dp).clip(CircleShape)
-                                    .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
-                                    .background(Color.White.copy(alpha = 0.14f))
-                                    .clickable {
-                                        val firstAlbumId = albums.firstOrNull()?.info?.endpoint?.browseId
-                                        if (firstAlbumId != null) {
-                                            // Play starts the first album in this category.
-                                            scope.launch {
-                                                val songs = withContext(Dispatchers.IO) {
-                                                    Innertube.albumPage(BrowseBody(browseId = firstAlbumId))
-                                                        ?.getOrNull()?.songsPage?.items.orEmpty()
-                                                }
-                                                val mediaItems = songs.map(Innertube.SongItem::asMediaItem)
-                                                if (mediaItems.isNotEmpty()) {
-                                                    binder?.stopRadio()
-                                                    binder?.player?.forcePlayFromBeginning(mediaItems)
-                                                }
-                                            }
-                                        }
-                                    }
-                            ) {
-                                Image(
-                                    painter = painterResource(R.drawable.play),
-                                    contentDescription = "Play",
-                                    colorFilter = ColorFilter.tint(Color.White),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
-                            BasicText(
-                                text = "VIEW ALL",
-                                style = typography.xs.semiBold,
-                                modifier = Modifier.clip(RoundedCornerShape(50))
-                                    .background(Color.White.copy(alpha = 0.14f))
-                                    .clickable {
-                                        selectedShelf = shelf
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 8.dp)
-                            )
-                        }
+                        BasicText(
+                            text = "VIEW ALL",
+                            style = typography.xs.semiBold,
+                            modifier = Modifier.clip(RoundedCornerShape(50))
+                                .background(Color.White.copy(alpha = 0.14f))
+                                .clickable {
+                                    selectedShelf = shelf
+                                }
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        )
                     }
                     if (albums.isEmpty() && loading) {
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth().height(148.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(5) {
-                                Box(modifier = Modifier.width(thumbnailSizeDp)) {
-                                    AlbumItemPlaceholder(
-                                        thumbnailSizeDp = thumbnailSizeDp,
-                                        alternative = true
-                                    )
-                                }
+                                AlbumItemPlaceholder(
+                                    thumbnailSizeDp = 72.dp,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
                         }
                     } else {
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth().height(148.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            items(albums, key = Innertube.AlbumItem::key) { album ->
+                            albums.take(5).forEach { album ->
                                 AlbumItem(
                                     album = album,
-                                    thumbnailSizePx = thumbnailSizePx,
-                                    thumbnailSizeDp = thumbnailSizeDp,
-                                    alternative = true,
-                                    modifier = Modifier.width(thumbnailSizeDp).clickable {
+                                    thumbnailSizePx = 72.dp.px,
+                                    thumbnailSizeDp = 72.dp,
+                                    modifier = Modifier.fillMaxWidth().clickable {
                                         album.info?.endpoint?.browseId?.let(onAlbumClick)
                                     }
                                 )
