@@ -129,7 +129,7 @@ fun QuickPicks(
     fun markRefreshTaskComplete(task: String) {
         val completed = completedRefreshTasks + task
         completedRefreshTasks = completed
-        if (completed.containsAll(setOf("discovery", "calm", "podcast", "long_listen", "songs"))) {
+        if (completed.containsAll(setOf("discovery", "calm", "long_listen", "songs"))) {
             isRefreshing = false
         }
     }
@@ -140,8 +140,6 @@ fun QuickPicks(
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
-    var podcastSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
-    var isLoadingPodcasts by remember { mutableStateOf(true) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var isLoadingLongListen by remember { mutableStateOf(true) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
@@ -149,7 +147,6 @@ fun QuickPicks(
     var discoveryBatchIndex by remember { mutableStateOf(0) }
     var emptyDiscoveryBatches by remember { mutableStateOf(0) }
     var hasMoreDiscoveryResults by remember { mutableStateOf(true) }
-    var selectedPodcastPage by remember { mutableStateOf(false) }
     var selectedQuickPicksShelf by remember { mutableStateOf<String?>(null) }
     var pendingShelfLoad by remember { mutableStateOf<String?>(null) }
     var loadingShelfKeys by remember { mutableStateOf(setOf<String>()) }
@@ -187,18 +184,6 @@ fun QuickPicks(
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         calmCategorySongs = withContext(Dispatchers.IO) { fetchCalmMusicCategories(refreshToken + discoveryDailyToken) }
         markRefreshTaskComplete("calm")
-    }
-
-    // Podcast uses only the two dedicated Podcast roots and the exact keyword.
-    // Only episodes longer than 15 minutes are kept.
-    LaunchedEffect(refreshToken) {
-        isLoadingPodcasts = true
-        try {
-            podcastSongs = withContext(Dispatchers.IO) { fetchQuickPicksPodcastSongs(0) }
-        } finally {
-            isLoadingPodcasts = false
-            markRefreshTaskComplete("podcast")
-        }
     }
 
     // Long Listen refreshes on pull-to-refresh and automatically at Indian midnight.
@@ -240,7 +225,16 @@ fun QuickPicks(
                 val recommendations = withContext(Dispatchers.IO) {
                     fetchPersonalizedSongsForYou(refreshToken)
                 }
-                songsForYou = filterRegularSongDuration(recommendations).distinctBy(Innertube.SongItem::key)
+                var finalRecommendations = filterRegularSongDuration(recommendations).distinctBy(Innertube.SongItem::key)
+                if (finalRecommendations.size < 5) {
+                    val fallback = fetchSearchAndRelatedBundle(
+                        listOf("popular Hindi hit songs India", "popular Marathi hit songs", "popular Indian pop songs")
+                    )
+                    finalRecommendations = filterRegularSongDuration(
+                        (finalRecommendations + fallback).distinctBy(Innertube.SongItem::key)
+                    )
+                }
+                songsForYou = finalRecommendations
             }
             val chartShelvesJob = launch {
                 withContext(Dispatchers.IO) {
@@ -272,7 +266,6 @@ fun QuickPicks(
 
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
-    val longListenLazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     // Built-in shelf detail pages keep loading batches as the vertical list is scrolled.
     LaunchedEffect(selectedQuickPicksShelf) {
@@ -353,7 +346,6 @@ fun QuickPicks(
                 "top" -> topSongs
                 "new" -> newReleases
                 "long_listen" -> longListenSongs
-                "podcast" -> podcastSongs
                 else -> emptyList()
             }
             val nextBatch = (shelfBatchIndexes[shelfKey] ?: 0) + 1
@@ -367,7 +359,6 @@ fun QuickPicks(
                     "top" -> topSongs = filterRegularSongDuration(topSongs + unique)
                     "new" -> newReleases = filterRegularSongDuration(newReleases + unique)
                     "long_listen" -> longListenSongs = longListenSongs + unique
-                    "podcast" -> podcastSongs = (podcastSongs + unique).distinctBy(Innertube.SongItem::key)
                 }
             }
             shelfBatchIndexes = shelfBatchIndexes + (shelfKey to nextBatch)
@@ -382,20 +373,17 @@ fun QuickPicks(
 
     // Keep the opened category at the top, then restore the exact Home scroll
     // position when Back returns from that category.
-    BackHandler(enabled = selectedDiscoveryCategory != null || selectedPodcastPage || selectedQuickPicksShelf != null) {
+    BackHandler(enabled = selectedDiscoveryCategory != null || selectedQuickPicksShelf != null) {
         if (selectedQuickPicksShelf != null) {
             selectedQuickPicksShelf = null
-            restoreHomeScroll = true
-        } else if (selectedPodcastPage) {
-            selectedPodcastPage = false
             restoreHomeScroll = true
         } else {
             restoreHomeScroll = true
             selectedDiscoveryCategory = null
         }
     }
-    LaunchedEffect(selectedDiscoveryCategory, selectedPodcastPage, selectedQuickPicksShelf) {
-        if (selectedDiscoveryCategory != null || selectedPodcastPage || selectedQuickPicksShelf != null) {
+    LaunchedEffect(selectedDiscoveryCategory, selectedQuickPicksShelf) {
+        if (selectedDiscoveryCategory != null || selectedQuickPicksShelf != null) {
             scrollState.scrollTo(0)
         } else if (restoreHomeScroll) {
             scrollState.scrollTo(savedHomeScrollOffset)
@@ -403,7 +391,6 @@ fun QuickPicks(
         }
     }
 
-    val quickPicksLazyGridState = rememberLazyGridState()
 
     val endPaddingValues = windowInsets.only(WindowInsetsSides.End).asPaddingValues()
 
@@ -444,7 +431,7 @@ fun QuickPicks(
                         .asPaddingValues()
                 )
         ) {
-            if (selectedDiscoveryCategory == null && !selectedPodcastPage && selectedQuickPicksShelf == null) {
+            if (selectedDiscoveryCategory == null && selectedQuickPicksShelf == null) {
             Header(
                 title = "QUICK PICKS",
                 modifier = Modifier
@@ -464,45 +451,37 @@ fun QuickPicks(
             )
 
             if (songsForYou.isNotEmpty()) {
-                    LazyHorizontalGrid(
-                    state = quickPicksLazyGridState,
-                    rows = GridCells.Fixed(5),
-                    flingBehavior = rememberSnapFlingBehavior(quickPicksLazyGridState, SnapPosition.Center),
-                    contentPadding = endPaddingValues,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height((songThumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
                 ) {
-                    items(items = songsForYou.distinctBy { it.key }.take(15), key = Innertube.SongItem::key) { song ->
+                    songsForYou.distinctBy(Innertube.SongItem::key).take(5).forEach { song ->
                         SongItem(
                             song = song,
                             thumbnailSizePx = songThumbnailSizePx,
                             thumbnailSizeDp = songThumbnailSizeDp,
-                            modifier = Modifier
-                                .combinedClickable(
-                                    onLongClick = {
-                                        menuState.display {
-                                            NonQueuedMediaItemMenu(
-                                                onDismiss = menuState::hide,
-                                                mediaItem = song.asMediaItem
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        val mediaItem = song.asMediaItem
-                                        binder?.stopRadio()
-                                        binder?.player?.forcePlay(mediaItem)
-                                        binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                            modifier = Modifier.fillMaxWidth().combinedClickable(
+                                onLongClick = {
+                                    menuState.display {
+                                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
                                     }
-                                )
-                                .animateItem()
-                                .width(itemInHorizontalGridWidth)
+                                },
+                                onClick = {
+                                    val mediaItem = song.asMediaItem
+                                    binder?.stopRadio()
+                                    binder?.player?.forcePlay(mediaItem)
+                                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                                }
+                            )
                         )
                     }
                 }
             } else if (isLoadingSongsForYou) {
                 ShimmerHost {
-                    repeat(5) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) }
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                    ) { repeat(5) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) } }
                 }
             } else {
                 BasicText(
@@ -521,7 +500,8 @@ fun QuickPicks(
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
                 endPaddingValues = endPaddingValues,
-                verticalList = false,
+                verticalList = true,
+                previewLimit = 5,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -544,7 +524,8 @@ fun QuickPicks(
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
                 endPaddingValues = endPaddingValues,
-                verticalList = false,
+                verticalList = true,
+                previewLimit = 5,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -567,7 +548,8 @@ fun QuickPicks(
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
                 endPaddingValues = endPaddingValues,
-                verticalList = false,
+                verticalList = true,
+                previewLimit = 5,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -662,126 +644,29 @@ fun QuickPicks(
                 }
             }
 
-            QuickPicksSectionHeader(
-                title = "PODCAST",
-                modifier = sectionTextModifier,
-                onPlay = { val items = podcastSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
-                onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "podcast" }
-            )
-            if (podcastSongs.isEmpty() && isLoadingPodcasts) {
-                ShimmerHost {
-                    repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
-                }
-            } else if (podcastSongs.isEmpty()) {
-                BasicText(
-                    text = "Finding podcast episodes. Pull down to retry.",
-                    style = typography.xs.secondary,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                )
-            } else {
-                LazyRow(
-                    state = longListenLazyListState,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    lazyRowItems(
-                        items = podcastSongs.take(15).chunked(5),
-                        key = { column -> column.firstOrNull()?.key.orEmpty() }
-                    ) { songColumn ->
-                        Column(
-                            modifier = Modifier.width(itemInHorizontalGridWidth),
-                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
-                        ) {
-                            songColumn.forEach { song ->
-                                SongItem(
-                                    song = song,
-                                    thumbnailSizePx = 64.dp.px,
-                                    thumbnailSizeDp = 64.dp,
-                                    modifier = Modifier.fillMaxWidth().combinedClickable(
-                                        onClick = {
-                                            val mediaItem = song.asMediaItem
-                                            binder?.stopRadio()
-                                            binder?.player?.forcePlay(mediaItem)
-                                            binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-                                        },
-                                        onLongClick = {
-                                            menuState.display {
-                                                NonQueuedMediaItemMenu(
-                                                    onDismiss = menuState::hide,
-                                                    mediaItem = song.asMediaItem
-                                                )
-                                            }
-                                        }
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
 
-            QuickPicksSectionHeader(
+            QuickPicksSongShelf(
                 title = "LONG LISTEN",
-                modifier = sectionTextModifier,
+                songs = longListenSongs,
+                thumbnailSizePx = songThumbnailSizePx,
+                thumbnailSizeDp = songThumbnailSizeDp,
+                itemWidth = itemInHorizontalGridWidth,
+                endPaddingValues = endPaddingValues,
+                verticalList = true,
+                previewLimit = 5,
                 onPlay = { val items = longListenSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
-                onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "long_listen" }
+                onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "long_listen" },
+                onSongClick = { song ->
+                    val mediaItem = song.asMediaItem
+                    binder?.stopRadio()
+                    binder?.player?.forcePlay(mediaItem)
+                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                },
+                onSongLongClick = { song ->
+                    menuState.display { NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem) }
+                }
             )
-            if (longListenSongs.isEmpty() && isLoadingLongListen) {
-                ShimmerHost {
-                    repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
-                }
-            } else if (longListenSongs.isEmpty()) {
-                BasicText(
-                    text = "Finding long-form music. Pull down to retry.",
-                    style = typography.xs.secondary,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                )
-            } else {
-                LazyRow(
-                    state = longListenLazyListState,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    lazyRowItems(
-                        items = longListenSongs.take(15).chunked(5),
-                        key = { column -> column.firstOrNull()?.key.orEmpty() }
-                    ) { songColumn ->
-                        Column(
-                            modifier = Modifier.width(itemInHorizontalGridWidth),
-                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
-                        ) {
-                            songColumn.forEach { song ->
-                                SongItem(
-                                    song = song,
-                                    thumbnailSizePx = 64.dp.px,
-                                    thumbnailSizeDp = 64.dp,
-                                    modifier = Modifier.fillMaxWidth().combinedClickable(
-                                        onClick = {
-                                            val mediaItem = song.asMediaItem
-                                            binder?.stopRadio()
-                                            binder?.player?.forcePlay(mediaItem)
-                                            binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-                                        },
-                                        onLongClick = {
-                                            menuState.display {
-                                                NonQueuedMediaItemMenu(
-                                                    onDismiss = menuState::hide,
-                                                    mediaItem = song.asMediaItem
-                                                )
-                                            }
-                                        }
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
 
-
-            
             } else if (selectedQuickPicksShelf != null) {
                 val shelfKey = selectedQuickPicksShelf!!
                 val shelfTitle = when (shelfKey) {
@@ -789,7 +674,6 @@ fun QuickPicks(
                     "trending" -> "TRENDING SONGS"
                     "top" -> "TOP SONGS"
                     "new" -> "NEW RELEASES"
-                    "podcast" -> "PODCAST"
                     else -> "LONG LISTEN"
                 }
                 val shelfSongs = when (shelfKey) {
@@ -798,7 +682,6 @@ fun QuickPicks(
                     "top" -> topSongs
                     "new" -> newReleases
                     "long_listen" -> longListenSongs
-                    "podcast" -> podcastSongs
                     else -> longListenSongs
                 }
                 BasicText(
@@ -809,7 +692,7 @@ fun QuickPicks(
                 )
                 Header(title = shelfTitle)
                 QuickPicksSongShelf(
-                    title = if (shelfKey == "podcast") "ALL PODCAST EPISODES" else shelfTitle + " · ALL SONGS",
+                    title = shelfTitle + " · ALL SONGS",
                     songs = shelfSongs,
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
@@ -829,34 +712,6 @@ fun QuickPicks(
                 if (shelfKey in loadingShelfKeys || pendingShelfLoad == shelfKey) {
                     ShimmerHost { repeat(2) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) } }
                 }
-            } else if (selectedPodcastPage) {
-                BasicText(
-                    text = "‹  BACK TO QUICK PICKS",
-                    style = typography.s.semiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                        .clickable { selectedPodcastPage = false; restoreHomeScroll = true }
-                )
-                Header(title = "PODCASTS")
-                QuickPicksSongShelf(
-                    title = "PODCAST · ALL SONGS",
-                    songs = podcastSongs,
-                    thumbnailSizePx = songThumbnailSizePx,
-                    thumbnailSizeDp = songThumbnailSizeDp,
-                    itemWidth = itemInHorizontalGridWidth,
-                    endPaddingValues = endPaddingValues,
-                    verticalList = true,
-                    onSongClick = { song ->
-                        val mediaItem = song.asMediaItem
-                        binder?.stopRadio()
-                        binder?.player?.forcePlay(mediaItem)
-                        binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-                    },
-                    onSongLongClick = { song ->
-                        menuState.display {
-                            NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                        }
-                    }
-                )
             } else {
                 val category = selectedDiscoveryCategory!!
                 BasicText(
@@ -978,6 +833,7 @@ private fun QuickPicksSongShelf(
     itemWidth: androidx.compose.ui.unit.Dp,
     endPaddingValues: androidx.compose.foundation.layout.PaddingValues,
     verticalList: Boolean,
+    previewLimit: Int? = null,
     onLoadMore: (() -> Unit)? = null,
     onPlay: (() -> Unit)? = null,
     onViewAll: (() -> Unit)? = null,
@@ -985,9 +841,8 @@ private fun QuickPicksSongShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    // Podcast episodes keep their own duration behavior; every other standard
-    // shelf/detail card enforces the under-10-minute rule.
-    val displaySongs = if (title == "ALL PODCAST EPISODES") songs else filterRegularSongDuration(songs)
+    val filteredSongs = filterRegularSongDuration(songs)
+    val displaySongs = previewLimit?.let(filteredSongs::take) ?: filteredSongs
     val shelfGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
     LaunchedEffect(shelfGridState, displaySongs.size) {
         snapshotFlow {
@@ -1061,7 +916,7 @@ private fun QuickPicksSongShelf(
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth().height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
         ) {
-            items(items = songs.distinctBy(Innertube.SongItem::key).take(if (verticalList) Int.MAX_VALUE else 15), key = Innertube.SongItem::key) { song ->
+            items(items = displaySongs.distinctBy(Innertube.SongItem::key).take(if (verticalList) Int.MAX_VALUE else 15), key = Innertube.SongItem::key) { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = thumbnailSizePx,
@@ -1100,12 +955,8 @@ private fun calmMusicCategories(): List<DiscoverySubcategory> = listOf(
 private suspend fun fetchCalmMusicCategories(refreshCycle: Int): Map<String, List<Innertube.SongItem>> = coroutineScope {
     calmMusicCategories().map { category ->
         async {
-            // Use the dedicated query set for each Calm subcategory. Avoid adding
-            // generic "new songs/latest uploads" suffixes to ambient music searches.
-            val categoryQueries = discoverySearchQueries(category)
-            val categorySongs = fetchSearchAndRelatedBundle(categoryQueries)
-            val filteredSongs = filterDiscoverySongs(category, categorySongs)
-            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(prioritizeHindiSongs(filteredSongs, category.key)))
+            val categorySongs = fetchCategorySongsWithMinimum(category, discoverySearchQueries(category), minimum = 3)
+            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(prioritizeHindiSongs(categorySongs, category.key)))
         }
     }.awaitAll().toMap()
 }
@@ -1151,102 +1002,6 @@ private fun discoveryBundles(): List<DiscoveryBundle> {
     )
 }
 
-
-@Composable
-private fun QuickPicksPodcastShelf(
-    songs: List<Innertube.SongItem>,
-    itemWidth: androidx.compose.ui.unit.Dp,
-    isLoading: Boolean,
-    onViewAll: () -> Unit,
-    onSongClick: (Innertube.SongItem) -> Unit,
-    onPlayBundle: () -> Unit,
-    onSongLongClick: (Innertube.SongItem) -> Unit
-) {
-    val (_, typography) = LocalAppearance.current
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 24.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
-        ) {
-            BasicText(text = "PODCAST", style = typography.s.semiBold, modifier = Modifier.weight(1f))
-            Row(
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BasicText(
-                    text = "PLAY",
-                    style = typography.xs.semiBold,
-                    modifier = Modifier.clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.14f))
-                        .clickable(onClick = onPlayBundle)
-                        .padding(horizontal = 9.dp, vertical = 7.dp)
-                )
-                BasicText(
-                    text = "VIEW ALL",
-                    style = typography.xs.semiBold,
-                    modifier = Modifier.clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.14f))
-                        .clickable(onClick = onViewAll)
-                        .padding(horizontal = 9.dp, vertical = 7.dp)
-                )
-            }
-        }
-
-        if (songs.isNotEmpty()) {
-            LazyRow(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                lazyRowItems(
-                    items = songs.distinctBy(Innertube.SongItem::key).chunked(5),
-                    key = { column -> column.firstOrNull()?.key.orEmpty() }
-                ) { songColumn ->
-                    Column(
-                        modifier = Modifier.width(itemWidth),
-                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
-                    ) {
-                        songColumn.forEach { song ->
-                            SongItem(
-                                song = song,
-                                thumbnailSizePx = 64.dp.px,
-                                thumbnailSizeDp = 64.dp,
-                                modifier = Modifier.fillMaxWidth().combinedClickable(
-                                    onClick = { onSongClick(song) },
-                                    onLongClick = { onSongLongClick(song) }
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-        } else if (isLoading) {
-            ShimmerHost {
-                LazyRow(
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    lazyRowItems(items = listOf(0, 1, 2)) {
-                        Column(
-                            modifier = Modifier.width(itemWidth),
-                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
-                        ) {
-                            repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
-                        }
-                    }
-                }
-            }
-        } else {
-            BasicText(
-                text = "No podcast episodes found yet. Pull down to refresh.",
-                style = typography.xs.secondary,
-                modifier = Modifier.padding(vertical = 14.dp)
-            )
-        }
-    }
-}
 
 @Composable
 private fun QuickPicksDiscoveryShelf(
@@ -1416,7 +1171,10 @@ private suspend fun fetchIndiaDirectSongShelvesProgressive(
             }
         }.awaitAll().flatten()
         val complete = (firstPage + related).distinctBy(Innertube.SongItem::key)
-        val filtered = filterDiscoverySongs(category, complete)
+        val ensured = fetchCategorySongsWithMinimum(category, queries, minimum = 5)
+        val filtered = filterRegularSongDuration(
+            filterDiscoverySongs(category, (complete + ensured).distinctBy(Innertube.SongItem::key))
+        )
         onShelfLoaded(
             key,
             prioritizeHindiSongs(personalizeAndDiversify(filtered), category.key)
@@ -1449,80 +1207,6 @@ private suspend fun fetchIndiaDirectSongShelvesProgressive(
 }
 
 
-private suspend fun fetchQuickPicksPodcastSongs(
-    batchIndex: Int = 0
-): List<Innertube.SongItem> = coroutineScope {
-    val context = IndiaExploreContext
-
-    // Keep both existing Browse roots as sources, without changing any other category.
-    val roots = listOf(
-        async(Dispatchers.IO) {
-            runCatching { Innertube.musicHomePage(context)?.getOrNull() }.getOrNull()
-        },
-        async(Dispatchers.IO) {
-            runCatching { Innertube.musicExplorePage(context)?.getOrNull() }.getOrNull()
-        }
-    ).awaitAll().filterNotNull()
-
-    fun matchesPodcastMetadata(song: Innertube.SongItem): Boolean {
-        val text = buildString {
-            append(song.info?.name.orEmpty())
-            append(' ')
-            append(song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() })
-            append(' ')
-            append(song.album?.name.orEmpty())
-        }
-        return text.contains("podcast", ignoreCase = true)
-    }
-
-    // Read Podcast-related material from the two feeds, including playlist cards.
-    val rootItems = roots.flatMap { it.sections }.map { section ->
-        async(Dispatchers.IO) {
-            runCatching {
-                val openedSections = Innertube.browseSection(section, context)
-                    ?.getOrNull()?.sections.orEmpty()
-                val allItems = section.items + openedSections.flatMap { it.items }
-                val shelfIsPodcast = section.title.contains("podcast", ignoreCase = true)
-                val songs = allItems.filterIsInstance<Innertube.SongItem>()
-                    .filter { shelfIsPodcast || matchesPodcastMetadata(it) }
-                val playlists = allItems.filterIsInstance<Innertube.PlaylistItem>()
-                songs to playlists
-            }.getOrDefault(emptyList<Innertube.SongItem>() to emptyList())
-        }
-    }.awaitAll()
-
-    // Search only the exact word "podcast". Empty params deliberately avoid the
-    // dedicated Podcast/Episode search filters.
-    val searchItems = runCatching {
-        Innertube.searchPage<Innertube.Item>(
-            body = SearchBody(context = context, query = "podcast", params = ""),
-            fromMusicShelfRendererContent = Innertube.SongItem::from,
-            fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
-        )?.getOrNull()?.items.orEmpty()
-    }.getOrDefault(emptyList())
-
-    val directSearchSongs = searchItems.filterIsInstance<Innertube.SongItem>()
-    val playlists = (rootItems.flatMap { it.second } +
-        searchItems.filterIsInstance<Innertube.PlaylistItem>())
-        .distinctBy(Innertube.PlaylistItem::key)
-
-    // Open each returned playlist and collect its playable episode rows.
-    val playlistSongs = playlists.map { playlist ->
-        async(Dispatchers.IO) {
-            val browseId = playlist.info?.endpoint?.browseId
-            if (browseId.isNullOrBlank()) return@async emptyList()
-            runCatching {
-                Innertube.playlistPage(
-                    BrowseBody(context = context, browseId = browseId)
-                )?.getOrNull()?.songsPage?.items.orEmpty()
-            }.getOrDefault(emptyList())
-        }
-    }.awaitAll().flatten()
-
-    (rootItems.flatMap { it.first } + directSearchSongs + playlistSongs)
-        .distinctBy(Innertube.SongItem::key)
-        .filter { it.durationText.toDurationSeconds() > 15 * 60 }
-}
 private suspend fun fetchLongListenSongs(batchIndex: Int = 0): List<Innertube.SongItem> = coroutineScope {
     // Long Listen uses long-form video search, not the regular Song Search shelf.
     // Four independent queries per batch prevent one sparse query limiting results.
@@ -1579,7 +1263,6 @@ private suspend fun fetchMoreQuickPicksShelf(
     currentSongs: List<Innertube.SongItem>,
     batchIndex: Int
 ): List<Innertube.SongItem> {
-    if (shelfKey == "podcast") return fetchQuickPicksPodcastSongs(batchIndex)
     if (shelfKey == "long_listen") return fetchLongListenSongs(batchIndex)
     if (shelfKey == "for_you") {
         val seeds = currentSongs.takeLast(10)
@@ -1635,6 +1318,32 @@ private suspend fun fetchMoreQuickPicksShelf(
     return personalizeAndDiversify(prioritizeHindiSongs(relevant, category.key))
 }
 
+private suspend fun fetchCategorySongsWithMinimum(
+    category: DiscoverySubcategory,
+    queries: List<String>,
+    minimum: Int
+): List<Innertube.SongItem> = coroutineScope {
+    val candidates = fetchSearchAndRelatedBundle(queries).toMutableList()
+    fun validSongs(): List<Innertube.SongItem> =
+        filterRegularSongDuration(filterDiscoverySongs(category, candidates))
+    var valid = validSongs()
+    if (valid.size < minimum) {
+        val extraQueries = when (category.key) {
+            "calm_alpha" -> listOf("alpha waves ambient instrumental focus music", "8hz alpha waves relaxing music")
+            "calm_beta" -> listOf("beta waves concentration ambient instrumental", "beta frequency focus music")
+            "calm_gamma" -> listOf("gamma waves ambient instrumental focus music", "gamma frequency meditation music")
+            "calm_meditation" -> listOf("peaceful meditation instrumental ambient music", "mindfulness meditation background music")
+            else -> queries.flatMap { listOf("$it official audio", "$it full song") }.distinct()
+        }
+        for (query in extraQueries) {
+            candidates += fetchSongsByCategoryWithFallback(query)
+            valid = validSongs()
+            if (valid.size >= minimum) break
+        }
+    }
+    valid.distinctBy(Innertube.SongItem::key)
+}
+
 private suspend fun fetchQuickPickDiscoveryCategories(
     refreshCycle: Int,
     onCategoryLoaded: suspend (String, List<Innertube.SongItem>) -> Unit
@@ -1642,45 +1351,16 @@ private suspend fun fetchQuickPickDiscoveryCategories(
     discoveryBundles().flatMap { it.categories }.map { category ->
         async {
             val isPersonal = category.kind == "personal"
-            val queries = when {
-                isPersonal -> emptyList()
-                // Regional Mix needs one search for each supported South Indian language.
-                category.key == "mix_regional" -> discoverySearchQueries(category)
-                else -> cycleCategoryQueries(discoverySearchQueries(category), refreshCycle, 1)
-            }
-
-            // First paint: show filtered Song Search/history results immediately.
-            val searchFeed = if (isPersonal) {
-                fetchPersonalizedSongsForYou(refreshCycle)
+            val queries = if (isPersonal) emptyList() else discoverySearchQueries(category)
+            val categorySongs = if (isPersonal) {
+                filterRegularSongDuration(fetchPersonalizedSongsForYou(refreshCycle))
             } else {
-                fetchSearchOnlyBundle(queries)
+                fetchCategorySongsWithMinimum(category, queries, minimum = 3)
             }
-            val initialFiltered = filterDiscoverySongs(category, searchFeed)
-            val initialRanked = prioritizeHindiSongs(initialFiltered, category.key)
-            val initialSongs = rotateDiscoverySongsDaily(personalizeAndDiversify(initialRanked))
-            if (initialSongs.isNotEmpty()) onCategoryLoaded(category.key, initialSongs)
-
-            // Enrich non-language-specific shelves in the background using the same
-            // Related Songs source and the exact same category filter as before.
-            val completeFeed = if (isPersonal || category.key in strictLanguageCategoryKeys) {
-                searchFeed
-            } else {
-                val related = searchFeed.take(10).map { seed ->
-                    async(Dispatchers.IO) {
-                        runCatching {
-                            Innertube.relatedPage(
-                                NextBody(context = IndiaExploreContext, videoId = seed.key)
-                            )?.getOrNull()?.songs.orEmpty()
-                        }.getOrDefault(emptyList())
-                    }
-                }.awaitAll().flatten()
-                (searchFeed + related).distinctBy(Innertube.SongItem::key)
-            }
-
-            val categoryFiltered = filterDiscoverySongs(category, completeFeed)
-            val prioritized = prioritizeHindiSongs(categoryFiltered, category.key)
-            val finalSongs = rotateDiscoverySongsDaily(personalizeAndDiversify(prioritized))
-            onCategoryLoaded(category.key, finalSongs)
+            val finalSongs = rotateDiscoverySongsDaily(
+                personalizeAndDiversify(prioritizeHindiSongs(categorySongs, category.key))
+            )
+            if (finalSongs.isNotEmpty()) onCategoryLoaded(category.key, finalSongs)
             category.key to finalSongs
         }
     }.awaitAll().toMap()
@@ -1772,7 +1452,13 @@ private fun filterDiscoverySongs(
         val metadata = (title + " " +
             song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
         val isPersonalTaste = category.kind == "personal"
-        if (!isPersonalTaste && devotionalTerms.any(metadata::contains)) return@filter false
+        val isCalmCategory = category.key.startsWith("calm_")
+        val blockedDevotionalTerms = if (category.key == "calm_meditation") {
+            devotionalTerms - setOf("mantra")
+        } else if (isCalmCategory) {
+            devotionalTerms - setOf("mantra", "devotional")
+        } else devotionalTerms
+        if (!isPersonalTaste && blockedDevotionalTerms.any(metadata::contains)) return@filter false
 
         val hasTamil = containsScript(metadata, 0x0B80, 0x0BFF)
         val hasTelugu = containsScript(metadata, 0x0C00, 0x0C7F)
