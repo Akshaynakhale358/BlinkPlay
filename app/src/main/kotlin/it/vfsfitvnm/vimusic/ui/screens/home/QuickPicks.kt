@@ -133,7 +133,9 @@ private suspend fun fetchQuickPicksPodcastSongs(
                 body = SearchBody(
                     context = context,
                     query = "podcast",
-                    params = Innertube.SearchFilter.Episode.value
+                    // No restrictive Episode filter: YouTube Music often returns an empty tab for it.
+                    // The single "podcast" query itself ranks podcast episodes; parse its video rows.
+                    params = ""
                 ),
                 fromMusicShelfRendererContent = { content ->
                     Innertube.VideoItem.from(content)?.let { video ->
