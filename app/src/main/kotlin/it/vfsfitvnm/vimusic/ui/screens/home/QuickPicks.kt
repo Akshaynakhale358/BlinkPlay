@@ -224,22 +224,26 @@ private suspend fun fetchQuickPicksPodcastSongs(
                                 "song", "official music video", "lyric video", "karaoke",
                                 "trailer", "teaser", "promo", "reaction", "review"
                             ).any(title::contains)
+                            // Video-tab results are only a last-resort source. A podcast
+                            // search query alone is NOT proof that a result is a podcast:
+                            // YouTube often mixes ordinary songs and music videos into it.
                             val podcastClue = listOf(
-                                "podcast", "episode", "full interview", " बातचीत ",
-                                " मुलाखत ", "चर्चा", "with "
+                                "podcast", "episode", "full interview", "interview",
+                                "conversation", "talk show", "talks", "discussion",
+                                "प्रवचन", "विचार", "मुलाखत", "चर्चा", "संवाद",
+                                "osho", "sadhguru", "j krishnamurti", "krishnamurti",
+                                "spiritual discourse", "lecture", "full talk"
                             ).any(title::contains)
                             val longEnough = video.durationText.toDurationSeconds() >= 8 * 60
                             val isMusicVideo = musicType == "MUSIC_VIDEO_TYPE_OMV"
-                            if (excluded || !longEnough || isMusicVideo) null
-                            else if (podcastClue || query.contains("podcast", ignoreCase = true)) {
-                                Innertube.SongItem(
-                                    info = video.info,
-                                    authors = video.authors,
-                                    album = null,
-                                    durationText = video.durationText,
-                                    thumbnail = video.thumbnail
-                                )
-                            } else null
+                            if (excluded || !longEnough || isMusicVideo || !podcastClue) null
+                            else Innertube.SongItem(
+                                info = video.info,
+                                authors = video.authors,
+                                album = null,
+                                durationText = video.durationText,
+                                thumbnail = video.thumbnail
+                            )
                         }
                     }
                 )?.getOrNull()?.items.orEmpty()
