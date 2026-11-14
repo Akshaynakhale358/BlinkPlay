@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -291,43 +290,57 @@ private fun HomeSongCategoryCard(
     LaunchedEffect(category, dailySeed, refreshToken, retryKey) {
         failed = false
         val result = withContext(Dispatchers.IO) { fetchHomeSongCategory(category, null, dailySeed, refreshToken) }
-        songs = result?.getOrNull()?.items.orEmpty().distinctBy { it.key }.take(15)
+        songs = result?.getOrNull()?.items.orEmpty().take(20)
         failed = result == null || result.isFailure
+    }
+
+    val categoryArtwork = songs.orEmpty().takeIf { it.isNotEmpty() }?.let { available ->
+        // Rotate the category banner on each refresh; never reuse the first visible song artwork by default.
+        val artworkIndex = Math.floorMod(dailySeed + category.name.hashCode() + refreshToken, available.size)
+        available[artworkIndex].thumbnail?.size(320)
     }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 7.dp)
-            .clip(RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(26.dp))
             .background(Color(0xFF29231B))
             .padding(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(128.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color(0xFF40372C))
+                .clickable { songs?.firstOrNull()?.let(onSongClick) }
         ) {
-            BasicText(text = category.name.uppercase(), style = typography.s.semiBold)
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(
+                model = categoryArtwork,
+                contentDescription = category.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.48f))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                BasicText(text = category.name.uppercase(), style = typography.s.semiBold)
+                BasicText(text = "UPDATED DAILY", style = typography.xs.secondary,
+                    modifier = Modifier.padding(top = 4.dp))
                 BasicText(
-                    text = "▶ PLAY",
+                    text = "▶  PLAY BUNDLE",
                     style = typography.xs.semiBold,
                     modifier = Modifier
+                        .padding(top = 8.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.14f))
+                        .background(Color.White.copy(alpha = 0.18f))
                         .clickable { onPlayBundle(songs.orEmpty()) }
-                        .padding(horizontal = 11.dp, vertical = 8.dp)
-                )
-                BasicText(
-                    text = "VIEW ALL  ›",
-                    style = typography.xs.semiBold,
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.14f))
-                        .clickable(onClick = onViewAll)
-                        .padding(horizontal = 11.dp, vertical = 8.dp)
+                        .padding(horizontal = 12.dp, vertical = 7.dp)
                 )
             }
         }
@@ -339,32 +352,29 @@ private fun HomeSongCategoryCard(
                 style = typography.xs.secondary,
                 modifier = Modifier.fillMaxWidth().clickable { retryKey += 1 }.padding(vertical = 18.dp)
             )
-            else -> {
-                val columns = songs.orEmpty().take(15).chunked(3)
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(columns, key = { column -> column.firstOrNull()?.key.orEmpty() }) { column ->
-                        Column(
-                            modifier = Modifier.width(292.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            column.forEach { song ->
-                                SongItem(
-                                    song = song,
-                                    thumbnailSizePx = 64.dp.px,
-                                    thumbnailSizeDp = 64.dp,
-                                    modifier = Modifier.fillMaxWidth().combinedClickable(
-                                        onLongClick = { onSongLongClick(song) },
-                                        onClick = { onSongClick(song) }
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
+            else -> songs.orEmpty().take(3).forEach { song ->
+                SongItem(
+                    song = song,
+                    thumbnailSizePx = 64.dp.px,
+                    thumbnailSizeDp = 64.dp,
+                    modifier = Modifier.fillMaxWidth().combinedClickable(
+                        onLongClick = { onSongLongClick(song) },
+                        onClick = { onSongClick(song) }
+                    )
+                )
             }
         }
+
+        BasicText(
+            text = "VIEW ALL  ›",
+            style = typography.xs.semiBold,
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(top = 8.dp, end = 4.dp, bottom = 2.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Color.White.copy(alpha = 0.14f))
+                .clickable(onClick = onViewAll)
+                .padding(horizontal = 14.dp, vertical = 9.dp)
+        )
     }
 }
