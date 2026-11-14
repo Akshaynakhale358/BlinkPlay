@@ -111,12 +111,18 @@ private suspend fun fetchQuickPicksPodcastSongs(refreshToken: Int): List<Innertu
     // Search separate Hindi, Marathi and India-wide podcast phrases in parallel.
     // Video filter avoids ordinary music-search results; metadata filtering removes music clips.
     val baseQueries = listOf(
-        "Hindi podcast full episodes interviews conversations",
-        "Marathi podcast मुलाखत पूर्ण भाग",
-        "Indian podcasts latest full episode",
-        "Hindi motivational podcast long interview",
-        "Marathi podcast गप्पा चर्चा full episode",
-        "Indian creator podcast conversation full video"
+        "Hindi podcast full episode latest interview",
+        "Marathi podcast मुलाखत पूर्ण भाग full episode",
+        "Indian podcast full episode conversation",
+        "Hindi motivational podcast complete interview",
+        "Marathi podcast गप्पा चर्चा पूर्ण भाग",
+        "Indian creator podcast full conversation",
+        "Hindi podcast long form interview 2026",
+        "Marathi podcast full episode मुलाखत",
+        "Indian business podcast full episode",
+        "Hindi comedy podcast full episode",
+        "Indian news podcast complete episode",
+        "Indian celebrity podcast full interview"
     )
     val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN"))
     val shift = Math.floorMod(refreshToken, baseQueries.size)
@@ -151,13 +157,13 @@ private suspend fun fetchQuickPicksPodcastSongs(refreshToken: Int): List<Innertu
         val authors = song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }
         val metadata = "$title $authors".lowercase()
         val hasPodcastSignal = podcastTerms.any(metadata::contains)
-        val longFormTalk = durationSeconds(song.durationText) >= 600L
+        val longFormTalk = durationSeconds(song.durationText) >= 300L
         hasPodcastSignal || longFormTalk
     }
 
     // Existing listening history/favourites personalize ranking, while artist diversification
     // prevents one podcast channel from filling the whole shelf.
-    personalizeAndDiversify(relevant).take(20)
+    personalizeAndDiversify(relevant).take(60)
 }
 
 @ExperimentalFoundationApi
@@ -567,45 +573,11 @@ fun QuickPicks(
                 }
             )
 
-        when {
-            serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
-                sections = serverDiscovery!!.sections,
-                sectionTextModifier = sectionTextModifierAfterPodcast,
-                onSongClick = { song ->
-                    val mediaItem = song.asMediaItem
-                    binder?.stopRadio()
-                    binder?.player?.forcePlay(mediaItem)
-                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-                },
-                onSongLongClick = { song ->
-                    menuState.display {
-                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                    }
-                },
-                onAlbumClick = onAlbumClick,
-                onArtistClick = onArtistClick,
-                onPlaylistClick = onPlaylistClick,
-                onCategoryClick = { id, params ->
-                    onPlaylistClick(browseCategoryRoute(id, params))
-                }
-            )
-            else -> ShimmerHost {
-                repeat(3) { TextPlaceholder(modifier = sectionTextModifier) }
-                Row {
-                    repeat(3) { PlaylistItemPlaceholder(thumbnailSizeDp = playlistThumbnailSizeDp, alternative = true) }
-                }
-            }
-            }
-
             BasicText(
                 text = "LONG LISTEN",
                 style = typography.s.semiBold,
-                // Pull this header up to remove the remaining visible gap after Calm Categories.
-                modifier = Modifier
-                    .offset(y = (-24).dp)
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 8.dp)
-                    .padding(endPaddingValues)
+                // Place Long Listen immediately after Podcast; no intervening browse shelves.
+                modifier = sectionTextModifierAfterPodcast
             )
             if (longListenSongs.isEmpty()) {
                 ShimmerHost {
@@ -652,6 +624,36 @@ fun QuickPicks(
                     }
                 }
             }
+        when {
+            serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
+                sections = serverDiscovery!!.sections,
+                sectionTextModifier = sectionTextModifierAfterPodcast,
+                onSongClick = { song ->
+                    val mediaItem = song.asMediaItem
+                    binder?.stopRadio()
+                    binder?.player?.forcePlay(mediaItem)
+                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                },
+                onSongLongClick = { song ->
+                    menuState.display {
+                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                    }
+                },
+                onAlbumClick = onAlbumClick,
+                onArtistClick = onArtistClick,
+                onPlaylistClick = onPlaylistClick,
+                onCategoryClick = { id, params ->
+                    onPlaylistClick(browseCategoryRoute(id, params))
+                }
+            )
+            else -> ShimmerHost {
+                repeat(3) { TextPlaceholder(modifier = sectionTextModifier) }
+                Row {
+                    repeat(3) { PlaylistItemPlaceholder(thumbnailSizeDp = playlistThumbnailSizeDp, alternative = true) }
+                }
+            }
+            }
+
             } else if (selectedPodcastPage) {
                 BasicText(
                     text = "‹  BACK TO QUICK PICKS",
