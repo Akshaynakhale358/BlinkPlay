@@ -63,8 +63,6 @@ import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.requests.indiaChartSongs
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.requests.playlistPage
-import it.vfsfitvnm.innertube.requests.searchPodcastPage
-import it.vfsfitvnm.innertube.requests.searchPodcastEpisodesPage
 import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
@@ -1448,37 +1446,48 @@ private suspend fun fetchIndiaDirectSongShelvesProgressive(
 private suspend fun fetchQuickPicksPodcastSongs(
     batchIndex: Int = 0
 ): List<Innertube.SongItem> = coroutineScope {
-    // Keep the two existing dedicated Podcast roots. Both searches use only
-    // the exact keyword "podcast"; the root-specific filter selects the result type.
-    val context = Context.DefaultWeb.copy(
-        client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
-    )
+    // Reuse the same two searchPage roots used by other categories:
+    // Song Search and Video Search. Search only the exact keyword "podcast".
+    // Do not use dedicated Podcast/Episode filters or add related queries.
+    val context = IndiaExploreContext
 
-    val podcastRoot = async(Dispatchers.IO) {
+    val songSearchRoot = async(Dispatchers.IO) {
         runCatching {
-            Innertube.searchPodcastPage(
-                SearchBody(
+            Innertube.searchPage(
+                body = SearchBody(
                     context = context,
                     query = "podcast",
-                    params = Innertube.SearchFilter.Podcast.value
-                )
-            )?.getOrNull().orEmpty()
+                    params = Innertube.SearchFilter.Song.value
+                ),
+                fromMusicShelfRendererContent = Innertube.SongItem::from
+            )?.getOrNull()?.items.orEmpty()
         }.getOrDefault(emptyList())
     }
 
-    val episodeRoot = async(Dispatchers.IO) {
+    val videoSearchRoot = async(Dispatchers.IO) {
         runCatching {
-            Innertube.searchPodcastEpisodesPage(
-                SearchBody(
+            Innertube.searchPage(
+                body = SearchBody(
                     context = context,
                     query = "podcast",
-                    params = Innertube.SearchFilter.Episode.value
-                )
-            )?.getOrNull().orEmpty()
+                    params = Innertube.SearchFilter.Video.value
+                ),
+                fromMusicShelfRendererContent = { content ->
+                    Innertube.VideoItem.from(content)?.let { video ->
+                        Innertube.SongItem(
+                            info = video.info,
+                            authors = video.authors,
+                            album = null,
+                            durationText = video.durationText,
+                            thumbnail = video.thumbnail
+                        )
+                    }
+                }
+            )?.getOrNull()?.items.orEmpty()
         }.getOrDefault(emptyList())
     }
 
-    (podcastRoot.await() + episodeRoot.await())
+    (songSearchRoot.await() + videoSearchRoot.await())
         .distinctBy(Innertube.SongItem::key)
         .filter { it.durationText.toDurationSeconds() > 15 * 60 }
 }
