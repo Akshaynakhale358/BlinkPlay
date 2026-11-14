@@ -152,7 +152,7 @@ private suspend fun fetchQuickPicksPodcastSongs(refreshToken: Int): List<Innertu
         val metadata = "$title $authors".lowercase()
         val hasPodcastSignal = podcastTerms.any(metadata::contains)
         val longFormTalk = durationSeconds(song.durationText) >= 600L
-        !song.isOfficialMusicVideo && (hasPodcastSignal || longFormTalk)
+        hasPodcastSignal || longFormTalk
     }
 
     // Existing listening history/favourites personalize ranking, while artist diversification
