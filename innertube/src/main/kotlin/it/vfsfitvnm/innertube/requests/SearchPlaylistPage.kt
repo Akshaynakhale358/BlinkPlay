@@ -121,118 +121,27 @@ private fun JsonElement.podcastSearchDescendants(): Sequence<JsonElement> = sequ
  * Podcast shows use MPSP browse IDs; they are not ordinary featured playlists.
  */
 suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancellable {
-    // Keep the dedicated Podcast filter, but inspect the complete response tree.
-    // YouTube Music has returned podcast rows outside the usual tabbed-search
-    // wrapper in some client experiments; parsing only tabs silently drops them.
     val raw = client.post(search) {
         setBody(body)
         mask("*")
     }.body<String>()
     val root = podcastSearchJson.parseToJsonElement(raw)
-    val response = runCatching {
-        podcastSearchJson.decodeFromJsonElement<SearchResponse>(root)
-    }.getOrNull()
 
-    val tabs = response?.contents
-        ?.tabbedSearchResultsRenderer
-        ?.tabs
-        .orEmpty()
-
-    val tabResults = tabs.flatMap { tab ->
-        tab.tabRenderer
-            ?.content
-            ?.sectionListRenderer
-            ?.contents
-            .orEmpty()
-            .flatMap { section ->
-                buildList {
-                    section.musicShelfRenderer
-                        ?.contents
-                        ?.mapNotNull { it.musicResponsiveListItemRenderer }
-                        ?.mapNotNull { renderer ->
-                            val titleRun = renderer.flexColumns
-                                .firstOrNull()
-                                ?.musicResponsiveListItemFlexColumnRenderer
-                                ?.text
-                                ?.runs
-                                ?.firstOrNull()
-                            val endpoint = renderer.navigationEndpoint?.browseEndpoint
-                                ?: titleRun?.navigationEndpoint?.browseEndpoint
-                            val browseId = endpoint?.browseId
-                            if (browseId.isNullOrBlank()) return@mapNotNull null
-
-                            Innertube.PlaylistItem(
-                                info = Innertube.Info(name = titleRun?.text, endpoint = endpoint),
-                                channel = renderer.flexColumns
-                                    .getOrNull(1)
-                                    ?.musicResponsiveListItemFlexColumnRenderer
-                                    ?.text
-                                    ?.runs
-                                    ?.firstOrNull()
-                                    ?.let(Innertube::Info),
-                                songCount = null,
-                                thumbnail = renderer.thumbnail
-                                    ?.musicThumbnailRenderer
-                                    ?.thumbnail
-                                    ?.thumbnails
-                                    ?.firstOrNull()
-                            )
-                        }
-                        ?.forEach { add(it) }
-                    section.gridRenderer
-                        ?.items
-                        ?.mapNotNull { it.musicTwoRowItemRenderer }
-                        ?.mapNotNull { Innertube.PlaylistItem.from(it) }
-                        ?.forEach { add(it) }
-                }
-            }
-    }
-
-    val recursiveFallback = if (tabResults.isEmpty()) {
-        root.podcastSearchDescendants()
-            .mapNotNull { node ->
-                val rendererJson = (node as? JsonObject)
-                    ?.get("musicResponsiveListItemRenderer") ?: return@mapNotNull null
-                runCatching {
-                    podcastSearchJson.decodeFromJsonElement<MusicResponsiveListItemRenderer>(rendererJson)
-                }.getOrNull()?.let { renderer ->
-                    val titleRun = renderer.flexColumns
-                        .firstOrNull()
-                        ?.musicResponsiveListItemFlexColumnRenderer
-                        ?.text
-                        ?.runs
-                        ?.firstOrNull()
-                    val endpoint = renderer.navigationEndpoint?.browseEndpoint
-                        ?: titleRun?.navigationEndpoint?.browseEndpoint
-                    val browseId = endpoint?.browseId
-                    if (browseId.isNullOrBlank()) null else Innertube.PlaylistItem(
-                        info = Innertube.Info(name = titleRun?.text, endpoint = endpoint),
-                        channel = renderer.flexColumns
-                            .getOrNull(1)
-                            ?.musicResponsiveListItemFlexColumnRenderer
-                            ?.text
-                            ?.runs
-                            ?.firstOrNull()
-                            ?.let(Innertube::Info),
-                        songCount = null,
-                        thumbnail = renderer.thumbnail
-                            ?.musicThumbnailRenderer
-                            ?.thumbnail
-                            ?.thumbnails
-                            ?.firstOrNull()
-                    )
-                }
-            }
-            .toList()
-    } else emptyList()
-
-    // This is already the dedicated Podcast search root. Avoid an extra
-    // browse-ID prefix restriction; keep every browseable result and let
-    // episode-feed loading determine which roots contain playable episodes.
-    (tabResults + recursiveFallback)
-        .distinctBy(Innertube.PlaylistItem::key)
+    // This Podcast search root is also a direct source of playable episode rows.
+    // Keep the search results themselves; do not turn show results into a second
+    // playlist/browse request.
+    root.podcastSearchDescendants()
+        .mapNotNull { node ->
+            val rendererJson = (node as? JsonObject)
+                ?.get("musicResponsiveListItemRenderer")
+                ?: return@mapNotNull null
+            runCatching {
+                podcastSearchJson.decodeFromJsonElement<MusicResponsiveListItemRenderer>(rendererJson)
+            }.getOrNull()?.let(Innertube.SongItem::from)
+        }
+        .distinctBy(Innertube.SongItem::key)
+        .toList()
 }
-
 
 /**
  * Podcast episode root: search the single word "podcast" without a restrictive
