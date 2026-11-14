@@ -371,7 +371,7 @@ fun QuickPicks(
         var loadedLongListen = emptyList<Innertube.SongItem>()
         try {
             withContext(Dispatchers.IO) {
-                for (batch in 0 until 8) {
+                for (batch in 0 until 1) {
                     val next = runCatching { fetchLongListenSongs(batch + refreshToken * 2) }.getOrDefault(emptyList())
                     loadedLongListen = (loadedLongListen + next).distinctBy(Innertube.SongItem::key)
                     if (loadedLongListen.size >= 15) break
@@ -1253,7 +1253,7 @@ private fun calmMusicCategories(): List<DiscoverySubcategory> = listOf(
 private suspend fun fetchCalmMusicCategories(refreshCycle: Int): Map<String, List<Innertube.SongItem>> = coroutineScope {
     calmMusicCategories().map { category ->
         async {
-            val categoryQueries = cycleCategoryQueries(listOf(category.query, "${category.title} instrumental relaxing music"), refreshCycle, 2)
+            val categoryQueries = cycleCategoryQueries(listOf(category.query, "${category.title} instrumental relaxing music"), refreshCycle, 1)
             val categorySongs = fetchSearchAndRelatedBundle(categoryQueries)
             val filteredSongs = filterDiscoverySongs(category, categorySongs)
             category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(prioritizeHindiSongs(filteredSongs, category.key)))
@@ -1611,7 +1611,7 @@ private suspend fun fetchQuickPickDiscoveryCategories(refreshCycle: Int): Map<St
                 // The taste shelf is sourced from listening history and favourites.
                 fetchPersonalizedSongsForYou(refreshCycle)
             } else {
-                val queries = cycleCategoryQueries(discoverySearchQueries(category), refreshCycle, 2)
+                val queries = cycleCategoryQueries(discoverySearchQueries(category), refreshCycle, 1)
                 if (category.key in strictLanguageCategoryKeys) {
                     fetchSearchOnlyBundle(queries)
                 } else {
@@ -1998,7 +1998,7 @@ private suspend fun fetchPersonalizedSongsForYou(refreshCycle: Int = 0): List<In
         return@coroutineScope fetchSearchAndRelatedBundle(
             cycleCategoryQueries(
                 listOf("popular Hindi songs India", "popular Marathi songs India", "latest Hindi hit songs India", "popular Indian indie songs", "viral Bollywood songs India", "new Marathi hit songs"),
-                refreshCycle, 3
+                refreshCycle, 1
             )
         ).distinctBy(Innertube.SongItem::key)
     }
@@ -2069,7 +2069,7 @@ private suspend fun fetchIndiaDirectSongShelves(refreshCycle: Int): Triple<
     // Merge search results to fill the shelf, while keeping chart ranking first.
     val trendingQueries = cycleCategoryQueries(
         listOf("India trending viral songs this week Hindi Marathi", "latest trending Indian hit songs chart", "viral Hindi Marathi songs India this week", "trending Indian music videos songs"),
-        refreshCycle, 2
+        refreshCycle, 1
     )
     val topQueries = cycleCategoryQueries(
         listOf("India top chart songs Hindi Marathi", "most popular Indian songs chart", "top Hindi Bollywood songs India chart", "India top Punjabi Tamil Telugu songs"),
