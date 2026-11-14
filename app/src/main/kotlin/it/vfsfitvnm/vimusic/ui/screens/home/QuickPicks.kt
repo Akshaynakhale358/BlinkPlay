@@ -107,8 +107,7 @@ private fun Innertube.VideoItem.toQuickPicksPodcastSong() = Innertube.SongItem(
 )
 
 private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube.SongItem> = coroutineScope {
-    // Search several independent podcast queries per batch. Try the Video filter first,
-    // then the Song filter as a fallback because episodes can appear in either shelf.
+    // Search several independent podcast queries per batch using YouTube's Video filter.
     val baseQueries = listOf(
         "Hindi podcast full episode latest interview",
         "Marathi podcast मुलाखत पूर्ण भाग full episode",
@@ -151,8 +150,7 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
                 )?.getOrNull()?.items.orEmpty()
             }.getOrDefault(emptyList())
 
-            // Keep podcast results on the Video search root only. Song-filter fallback
-            // was allowing ordinary long music tracks to enter this episode shelf.
+            // Keep episode candidates from the Video search root; long-form filtering follows.
             videoItems.distinctBy(Innertube.SongItem::key)
         }
     }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
@@ -1259,18 +1257,18 @@ private fun QuickPicksPodcastShelf(
                     modifier = Modifier.fillMaxWidth().combinedClickable(
                         onClick = { onSongClick(song) }, onLongClick = { onSongLongClick(song) }))
             }
-            BasicText(
-                text = "VIEW ALL  ›",
-                style = typography.xs.semiBold,
-                modifier = Modifier
-                    .align(Alignment.End)
-                    .padding(top = 8.dp, end = 4.dp, bottom = 2.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.14f))
-                    .clickable(onClick = onViewAll)
-                    .padding(horizontal = 14.dp, vertical = 9.dp)
-            )
         }
+        BasicText(
+            text = "VIEW ALL  ›",
+            style = typography.xs.semiBold,
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(top = 8.dp, end = 4.dp, bottom = 2.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Color.White.copy(alpha = 0.14f))
+                .clickable(onClick = onViewAll)
+                .padding(horizontal = 14.dp, vertical = 9.dp)
+        )
     }
 }
 
