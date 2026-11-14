@@ -134,8 +134,8 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                 tabColumnContent = { Item ->
                     Item(0, "Quick picks", R.drawable.sparkles)
                     Item(1, "Songs", R.drawable.musical_notes)
-                    Item(2, "Artists", R.drawable.person)
-                    Item(3, "Albums", R.drawable.disc)
+                    Item(2, "Albums", R.drawable.disc)
+                    Item(3, "Artists", R.drawable.person)
                 },
                 bottomContent = {
                     Spacer(modifier = Modifier.height(12.dp))
@@ -171,13 +171,13 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                             onPlaylistClick = { playlistRoute(it) }
                         )
 
-                        2 -> HomeArtistList(
-                            onArtistClick = { artistRoute(it) },
+                        2 -> HomeAlbums(
+                            onAlbumClick = { albumRoute(it) },
                             onSearchClick = { searchRoute("") }
                         )
 
-                        3 -> HomeAlbums(
-                            onAlbumClick = { albumRoute(it) },
+                        3 -> HomeArtistList(
+                            onArtistClick = { artistRoute(it) },
                             onSearchClick = { searchRoute("") }
                         )
                     }
