@@ -654,6 +654,7 @@ fun QuickPicks(
                 endPaddingValues = endPaddingValues,
                 verticalList = true,
                 previewLimit = 5,
+                regularDurationOnly = false,
                 onPlay = { val items = longListenSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "long_listen" },
                 onSongClick = { song ->
@@ -699,6 +700,7 @@ fun QuickPicks(
                     itemWidth = itemInHorizontalGridWidth,
                     endPaddingValues = endPaddingValues,
                     verticalList = true,
+                    regularDurationOnly = shelfKey != "long_listen",
                     onSongClick = { song ->
                         val mediaItem = song.asMediaItem
                         binder?.stopRadio()
@@ -834,6 +836,7 @@ private fun QuickPicksSongShelf(
     endPaddingValues: androidx.compose.foundation.layout.PaddingValues,
     verticalList: Boolean,
     previewLimit: Int? = null,
+    regularDurationOnly: Boolean = true,
     onLoadMore: (() -> Unit)? = null,
     onPlay: (() -> Unit)? = null,
     onViewAll: (() -> Unit)? = null,
@@ -841,7 +844,7 @@ private fun QuickPicksSongShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    val filteredSongs = filterRegularSongDuration(songs)
+    val filteredSongs = if (regularDurationOnly) filterRegularSongDuration(songs) else songs.distinctBy(Innertube.SongItem::key)
     val displaySongs = previewLimit?.let(filteredSongs::take) ?: filteredSongs
     val shelfGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
     LaunchedEffect(shelfGridState, displaySongs.size) {
@@ -1353,7 +1356,14 @@ private suspend fun fetchQuickPickDiscoveryCategories(
             val isPersonal = category.kind == "personal"
             val queries = if (isPersonal) emptyList() else discoverySearchQueries(category)
             val categorySongs = if (isPersonal) {
-                filterRegularSongDuration(fetchPersonalizedSongsForYou(refreshCycle))
+                var personal = filterRegularSongDuration(fetchPersonalizedSongsForYou(refreshCycle))
+                if (personal.size < 3) {
+                    val fallback = fetchSearchAndRelatedBundle(
+                        listOf("popular Indian hit songs", "popular Hindi Marathi songs", "popular Indian pop music")
+                    )
+                    personal = filterRegularSongDuration((personal + fallback).distinctBy(Innertube.SongItem::key))
+                }
+                personal
             } else {
                 fetchCategorySongsWithMinimum(category, queries, minimum = 3)
             }
@@ -1512,7 +1522,7 @@ private fun filterDiscoverySongs(
         "trend_regional" -> listOf("tamil", "telugu", "kannada", "malayalam", "punjabi", "regional")
         "mix_marathi", "trend_marathi" -> listOf("marathi", "मराठी")
         "mix_punjabi" -> listOf("punjabi", "ਪੰਜਾਬੀ")
-        "mix_regional", "trend_regional" -> listOf("tamil", "telugu", "kannada", "malayalam")
+        "mix_regional" -> listOf("tamil", "telugu", "kannada", "malayalam")
         "mix_romantic", "together_romance" -> listOf("romantic", "love", "ishq", "pyaar", "प्रेम", "प्यार", "लव")
         "mix_chill", "together_chill" -> listOf("chill", "acoustic", "soft", "relax", "lofi", "lo-fi", "calm")
         "trend_reels" -> listOf("reels", "viral", "instagram", "shorts", "trending")
