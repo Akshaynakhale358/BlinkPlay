@@ -177,7 +177,7 @@ fun HomeArtistList(
             rowItems(categories, key = { it.first }) { category ->
                 BasicText(
                     text = category.first,
-                    style = typography.s.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                    style = typography.s.copy(fontSize = typography.s.fontSize * 1.2f, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                     modifier = Modifier
                         .padding(horizontal = 4.dp, vertical = 8.dp)
                         .clickable {
