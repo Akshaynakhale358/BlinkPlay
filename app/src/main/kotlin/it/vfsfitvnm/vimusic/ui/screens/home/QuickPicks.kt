@@ -1456,14 +1456,14 @@ private suspend fun fetchQuickPicksPodcastSongs(
     val firstRoot = async(Dispatchers.IO) {
         runCatching {
             Innertube.searchPodcastPage(
-                SearchBody(context = context, query = "podcast", params = "")
+                SearchBody(context = context, query = "podcast", params = Innertube.SearchFilter.Podcast.value)
             )?.getOrNull().orEmpty()
         }.getOrDefault(emptyList())
     }
     val secondRoot = async(Dispatchers.IO) {
         runCatching {
             Innertube.searchPodcastEpisodesPage(
-                SearchBody(context = context, query = "podcast", params = "")
+                SearchBody(context = context, query = "podcast", params = Innertube.SearchFilter.Episode.value)
             )?.getOrNull().orEmpty()
         }.getOrDefault(emptyList())
     }
