@@ -161,9 +161,8 @@ private suspend fun fetchQuickPicksPodcastSongs(
                 val episodes = firstPage?.items.orEmpty().toMutableList()
                 var continuation = firstPage?.continuation
                 var pageCount = 0
-                // Podcast show feeds are often paginated; fetch several pages per show
-                // so the episode shelf is not limited to the first small server page.
-                while (!continuation.isNullOrBlank() && pageCount < 3) {
+                // Keep the initial load responsive; remaining pages arrive through scroll pagination.
+                while (!continuation.isNullOrBlank() && pageCount < 1) {
                     val page = Innertube.playlistPage(
                         ContinuationBody(context = context, continuation = continuation)
                     )?.getOrNull()
@@ -179,34 +178,6 @@ private suspend fun fetchQuickPicksPodcastSongs(
             }.getOrDefault(emptyList())
         }
     }.awaitAll().flatten()
-
-    // A dedicated endpoint can still contain unrelated long tracks. Use both
-    // title and channel/artist metadata so Osho discourses are retained even
-    // when the title does not literally say "podcast".
-    fun isPodcastContent(song: Innertube.SongItem): Boolean {
-        val title = song.info?.name.orEmpty().lowercase()
-        val creators = song.authors.orEmpty().mapNotNull { it.name }
-            .joinToString(" ").lowercase()
-        val metadata = "$title $creators"
-        val podcastClues = listOf(
-            "podcast", "episode", "ep.", "full interview", "interview",
-            "conversation", "talk show", "talks", "discussion", "discourse",
-            "प्रवचन", "विचार", "मुलाखत", "चर्चा", "संवाद", "ध्यान",
-            "osho", "sadhguru", "j krishnamurti", "krishnamurti",
-            "spiritual", "lecture", "full talk", "the ranveer show",
-            "beerbiceps", "josh talks", "the seen and the unseen"
-        )
-        val musicClues = listOf(
-            "official audio", "official music video", "music video", "lyrics",
-            "lyric video", "full song", "audio song", "remix", "slowed",
-            "karaoke", "cover song", "status video", "whatsapp status",
-            "jukebox", "teaser", "trailer", "shorts", "#shorts"
-        )
-        val duration = song.durationText.toDurationSeconds()
-        return duration >= 8 * 60 &&
-            musicClues.none(title::contains) &&
-            podcastClues.any(metadata::contains)
-    }
 
     // Path 2: dedicated Episodes filter. The filter is useful, but its results
     // are still checked against title + creator to prevent ordinary songs.
@@ -224,57 +195,6 @@ private suspend fun fetchQuickPicksPodcastSongs(
                         // as podcast episodes. Fetch its returned content directly;
                         // only apply the shared long-form/music exclusion below.
                         Innertube.SongItem.from(content)
-                    }
-                )?.getOrNull()?.items.orEmpty()
-            }.getOrDefault(emptyList())
-        }
-    }.awaitAll().flatten()
-
-    // Path 3 safety net: the dedicated Podcast/Episodes tabs can be empty for
-    // some Indian-language queries. Search YouTube Music's Video tab with
-    // podcast-specific queries, then keep only long-form podcast-like results.
-    val fallbackVideoEpisodes = queries.map { query ->
-        async(Dispatchers.IO) {
-            runCatching {
-                Innertube.searchPage(
-                    body = SearchBody(
-                        context = context,
-                        query = "$query full episode",
-                        params = Innertube.SearchFilter.Video.value
-                    ),
-                    fromMusicShelfRendererContent = { content ->
-                        Innertube.VideoItem.from(content)?.let { video ->
-                            val title = video.info?.name.orEmpty().lowercase()
-                            val musicType = video.info?.endpoint
-                                ?.watchEndpointMusicSupportedConfigs
-                                ?.watchEndpointMusicConfig
-                                ?.musicVideoType.orEmpty()
-                            val excluded = listOf(
-                                "shorts", "#shorts", "status video", "whatsapp status",
-                                "song", "official music video", "lyric video", "karaoke",
-                                "trailer", "teaser", "promo", "reaction", "review"
-                            ).any(title::contains)
-                            // Video-tab results are only a last-resort source. A podcast
-                            // search query alone is NOT proof that a result is a podcast:
-                            // YouTube often mixes ordinary songs and music videos into it.
-                            val podcastClue = listOf(
-                                "podcast", "episode", "full interview", "interview",
-                                "conversation", "talk show", "talks", "discussion",
-                                "प्रवचन", "विचार", "मुलाखत", "चर्चा", "संवाद",
-                                "osho", "sadhguru", "j krishnamurti", "krishnamurti",
-                                "spiritual discourse", "lecture", "full talk"
-                            ).any(title::contains)
-                            val longEnough = video.durationText.toDurationSeconds() >= 8 * 60
-                            val isMusicVideo = musicType == "MUSIC_VIDEO_TYPE_OMV"
-                            if (excluded || !longEnough || isMusicVideo || !podcastClue) null
-                            else Innertube.SongItem(
-                                info = video.info,
-                                authors = video.authors,
-                                album = null,
-                                durationText = video.durationText,
-                                thumbnail = video.thumbnail
-                            )
-                        }
                     }
                 )?.getOrNull()?.items.orEmpty()
             }.getOrDefault(emptyList())
@@ -333,9 +253,7 @@ private suspend fun fetchQuickPicksPodcastSongs(
 
     val trustedShowEpisodes = showEpisodes.filter(::isCleanLongFormEpisode)
     val trustedEpisodeSearch = searchedEpisodes.filter(::isCleanLongFormEpisode)
-    val cleanVideoFallback = fallbackVideoEpisodes.filter(::isPodcastContent)
-
-    val candidates = (trustedShowEpisodes + trustedEpisodeSearch + cleanVideoFallback)
+    val candidates = (trustedShowEpisodes + trustedEpisodeSearch)
         .distinctBy(Innertube.SongItem::key)
         .filter { song ->
             val title = song.info?.name.orEmpty().lowercase()
@@ -432,7 +350,8 @@ fun QuickPicks(
         var loadedPodcasts = emptyList<Innertube.SongItem>()
         var lastPodcastBatch = 0
         withContext(Dispatchers.IO) {
-            for (batch in 0 until 8) {
+            // Load one batch immediately; the View All page fetches later batches on scroll.
+            for (batch in 0 until 1) {
                 lastPodcastBatch = batch
                 val next = runCatching { fetchQuickPicksPodcastSongs(batch + refreshToken + discoveryDailyToken) }.getOrDefault(emptyList())
                 loadedPodcasts = (loadedPodcasts + next).distinctBy(Innertube.SongItem::key)
