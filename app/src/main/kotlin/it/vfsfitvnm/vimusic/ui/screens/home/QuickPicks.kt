@@ -176,23 +176,6 @@ suspend fun fetchQuickPicksPodcastSongs(
 
     personalizeSongItems((directEpisodes + episodeFeeds).distinctBy(Innertube.SongItem::key))
 }
-private fun filterPodcastEpisodes(
-    songs: List<Innertube.SongItem>
-): List<Innertube.SongItem> {
-    // Podcast search roots are already podcast-scoped. Remove only unmistakable
-    // music-track/video results; do not apply music duration limits to episodes.
-    val musicOnlyMarkers = listOf(
-        "official audio", "official video", "music video", "lyric video", "lyrics",
-        "karaoke", "full song", "remix", "slowed", "reverb", "dj mix",
-        "status video", "whatsapp status", "instrumental version", "cover song"
-    )
-    return songs.distinctBy(Innertube.SongItem::key).filterNot { song ->
-        val metadata = (song.info?.name.orEmpty() + " " +
-            song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
-        musicOnlyMarkers.any(metadata::contains)
-    }
-}
-
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
@@ -281,7 +264,7 @@ fun QuickPicks(
             // Load one batch immediately; the View All page fetches later batches on scroll.
             for (batch in 0 until 1) {
                 val next = runCatching {
-                    filterPodcastEpisodes(fetchQuickPicksPodcastSongs(batch + refreshToken + discoveryDailyToken))
+                    fetchQuickPicksPodcastSongs(batch + refreshToken + discoveryDailyToken)
                 }.getOrDefault(emptyList())
                 loadedPodcasts = (loadedPodcasts + next).distinctBy(Innertube.SongItem::key)
                 if (loadedPodcasts.size >= 15) break
@@ -460,7 +443,7 @@ fun QuickPicks(
                     "top" -> topSongs = filterRegularSongDuration(topSongs + unique)
                     "new" -> newReleases = filterRegularSongDuration(newReleases + unique)
                     "long_listen" -> longListenSongs = longListenSongs + unique
-                    "podcast" -> podcastSongs = filterPodcastEpisodes(podcastSongs + unique)
+                    "podcast" -> podcastSongs = (podcastSongs + unique).distinctBy(Innertube.SongItem::key)
                 }
             }
             shelfBatchIndexes = shelfBatchIndexes + (shelfKey to nextBatch)
