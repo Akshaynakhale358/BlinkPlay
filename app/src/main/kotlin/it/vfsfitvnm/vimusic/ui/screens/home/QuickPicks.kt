@@ -90,9 +90,7 @@ import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
 import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
-import it.vfsfitvnm.vimusic.ui.screens.browse.MusicBrowseShelves
 import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeSongLists
-import it.vfsfitvnm.vimusic.ui.screens.browse.browseCategoryRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -194,7 +192,6 @@ fun QuickPicks(
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
     var songsForYou by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
-    var serverDiscovery by remember { mutableStateOf<MusicDiscovery?>(null) }
     var trendingSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
@@ -225,15 +222,6 @@ fun QuickPicks(
     // Use the existing Song Search + Related Songs roots; keep every valid result.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         discoverySongs = withContext(Dispatchers.IO) { fetchQuickPickDiscoveryCategories() }
-        isRefreshing = false
-    }
-
-    LaunchedEffect(refreshToken) {
-        val discovery = withContext(Dispatchers.IO) {
-            Innertube.musicDiscovery(forceRefresh = refreshToken > 0)
-                ?.getOrNull()
-        }
-        serverDiscovery = discovery ?: serverDiscovery
         isRefreshing = false
     }
 
@@ -663,35 +651,6 @@ fun QuickPicks(
                         }
                     }
                 }
-            }
-        when {
-            serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
-                sections = serverDiscovery!!.sections,
-                sectionTextModifier = sectionTextModifierAfterPodcast,
-                onSongClick = { song ->
-                    val mediaItem = song.asMediaItem
-                    binder?.stopRadio()
-                    binder?.player?.forcePlay(mediaItem)
-                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-                },
-                onSongLongClick = { song ->
-                    menuState.display {
-                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                    }
-                },
-                onAlbumClick = onAlbumClick,
-                onArtistClick = onArtistClick,
-                onPlaylistClick = onPlaylistClick,
-                onCategoryClick = { id, params ->
-                    onPlaylistClick(browseCategoryRoute(id, params))
-                }
-            )
-            else -> ShimmerHost {
-                repeat(3) { TextPlaceholder(modifier = sectionTextModifier) }
-                Row {
-                    repeat(3) { PlaylistItemPlaceholder(thumbnailSizeDp = playlistThumbnailSizeDp, alternative = true) }
-                }
-            }
             }
 
             } else if (selectedPodcastPage) {
