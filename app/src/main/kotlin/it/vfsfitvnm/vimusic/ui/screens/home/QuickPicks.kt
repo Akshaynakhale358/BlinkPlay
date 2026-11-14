@@ -458,7 +458,8 @@ fun QuickPicks(
             Header(
                 title = "Quick Picks",
                 modifier = Modifier
-                    .padding(endPaddingValues)
+                    .padding(endPaddingValues),
+                titleScale = 1.404f
             )
 
 
