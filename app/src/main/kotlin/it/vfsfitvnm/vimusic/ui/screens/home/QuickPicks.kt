@@ -135,7 +135,7 @@ suspend fun fetchQuickPicksPodcastSongs(
                 SearchBody(
                     context = context,
                     query = "podcast",
-                    params = ""
+                    params = Innertube.SearchFilter.Episode.value
                 )
             )?.getOrNull().orEmpty()
         }.getOrDefault(emptyList())
