@@ -50,6 +50,7 @@ import coil.compose.AsyncImage
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
@@ -726,8 +727,19 @@ fun QuickPicks(
                 Header(title = "Quick Picks")
                 BasicText(
                     text = shelfTitle,
-                    style = typography.m.semiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    style = typography.m.semiBold.copy(
+                        fontSize = typography.xxl.fontSize * 0.78f,
+                        textAlign = TextAlign.End
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                BasicText(
+                    text = "All Songs",
+                    style = typography.s.semiBold.copy(
+                        fontSize = typography.xxl.fontSize * 0.468f,
+                        textAlign = TextAlign.End
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 )
                 QuickPicksSongShelf(
                     title = "All Songs",
@@ -756,8 +768,19 @@ fun QuickPicks(
                 Header(title = "Quick Picks")
                 BasicText(
                     text = category.title.replaceFirstChar { it.uppercase() },
-                    style = typography.m.semiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    style = typography.m.semiBold.copy(
+                        fontSize = typography.xxl.fontSize * 0.78f,
+                        textAlign = TextAlign.End
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                BasicText(
+                    text = "All Songs",
+                    style = typography.s.semiBold.copy(
+                        fontSize = typography.xxl.fontSize * 0.468f,
+                        textAlign = TextAlign.End
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 )
                 QuickPicksSongShelf(
                     title = "All Songs",
