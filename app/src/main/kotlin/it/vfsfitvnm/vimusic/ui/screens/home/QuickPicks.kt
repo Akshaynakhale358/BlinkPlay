@@ -1326,10 +1326,23 @@ private suspend fun fetchCategorySongsWithMinimum(
     queries: List<String>,
     minimum: Int
 ): List<Innertube.SongItem> = coroutineScope {
-    val candidates = fetchSearchAndRelatedBundle(queries).toMutableList()
+    val candidates = fetchSearchOnlyBundle(queries).toMutableList()
     fun validSongs(): List<Innertube.SongItem> =
         filterRegularSongDuration(filterDiscoverySongs(category, candidates))
     var valid = validSongs()
+    if (valid.size < minimum && candidates.isNotEmpty()) {
+        val related = candidates.take(3).map { seed ->
+            async(Dispatchers.IO) {
+                runCatching {
+                    Innertube.relatedPage(
+                        NextBody(context = IndiaExploreContext, videoId = seed.key)
+                    )?.getOrNull()?.songs.orEmpty()
+                }.getOrDefault(emptyList())
+            }
+        }.awaitAll().flatten()
+        candidates += related
+        valid = validSongs()
+    }
     if (valid.size < minimum) {
         val extraQueries = when (category.key) {
             "calm_alpha" -> listOf("alpha waves ambient instrumental focus music", "8hz alpha waves relaxing music")
