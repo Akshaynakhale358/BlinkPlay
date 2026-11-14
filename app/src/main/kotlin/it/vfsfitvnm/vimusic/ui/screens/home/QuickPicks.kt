@@ -199,11 +199,32 @@ private suspend fun fetchQuickPicksPodcastSongs(
     }.awaitAll().flatten()
 
     fun durationSeconds(value: String?): Long? {
-        val parts = value.orEmpty().substringBefore(" ").split(":")
-        if (parts.isEmpty() || parts.any { it.toLongOrNull() == null }) return null
-        return parts.map(String::toLong).reversed().mapIndexed { index, part ->
-            part * when (index) { 0 -> 1L; 1 -> 60L; else -> 3600L }
-        }.sum()
+        val text = value.orEmpty().trim().lowercase()
+        if (text.isBlank()) return null
+
+        // YouTube Music may expose either clock-style durations (1:23:45)
+        // or human-readable values (1 hr 20 min) depending on the renderer.
+        val clock = text.substringBefore(" ").split(":")
+        if (clock.size in 2..3 && clock.all { it.toLongOrNull() != null }) {
+            return clock.map(String::toLong).reversed().mapIndexed { index, part ->
+                part * when (index) { 0 -> 1L; 1 -> 60L; else -> 3600L }
+            }.sum()
+        }
+
+        val unitPattern = Regex(
+            """(\\d+)\\s*(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)""",
+            RegexOption.IGNORE_CASE
+        )
+        val matches = unitPattern.findAll(text).toList()
+        if (matches.isEmpty()) return null
+        return matches.sumOf { match ->
+            val amount = match.groupValues[1].toLongOrNull() ?: return null
+            when (match.groupValues[2].lowercase().first()) {
+                'h' -> amount * 3600L
+                'm' -> amount * 60L
+                else -> amount
+            }
+        }
     }
 
     val excludedTerms = listOf(
