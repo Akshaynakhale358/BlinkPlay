@@ -16,11 +16,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -81,7 +80,7 @@ fun HomeAlbums(
 ) {
     val (colorPalette, typography) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
-    val thumbnailSizeDp = 64.dp
+    val thumbnailSizeDp = 108.dp
     val thumbnailSizePx = thumbnailSizeDp.px
     val releasePeriod = LocalDate.now().month.name.lowercase().replaceFirstChar { it.uppercase() } +
         " " + LocalDate.now().year
@@ -309,33 +308,33 @@ fun HomeAlbums(
                         }
                     }
                     if (albums.isEmpty() && loading) {
-                        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                            columns = GridCells.Fixed(5),
-                            userScrollEnabled = false,
-                            modifier = Modifier.fillMaxWidth().height(112.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().height(148.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(5) { AlbumItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true) }
+                            items(5) {
+                                Box(modifier = Modifier.width(thumbnailSizeDp)) {
+                                    AlbumItemPlaceholder(
+                                        thumbnailSizeDp = thumbnailSizeDp,
+                                        alternative = true
+                                    )
+                                }
+                            }
                         }
                     } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(5),
-                            userScrollEnabled = false,
-                            modifier = Modifier.fillMaxWidth().height(
-                                112.dp * ((albums.size + 4) / 5).coerceAtLeast(1)
-                            ),
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().height(148.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            gridItems(albums, key = Innertube.AlbumItem::key) { album ->
+                            items(albums, key = Innertube.AlbumItem::key) { album ->
                                 AlbumItem(
                                     album = album,
                                     thumbnailSizePx = thumbnailSizePx,
                                     thumbnailSizeDp = thumbnailSizeDp,
                                     alternative = true,
-                                    modifier = Modifier.clickable {
+                                    modifier = Modifier.width(thumbnailSizeDp).clickable {
                                         album.info?.endpoint?.browseId?.let(onAlbumClick)
                                     }
                                 )
