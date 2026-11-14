@@ -107,9 +107,9 @@ private fun Innertube.VideoItem.toQuickPicksPodcastSong() = Innertube.SongItem(
     info = info, authors = authors, album = null, durationText = durationText, thumbnail = thumbnail
 )
 
-private suspend fun fetchQuickPicksPodcastSongs(refreshToken: Int): List<Innertube.SongItem> = coroutineScope {
-    // Search separate Hindi, Marathi and India-wide podcast phrases in parallel.
-    // Video filter avoids ordinary music-search results; metadata filtering removes music clips.
+private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube.SongItem> = coroutineScope {
+    // Fetch a fresh group of podcast searches whenever the listener reaches the end.
+    // No fixed episode-count cap: each batch is deduplicated against already loaded items.
     val baseQueries = listOf(
         "Hindi podcast full episode latest interview",
         "Marathi podcast मुलाखत पूर्ण भाग full episode",
@@ -122,11 +122,24 @@ private suspend fun fetchQuickPicksPodcastSongs(refreshToken: Int): List<Innertu
         "Indian business podcast full episode",
         "Hindi comedy podcast full episode",
         "Indian news podcast complete episode",
-        "Indian celebrity podcast full interview"
+        "Indian celebrity podcast full interview",
+        "Hindi podcast latest full episode conversation",
+        "Marathi podcast नवीन पूर्ण भाग मुलाखत",
+        "Indian startup founder podcast full episode",
+        "Hindi actor podcast full interview",
+        "Indian sports podcast full episode",
+        "Marathi creator podcast full conversation",
+        "Hindi history podcast full episode",
+        "Indian technology podcast full interview",
+        "Hindi true story podcast complete episode",
+        "Marathi interview podcast full episode",
+        "Indian finance podcast full conversation",
+        "Hindi guests podcast long interview"
     )
     val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN"))
-    val shift = Math.floorMod(refreshToken, baseQueries.size)
-    val queries = baseQueries.indices.map { baseQueries[(it + shift) % baseQueries.size] }
+    val batchSize = 4
+    val startIndex = Math.floorMod(batchIndex * batchSize, baseQueries.size)
+    val queries = (0 until batchSize).map { baseQueries[(startIndex + it) % baseQueries.size] }
 
     val results = queries.map { query ->
         async(Dispatchers.IO) {
@@ -161,9 +174,7 @@ private suspend fun fetchQuickPicksPodcastSongs(refreshToken: Int): List<Innertu
         hasPodcastSignal || longFormTalk
     }
 
-    // Existing listening history/favourites personalize ranking, while artist diversification
-    // prevents one podcast channel from filling the whole shelf.
-    personalizeAndDiversify(relevant).take(60)
+    personalizeAndDiversify(relevant)
 }
 
 @ExperimentalFoundationApi
@@ -190,6 +201,8 @@ fun QuickPicks(
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var podcastSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var podcastBatchIndex by remember { mutableStateOf(0) }
+    var isLoadingMorePodcasts by remember { mutableStateOf(false) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
     var selectedPodcastPage by remember { mutableStateOf(false) }
@@ -228,9 +241,34 @@ fun QuickPicks(
         calmCategorySongs = withContext(Dispatchers.IO) { fetchCalmMusicCategories() }
     }
 
-    // Podcast uses its own video-only feed and refresh rotation.
+    // Load the first podcast batch on refresh; more batches are fetched on scroll.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
-        podcastSongs = withContext(Dispatchers.IO) { fetchQuickPicksPodcastSongs(refreshToken + discoveryDailyToken) }
+        podcastBatchIndex = 0
+        isLoadingMorePodcasts = false
+        podcastSongs = withContext(Dispatchers.IO) { fetchQuickPicksPodcastSongs(0) }
+    }
+
+    // Infinite-scroll style loading for the full Podcast page.
+    LaunchedEffect(selectedPodcastPage, scrollState.value, scrollState.maxValue, podcastSongs.size, podcastBatchIndex) {
+        if (selectedPodcastPage && podcastSongs.isNotEmpty() &&
+            !isLoadingMorePodcasts && scrollState.value >= scrollState.maxValue - 500
+        ) {
+            isLoadingMorePodcasts = true
+            val nextBatch = podcastBatchIndex + 1
+            val moreSongs = withContext(Dispatchers.IO) {
+                fetchQuickPicksPodcastSongs(nextBatch)
+            }
+            val existingKeys = podcastSongs.map(Innertube.SongItem::key).toHashSet()
+            val uniqueMore = moreSongs.filter { it.key !in existingKeys }
+            if (uniqueMore.isNotEmpty()) {
+                podcastSongs = podcastSongs + uniqueMore
+                podcastBatchIndex = nextBatch
+            } else {
+                // Keep trying the next search group on the next scroll threshold.
+                podcastBatchIndex = nextBatch
+            }
+            isLoadingMorePodcasts = false
+        }
     }
 
     // Long Listen refreshes on pull-to-refresh and automatically at Indian midnight.
@@ -682,6 +720,9 @@ fun QuickPicks(
                         }
                     }
                 )
+                if (isLoadingMorePodcasts) {
+                    ShimmerHost { repeat(2) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) } }
+                }
             } else {
                 val category = selectedDiscoveryCategory!!
                 BasicText(
