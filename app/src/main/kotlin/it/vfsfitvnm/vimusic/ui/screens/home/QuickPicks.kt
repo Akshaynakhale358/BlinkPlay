@@ -113,7 +113,10 @@ private suspend fun fetchQuickPicksPodcastSongs(
     val context = Context.DefaultWeb.copy(
         client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
     )
-    suspend fun searchRoot(): List<Innertube.PlaylistItem> =
+    // Root 1: discover Podcast shows using YouTube Music's dedicated Podcast filter.
+    // Root 2: discover actual podcast episodes using the dedicated Episodes filter.
+    // Both roots use only the requested keyword; no generic video/topic fallbacks.
+    val showRootsJob = async(Dispatchers.IO) {
         runCatching {
             Innertube.searchPodcastPage(
                 SearchBody(
@@ -123,16 +126,34 @@ private suspend fun fetchQuickPicksPodcastSongs(
                 )
             )?.getOrNull().orEmpty()
         }.getOrDefault(emptyList())
+    }
+    val directEpisodesJob = async(Dispatchers.IO) {
+        runCatching {
+            Innertube.searchPage(
+                body = SearchBody(
+                    context = context,
+                    query = "podcast",
+                    params = Innertube.SearchFilter.Episode.value
+                ),
+                fromMusicShelfRendererContent = { content ->
+                    Innertube.VideoItem.from(content)?.let { video ->
+                        Innertube.SongItem(
+                            info = video.info,
+                            authors = video.authors,
+                            album = null,
+                            durationText = video.durationText,
+                            thumbnail = video.thumbnail
+                        )
+                    }
+                }
+            )?.getOrNull()?.items.orEmpty()
+        }.getOrDefault(emptyList())
+    }
+    val (showRoots, directEpisodes) = awaitAll(showRootsJob, directEpisodesJob)
+    val shows = showRoots.distinctBy(Innertube.PlaylistItem::key)
 
-    // Search both original roots with the same broad Podcast query.
-    val showsFromBothRoots = awaitAll(
-        async(Dispatchers.IO) { searchRoot() },
-        async(Dispatchers.IO) { searchRoot() }
-    ).flatten().distinctBy(Innertube.PlaylistItem::key)
-
-    // Fetch each returned show's complete episode feed, following continuation
-    // tokens until the source has no more pages. Never apply song filters here.
-    val episodeFeeds = showsFromBothRoots.map { show ->
+    // Expand each Podcast show into its full episode feed, including continuation pages.
+    val episodeFeeds = shows.map { show ->
         async(Dispatchers.IO) {
             runCatching {
                 val episodes = mutableListOf<Innertube.SongItem>()
@@ -158,7 +179,7 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
     }.awaitAll().flatten()
 
-    episodeFeeds.distinctBy(Innertube.SongItem::key)
+    (directEpisodes + episodeFeeds).distinctBy(Innertube.SongItem::key)
 }
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
