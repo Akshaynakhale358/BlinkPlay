@@ -124,6 +124,7 @@ fun QuickPicks(
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
+    var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
 
     var discoveryDailyToken by remember { mutableStateOf(0) }
@@ -158,6 +159,11 @@ fun QuickPicks(
     // Calm category cards stay in a fixed order; only their song lists rotate daily.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         calmCategorySongs = withContext(Dispatchers.IO) { fetchCalmMusicCategories() }
+    }
+
+    // Long Listen refreshes on pull-to-refresh and automatically at Indian midnight.
+    LaunchedEffect(refreshToken, discoveryDailyToken) {
+        longListenSongs = withContext(Dispatchers.IO) { fetchLongListenSongs() }
     }
 
     // Songs For You and New Releases use the same YouTube Music song-search
@@ -480,6 +486,57 @@ fun QuickPicks(
                     repeat(3) { PlaylistItemPlaceholder(thumbnailSizeDp = playlistThumbnailSizeDp, alternative = true) }
                 }
             }
+            }
+
+            BasicText(
+                text = "LONG LISTEN",
+                style = typography.s.semiBold,
+                modifier = sectionTextModifier
+            )
+            if (longListenSongs.isEmpty()) {
+                ShimmerHost {
+                    repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
+                }
+            } else {
+                LazyRow(
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    lazyRowItems(
+                        items = longListenSongs.chunked(3),
+                        key = { column -> column.firstOrNull()?.key.orEmpty() }
+                    ) { songColumn ->
+                        Column(
+                            modifier = Modifier.width(itemInHorizontalGridWidth),
+                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                        ) {
+                            songColumn.forEach { song ->
+                                SongItem(
+                                    song = song,
+                                    thumbnailSizePx = 64.dp.px,
+                                    thumbnailSizeDp = 64.dp,
+                                    modifier = Modifier.fillMaxWidth().combinedClickable(
+                                        onClick = {
+                                            val mediaItem = song.asMediaItem
+                                            binder?.stopRadio()
+                                            binder?.player?.forcePlay(mediaItem)
+                                            binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                                        },
+                                        onLongClick = {
+                                            menuState.display {
+                                                NonQueuedMediaItemMenu(
+                                                    onDismiss = menuState::hide,
+                                                    mediaItem = song.asMediaItem
+                                                )
+                                            }
+                                        }
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
             }
             } else {
                 val category = selectedDiscoveryCategory!!
@@ -810,6 +867,25 @@ private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
     val offset = ((indiaDay * 10L) % chartSongs.size).toInt()
     val dailyOrder = chartSongs.drop(offset) + chartSongs.take(offset)
     return dailyOrder.take(10)
+}
+
+private suspend fun fetchLongListenSongs(): List<Innertube.SongItem> {
+    // Search long-form music, then keep only tracks strictly longer than 30 minutes.
+    val queries = listOf(
+        "30 minute extended music full song mix",
+        "45 minute live music performance full concert",
+        "one hour instrumental music long play",
+        "extended rock electronic jazz music 40 minutes"
+    )
+    val candidates = fetchSearchAndRelatedBundle(queries)
+    val nonDevotional = filterDiscoverySongs(
+        DiscoverySubcategory("long_listen", "Long Listen", "Long Listen", "long", ""),
+        candidates
+    )
+    val longTracks = nonDevotional
+        .filter { it.durationText.toDurationSeconds() > 30 * 60 }
+        .distinctBy(Innertube.SongItem::key)
+    return rotateDiscoverySongsDaily(personalizeAndDiversify(longTracks)).take(36)
 }
 
 private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
