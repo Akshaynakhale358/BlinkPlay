@@ -510,8 +510,8 @@ fun QuickPicks(
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
                 endPaddingValues = endPaddingValues,
-                verticalList = true,
-                previewLimit = 5,
+                verticalList = false,
+                previewLimit = 15,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -534,8 +534,8 @@ fun QuickPicks(
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
                 endPaddingValues = endPaddingValues,
-                verticalList = true,
-                previewLimit = 5,
+                verticalList = false,
+                previewLimit = 15,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -558,8 +558,8 @@ fun QuickPicks(
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
                 endPaddingValues = endPaddingValues,
-                verticalList = true,
-                previewLimit = 5,
+                verticalList = false,
+                previewLimit = 15,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -678,8 +678,8 @@ fun QuickPicks(
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
                 endPaddingValues = endPaddingValues,
-                verticalList = true,
-                previewLimit = 5,
+                verticalList = false,
+                previewLimit = 15,
                 regularDurationOnly = false,
                 onPlay = { val items = longListenSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "long_listen" },
