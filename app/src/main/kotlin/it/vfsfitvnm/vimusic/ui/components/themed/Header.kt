@@ -26,6 +26,7 @@ import kotlin.random.Random
 fun Header(
     title: String,
     modifier: Modifier = Modifier,
+    titleScale: Float = 1.56f,
     actionsContent: @Composable RowScope.() -> Unit = {},
 ) {
     val typography = LocalAppearance.current.typography
@@ -35,7 +36,7 @@ fun Header(
         titleContent = {
             BasicText(
                 text = title,
-                style = typography.xxl.medium.copy(fontSize = typography.xxl.fontSize * 1.56f),
+                style = typography.xxl.medium.copy(fontSize = typography.xxl.fontSize * titleScale),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
