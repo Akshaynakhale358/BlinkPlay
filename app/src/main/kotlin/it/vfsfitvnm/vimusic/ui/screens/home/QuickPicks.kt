@@ -131,7 +131,7 @@ fun QuickPicks(
     fun markRefreshTaskComplete(task: String) {
         val completed = completedRefreshTasks + task
         completedRefreshTasks = completed
-        if (completed.containsAll(setOf("discovery", "calm", "long_listen", "songs"))) {
+        if (completed.containsAll(setOf("long_listen", "songs"))) {
             isRefreshing = false
         }
     }
@@ -142,6 +142,7 @@ fun QuickPicks(
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
+    var requestedCategoryCycles by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var isLoadingLongListen by remember { mutableStateOf(true) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
@@ -168,24 +169,11 @@ fun QuickPicks(
         }
     }
 
-    // Publish each category as soon as its filtered Song Search results arrive.
-    // Related-song enrichment is added afterward; category filters stay unchanged.
+    // Clear old category data on refresh/day change. Each card fetches only
+    // when its LazyRow item enters the viewport, instead of loading every shelf at once.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         discoverySongs = emptyMap()
-        withContext(Dispatchers.IO) {
-            fetchQuickPickDiscoveryCategories(refreshToken + discoveryDailyToken) { key, songs ->
-                withContext(Dispatchers.Main.immediate) {
-                    discoverySongs = discoverySongs + (key to songs)
-                }
-            }
-        }
-        markRefreshTaskComplete("discovery")
-    }
-
-    // Calm category cards stay in a fixed order; only their song lists rotate daily.
-    LaunchedEffect(refreshToken, discoveryDailyToken) {
-        calmCategorySongs = withContext(Dispatchers.IO) { fetchCalmMusicCategories(refreshToken + discoveryDailyToken) }
-        markRefreshTaskComplete("calm")
+        calmCategorySongs = emptyMap()
     }
 
     // Long Listen refreshes on pull-to-refresh and automatically at Indian midnight.
@@ -582,6 +570,38 @@ fun QuickPicks(
                             category = category,
                             songs = discoverySongs[category.key].orEmpty(),
                             refreshToken = refreshToken + discoveryDailyToken,
+
+                            onLoadCategory = {
+
+                                val cycle = refreshToken + discoveryDailyToken
+
+                                if (requestedCategoryCycles[category.key] != cycle) {
+
+                                    requestedCategoryCycles = requestedCategoryCycles + (category.key to cycle)
+
+                                    scope.launch {
+
+                                        val loaded = withContext(Dispatchers.IO) {
+
+                                            fetchQuickPickDiscoveryCategory(category, cycle)
+
+                                        }
+
+                                        if (category.key.startsWith("calm_")) {
+
+                                            calmCategorySongs = calmCategorySongs + (category.key to loaded)
+
+                                        } else {
+
+                                            discoverySongs = discoverySongs + (category.key to loaded)
+
+                                        }
+
+                                    }
+
+                                }
+
+                            },
                             onSongClick = { song ->
                                 val mediaItem = song.asMediaItem
                                 binder?.stopRadio()
@@ -622,6 +642,38 @@ fun QuickPicks(
                         category = category,
                         songs = calmCategorySongs[category.key].orEmpty(),
                         refreshToken = refreshToken + discoveryDailyToken,
+
+                        onLoadCategory = {
+
+                            val cycle = refreshToken + discoveryDailyToken
+
+                            if (requestedCategoryCycles[category.key] != cycle) {
+
+                                requestedCategoryCycles = requestedCategoryCycles + (category.key to cycle)
+
+                                scope.launch {
+
+                                    val loaded = withContext(Dispatchers.IO) {
+
+                                        fetchQuickPickDiscoveryCategory(category, cycle)
+
+                                    }
+
+                                    if (category.key.startsWith("calm_")) {
+
+                                        calmCategorySongs = calmCategorySongs + (category.key to loaded)
+
+                                    } else {
+
+                                        discoverySongs = discoverySongs + (category.key to loaded)
+
+                                    }
+
+                                }
+
+                            }
+
+                        },
                         onSongClick = { song ->
                             val mediaItem = song.asMediaItem
                             binder?.stopRadio()
@@ -1035,12 +1087,14 @@ private fun QuickPicksDiscoveryShelf(
     category: DiscoverySubcategory,
     songs: List<Innertube.SongItem>,
     refreshToken: Int,
+    onLoadCategory: () -> Unit,
     onSongClick: (Innertube.SongItem) -> Unit,
     onViewAll: () -> Unit,
     onPlayBundle: () -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
+    LaunchedEffect(category.key, refreshToken) { onLoadCategory() }
     val displaySongs = filterRegularSongDuration(songs)
     val artworkSong = displaySongs.getOrNull(if (displaySongs.isEmpty()) 0 else Math.floorMod(category.title.hashCode() + refreshToken + displaySongs.size / 2, displaySongs.size))
 
@@ -1395,6 +1449,32 @@ private suspend fun fetchCategorySongsWithMinimum(
         }
     }
     valid.distinctBy(Innertube.SongItem::key)
+}
+
+private suspend fun fetchQuickPickDiscoveryCategory(
+    category: DiscoverySubcategory,
+    refreshCycle: Int
+): List<Innertube.SongItem> {
+    val categorySongs = when {
+        category.kind == "personal" -> {
+            var personal = filterRegularSongDuration(fetchPersonalizedSongsForYou(refreshCycle))
+            if (personal.size < 3) {
+                val fallback = fetchSearchAndRelatedBundle(
+                    listOf("popular Indian hit songs", "popular Hindi Marathi songs", "popular Indian pop music")
+                )
+                personal = filterRegularSongDuration((personal + fallback).distinctBy(Innertube.SongItem::key))
+            }
+            personal
+        }
+        else -> fetchCategorySongsWithMinimum(
+            category,
+            discoverySearchQueries(category),
+            minimum = 3
+        )
+    }
+    return rotateDiscoverySongsDaily(
+        personalizeAndDiversify(prioritizeHindiSongs(categorySongs, category.key))
+    )
 }
 
 private suspend fun fetchQuickPickDiscoveryCategories(
