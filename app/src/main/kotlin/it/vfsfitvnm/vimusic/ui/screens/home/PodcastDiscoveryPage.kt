@@ -83,7 +83,9 @@ private suspend fun fetchPodcastPage(
             body = SearchBody(
                 context = PodcastContext,
                 query = query,
-                params = Innertube.SearchFilter.Episode.value
+                // Use the podcast-specific search phrase without the restrictive Episodes tab,
+                // which has returned empty responses for Indian WEB_REMIX sessions.
+                params = ""
             ),
             fromMusicShelfRendererContent = { content ->
                 Innertube.VideoItem.from(content)?.toPodcastSong()
