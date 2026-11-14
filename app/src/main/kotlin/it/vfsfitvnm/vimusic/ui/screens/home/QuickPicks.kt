@@ -757,11 +757,6 @@ fun QuickPicks(
                 }
             }
 
-            BasicText(
-                text = "PODCAST",
-                style = typography.s.semiBold,
-                modifier = sectionTextModifier
-            )
             if (isLoadingPodcasts && podcastSongs.isEmpty()) {
                 ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
             } else {
@@ -1228,8 +1223,36 @@ private fun QuickPicksPodcastShelf(
 ) {
     val (_, typography) = LocalAppearance.current
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 24.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+        ) {
+            BasicText(text = "PODCAST", style = typography.s.semiBold, modifier = Modifier.weight(1f))
+            Row(
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BasicText(
+                    text = "PLAY",
+                    style = typography.xs.semiBold,
+                    modifier = Modifier.clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .clickable(onClick = onPlayBundle)
+                        .padding(horizontal = 9.dp, vertical = 7.dp)
+                )
+                BasicText(
+                    text = "VIEW ALL",
+                    style = typography.xs.semiBold,
+                    modifier = Modifier.clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .clickable(onClick = onViewAll)
+                        .padding(horizontal = 9.dp, vertical = 7.dp)
+                )
+            }
+        }
         songs.take(3).forEach { song ->
             SongItem(
                 song = song,
@@ -1250,17 +1273,6 @@ private fun QuickPicksPodcastShelf(
                 modifier = Modifier.padding(vertical = 14.dp)
             )
         }
-        BasicText(
-            text = "VIEW ALL  ›",
-            style = typography.xs.semiBold,
-            modifier = Modifier
-                .align(Alignment.End)
-                .padding(top = 8.dp, end = 4.dp, bottom = 2.dp)
-                .clip(RoundedCornerShape(50))
-                .background(Color.White.copy(alpha = 0.14f))
-                .clickable(onClick = onViewAll)
-                .padding(horizontal = 14.dp, vertical = 9.dp)
-        )
     }
 }
 
