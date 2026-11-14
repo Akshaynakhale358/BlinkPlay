@@ -773,6 +773,7 @@ fun QuickPicks(
 
             QuickPicksPodcastShelf(
                 songs = podcastSongs,
+                itemWidth = itemInHorizontalGridWidth,
                 isLoading = isLoadingPodcasts,
                 onViewAll = {
                     savedHomeScrollOffset = scrollState.value
@@ -1225,6 +1226,7 @@ private fun discoveryBundles(): List<DiscoveryBundle> {
 @Composable
 private fun QuickPicksPodcastShelf(
     songs: List<Innertube.SongItem>,
+    itemWidth: androidx.compose.ui.unit.Dp,
     isLoading: Boolean,
     onViewAll: () -> Unit,
     onSongClick: (Innertube.SongItem) -> Unit,
@@ -1232,9 +1234,7 @@ private fun QuickPicksPodcastShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 24.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1263,35 +1263,53 @@ private fun QuickPicksPodcastShelf(
                 )
             }
         }
+
         if (songs.isNotEmpty()) {
-            LazyHorizontalGrid(
-                rows = GridCells.Fixed(5),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+            LazyRow(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height((64.dp + Dimensions.itemsVerticalPadding * 2) * 5)
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                items(items = songs.distinctBy(Innertube.SongItem::key).take(3), key = Innertube.SongItem::key) { song ->
-                    SongItem(
-                        song = song,
-                        thumbnailSizePx = 64.dp.px,
-                        thumbnailSizeDp = 64.dp,
-                        modifier = Modifier.width(220.dp).combinedClickable(
-                            onClick = { onSongClick(song) },
-                            onLongClick = { onSongLongClick(song) }
-                        )
-                    )
+                lazyRowItems(
+                    items = songs.distinctBy(Innertube.SongItem::key).take(15).chunked(5),
+                    key = { column -> column.firstOrNull()?.key.orEmpty() }
+                ) { songColumn ->
+                    Column(
+                        modifier = Modifier.width(itemWidth),
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                    ) {
+                        songColumn.forEach { song ->
+                            SongItem(
+                                song = song,
+                                thumbnailSizePx = 64.dp.px,
+                                thumbnailSizeDp = 64.dp,
+                                modifier = Modifier.fillMaxWidth().combinedClickable(
+                                    onClick = { onSongClick(song) },
+                                    onLongClick = { onSongLongClick(song) }
+                                )
+                            )
+                        }
+                    }
                 }
             }
         } else if (isLoading) {
-            LazyHorizontalGrid(
-                rows = GridCells.Fixed(5),
-                modifier = Modifier.fillMaxWidth().height((64.dp + Dimensions.itemsVerticalPadding * 2) * 5)
-            ) {
-                items(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
+            ShimmerHost {
+                LazyRow(
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    lazyRowItems(items = 3) {
+                        Column(
+                            modifier = Modifier.width(itemWidth),
+                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                        ) {
+                            repeat(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
+                        }
+                    }
+                }
             }
-        } else if (songs.isEmpty()) {
+        } else {
             BasicText(
                 text = "No podcast episodes found yet. Pull down to refresh.",
                 style = typography.xs.secondary,
