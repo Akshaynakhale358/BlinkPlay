@@ -47,6 +47,7 @@ import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.items.SongItem
 import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
+import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeSongItems
 import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
@@ -85,6 +86,24 @@ private fun <T> dailyRotate(items: List<T>, seed: Int): List<T> {
     val offset = Math.floorMod(seed, items.size)
     return items.drop(offset) + items.take(offset)
 }
+
+/** Keeps category matches ahead without deleting valid songs returned by the source. */
+private fun prioritizeHomeCategorySongs(
+    category: HomeSongCategory,
+    songs: List<Innertube.SongItem>,
+): List<Innertube.SongItem> {
+    val terms = category.query.lowercase()
+        .split(Regex("[^a-z0-9]+"))
+        .filter { it.length >= 3 && it !in setOf("songs", "song", "music", "indian", "hindi", "bollywood") }
+    return songs.withIndex().sortedWith(
+        compareByDescending<IndexedValue<Innertube.SongItem>> { indexed ->
+            val metadata = (indexed.value.title.orEmpty() + " " +
+                indexed.value.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
+            terms.count(metadata::contains)
+        }.thenBy { it.index }
+    ).map { it.value }
+}
+
 
 private fun Innertube.VideoItem.toHomePodcastSong() = Innertube.SongItem(
     info = info, authors = authors, album = null, durationText = durationText, thumbnail = thumbnail
@@ -130,8 +149,14 @@ private suspend fun fetchHomeSongCategory(
         )
     }
     return result?.map { page ->
-        if (continuation == null && page != null) {
-            page.copy(items = dailyRotate(page.items.orEmpty().distinctBy { it.key }, dailySeed))
+        if (page != null) {
+            val uniqueSongs = page.items.orEmpty().distinctBy { it.key }
+            val categoryRanked = prioritizeHomeCategorySongs(category, uniqueSongs)
+            val personalized = personalizeSongItems(categoryRanked)
+            page.copy(
+                items = if (continuation == null) dailyRotate(personalized, dailySeed)
+                else personalized
+            )
         } else page
     }
 }
