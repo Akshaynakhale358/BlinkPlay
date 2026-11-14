@@ -146,7 +146,12 @@ private suspend fun fetchQuickPicksPodcastSongs(
                     if (!seenContinuations.add(token)) break
                     page = Innertube.playlistPage(
                         ContinuationBody(context = context, continuation = token)
-                    )?.getOrNull()?.songsPage
+                    )?.getOrNull()?.let { continuationPage ->
+                        Innertube.ItemsPage(
+                            items = continuationPage.items,
+                            continuation = continuationPage.continuation
+                        )
+                    }
                 }
                 episodes.distinctBy(Innertube.SongItem::key)
             }.getOrDefault(emptyList())
