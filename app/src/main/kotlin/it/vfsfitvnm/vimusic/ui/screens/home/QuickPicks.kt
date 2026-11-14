@@ -317,19 +317,27 @@ private suspend fun fetchQuickPicksPodcastSongs(
         "best moments", "snippet"
     )
 
-    // Merge all three discovery paths. The previous final gate accidentally
-    // discarded the Video fallback entirely and rejected dedicated Episode
-    // results unless YouTube supplied one exact endpoint type string.
-    // The search filters themselves identify the source; apply shared quality
-    // checks here without requiring unstable endpoint metadata.
-    val candidates = (showEpisodes.filter(::isPodcastContent) + searchedEpisodes + fallbackVideoEpisodes)
+    // Trust the dedicated Podcast show feeds and Episode search filter as the
+    // primary sources. Their titles/channels are not consistently labelled with
+    // the word "podcast" (especially Osho pravachans and regional-language talks),
+    // so do not force title-keyword matching on these two typed sources.
+    // Keep stricter classification only for generic Video-tab fallback results.
+    fun isCleanLongFormEpisode(song: Innertube.SongItem): Boolean {
+        val title = song.info?.name.orEmpty().lowercase()
+        val duration = durationSeconds(song.durationText) ?: 0L
+        return duration >= 5 * 60 && excludedTerms.none(title::contains)
+    }
+
+    val trustedShowEpisodes = showEpisodes.filter(::isCleanLongFormEpisode)
+    val trustedEpisodeSearch = searchedEpisodes.filter(::isCleanLongFormEpisode)
+    val cleanVideoFallback = fallbackVideoEpisodes.filter(::isPodcastContent)
+
+    val candidates = (trustedShowEpisodes + trustedEpisodeSearch + cleanVideoFallback)
         .distinctBy(Innertube.SongItem::key)
         .filter { song ->
             val title = song.info?.name.orEmpty().lowercase()
             val duration = durationSeconds(song.durationText) ?: 0L
-            duration >= 8 * 60 &&
-                excludedTerms.none(title::contains) &&
-                isPodcastContent(song)
+            duration >= 5 * 60 && excludedTerms.none(title::contains)
         }
 
     personalizeAndDiversify(candidates)
