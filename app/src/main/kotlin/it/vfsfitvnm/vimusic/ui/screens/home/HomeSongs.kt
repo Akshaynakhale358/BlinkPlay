@@ -74,7 +74,8 @@ private val homeSongCategories = listOf(
     HomeSongCategory("Sad", "sad heartbreak emotional melancholy songs"),
     HomeSongCategory("Focus", "study focus concentration instrumental background music"),
     HomeSongCategory("Sleep", "sleep peaceful soft ambient lullaby music"),
-    HomeSongCategory("Party", "party dance celebration upbeat hit songs")
+    HomeSongCategory("Party", "party dance celebration upbeat hit songs"),
+    HomeSongCategory("Podcast", "podcast", podcast = true)
 )
 
 private fun homeSongsDailySeed(): Int {
@@ -112,9 +113,11 @@ private fun Innertube.VideoItem.toHomePodcastSong() = Innertube.SongItem(
 
 private fun String?.toHomeDurationSeconds(): Int {
     if (this.isNullOrBlank()) return 0
-    val parts = trim().split(":").mapNotNull { it.toIntOrNull() }
-    if (parts.isEmpty()) return 0
-    return parts.fold(0) { total, part -> total * 60 + part }
+    val parts = trim().split(":")
+    if (parts.size !in 2..3 || parts.any { it.isBlank() || it.toIntOrNull() == null }) return 0
+    val values = parts.map { it.toInt() }
+    if (values.drop(1).any { it !in 0..59 } || values.first() < 0) return 0
+    return values.fold(0) { total, part -> total * 60 + part }
 }
 
 private suspend fun fetchHomeSongCategory(
