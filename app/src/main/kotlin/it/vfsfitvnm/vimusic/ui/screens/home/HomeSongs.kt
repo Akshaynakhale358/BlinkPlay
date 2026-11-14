@@ -236,7 +236,19 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             emptyItemsText = "No songs found for this category. Pull down to retry.",
             refreshOnEnter = true,
             headerContent = {
-                Header(title = category.name.uppercase())
+                Column {
+                    Header(title = "Songs")
+                    BasicText(
+                        text = category.name,
+                        style = typography.m.semiBold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    BasicText(
+                        text = "All Songs",
+                        style = typography.s.semiBold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
             },
             itemContent = { song ->
                 SongItem(
