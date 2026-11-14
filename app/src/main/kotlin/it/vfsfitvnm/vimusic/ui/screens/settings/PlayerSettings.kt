@@ -33,6 +33,7 @@ import it.vfsfitvnm.vimusic.utils.toast
 import it.vfsfitvnm.vimusic.utils.volumeNormalizationKey
 import it.vfsfitvnm.vimusic.utils.deepBassKey
 import it.vfsfitvnm.vimusic.utils.speakerSurroundKey
+import it.vfsfitvnm.vimusic.utils.miniPlayerAlwaysVisibleKey
 
 @ExperimentalAnimationApi
 @Composable
@@ -42,6 +43,7 @@ fun PlayerSettings() {
     val binder = LocalPlayerServiceBinder.current
 
     var persistentQueue by rememberPreference(persistentQueueKey, false)
+    var miniPlayerAlwaysVisible by rememberPreference(miniPlayerAlwaysVisibleKey, true)
     var resumePlaybackWhenDeviceConnected by rememberPreference(
         resumePlaybackWhenDeviceConnectedKey,
         false
