@@ -3,6 +3,7 @@ package it.vfsfitvnm.vimusic.ui.components.themed
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -50,6 +51,7 @@ fun PrimaryButton(
     Box(
         modifier = modifier
             .clip(if (circle) CircleShape else RoundedCornerShape(16.dp))
+            .then(if (circle && iconId == R.drawable.play) Modifier.border(1.dp, colorPalette.text.copy(alpha = 0.7f), CircleShape) else Modifier)
             .clickable(enabled = enabled, onClick = onClick)
             .then(if (transparentBackground) Modifier else Modifier.background(colorPalette.primaryButton))
             .size(62.dp)
