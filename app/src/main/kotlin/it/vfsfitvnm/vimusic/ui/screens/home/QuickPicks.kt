@@ -149,7 +149,8 @@ private suspend fun fetchQuickPicksPodcastSongs(
             )?.getOrNull()?.items.orEmpty()
         }.getOrDefault(emptyList())
     }
-    val (showRoots, directEpisodes) = awaitAll(showRootsJob, directEpisodesJob)
+    val showRoots = showRootsJob.await()
+    val directEpisodes = directEpisodesJob.await()
     val shows = showRoots.distinctBy(Innertube.PlaylistItem::key)
 
     // Expand each Podcast show into its full episode feed, including continuation pages.
