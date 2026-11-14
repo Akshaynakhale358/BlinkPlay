@@ -1313,18 +1313,9 @@ private suspend fun fetchMoreQuickPicksShelf(
         else -> DiscoverySubcategory("top_india", "Top Songs", "Top Songs", "top", query)
     }
     val candidates = fetchSearchAndRelatedBundle(listOf(query))
-    val strictCandidates = candidates.filter { song ->
-        val metadata = (song.info?.name.orEmpty() + " " +
-            song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
-        val signals = when (shelfKey) {
-            "trending" -> listOf("trending", "viral", "chart", "popular", "hit", "reels", "2026")
-            "top" -> listOf("top", "chart", "popular", "greatest", "best", "hits", "2026")
-            "new" -> listOf("new", "latest", "2026", "fresh", "recent", "official release")
-            else -> emptyList()
-        }
-        signals.any(metadata::contains)
-    }
-    val relevant = filterDiscoverySongs(category, strictCandidates)
+    // The query itself is category-targeted. Avoid a second title-keyword gate:
+    // legitimate songs often omit words such as "trending", "top" or "new".
+    val relevant = filterDiscoverySongs(category, candidates)
     return personalizeAndDiversify(prioritizeHindiSongs(relevant, category.key))
 }
 
@@ -1465,11 +1456,10 @@ private fun filterDiscoverySongs(
             "mix_regional", "trend_regional" -> listOf("tamil", "telugu", "kannada", "malayalam", "தமிழ்", "తెలుగు", "ಕನ್ನಡ", "മലയാളം")
             else -> emptyList()
         }
-        val categoryMatches = (if (positiveTerms.isNotEmpty()) {
-            positiveTerms.any(metadata::contains) ||
-                (category.key in setOf("mix_marathi", "trend_marathi") && hasDevanagari) ||
-                (category.key == "mix_punjabi" && hasGurmukhi)
-        } else true) && when (category.key) {
+        // Search roots already target the requested category. Do not require
+        // category words in every song title: many valid tracks have no mood/language
+        // keywords in metadata. Keep only clear negative exclusions below.
+        val categoryMatches = when (category.key) {
             "mix_romantic", "together_romance" ->
                 listOf("party", "remix", "dj mix", "devotional", "qawwali").none(metadata::contains)
             "mix_chill", "together_chill" ->
