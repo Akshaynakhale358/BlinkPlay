@@ -1090,8 +1090,8 @@ private fun QuickPicksDiscoveryShelf(
 
     Column(modifier = Modifier.width(276.dp)) {
         BasicText(
-            text = category.title.uppercase(),
-            style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 1.2f),
+            text = category.title.replaceFirstChar { it.uppercase() },
+            style = typography.m.semiBold.copy(fontSize = typography.xxl.fontSize * 0.936f),
             modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
         )
         Column(
