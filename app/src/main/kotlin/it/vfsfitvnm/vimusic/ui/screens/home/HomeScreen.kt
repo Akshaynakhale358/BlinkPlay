@@ -132,7 +132,7 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                 tabIndex = tabIndex,
                 onTabChanged = onTabChanged,
                 tabColumnContent = { Item ->
-                    Item(0, "Quick picks", R.drawable.sparkles)
+                    Item(0, "Quick Picks", R.drawable.sparkles)
                     Item(1, "Songs", R.drawable.musical_notes)
                     Item(2, "Albums", R.drawable.disc)
                     Item(3, "Artists", R.drawable.person)
