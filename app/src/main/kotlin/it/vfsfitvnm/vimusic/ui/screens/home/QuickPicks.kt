@@ -707,7 +707,7 @@ fun QuickPicks(
                     "long_listen" -> longListenSongs
                     else -> longListenSongs
                 }
-                Header(title = "Quick Picks")
+                Header(title = "Quick Picks", titleScale = 1.404f)
                 BasicText(
                     text = shelfTitle,
                     style = typography.m.semiBold.copy(
@@ -748,7 +748,7 @@ fun QuickPicks(
                 }
             } else {
                 val category = selectedDiscoveryCategory!!
-                Header(title = "Quick Picks")
+                Header(title = "Quick Picks", titleScale = 1.404f)
                 BasicText(
                     text = category.title.replaceFirstChar { it.uppercase() },
                     style = typography.m.semiBold.copy(
