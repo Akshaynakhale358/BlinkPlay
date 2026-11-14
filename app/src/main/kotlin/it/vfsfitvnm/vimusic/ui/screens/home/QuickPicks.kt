@@ -108,98 +108,53 @@ import androidx.compose.runtime.rememberCoroutineScope
 private suspend fun fetchQuickPicksPodcastSongs(
     batchIndex: Int
 ): List<Innertube.SongItem> = coroutineScope {
-    // Podcast discovery stays inside the app's two existing roots:
-    // Root A discovers general/regional podcast shows.
-    // Root B discovers talk, pravachan, interview and long-form shows.
-    // Both use the same Podcast filter; no generic Video/Episode search.
-    val generalPodcastQueries = listOf(
-        "Hindi podcasts", "Marathi podcasts", "Indian podcasts", "English podcasts",
-        "Hindi interview podcast", "Marathi मुलाखत podcast",
-        "Indian comedy podcast", "Marathi comedy podcast",
-        "Indian business podcast", "English business podcast",
-        "Hindi news podcast", "Marathi news podcast",
-        "Indian creator podcast", "Indian sports podcast",
-        "Hindi sports podcast", "English sports podcast"
-    )
-    val talkPodcastQueries = listOf(
-        "Osho Hindi pravachan", "Osho Marathi pravachan", "Osho Hindi discourse",
-        "Osho talks meditation", "Osho full lecture Hindi", "Osho English discourse",
-        "Hindi storytelling podcast", "Marathi गप्पा podcast",
-        "Indian history podcast", "Indian education podcast",
-        "Indian finance podcast", "Hindi motivation podcast",
-        "Indian cinema podcast", "Indian cricket podcast",
-        "Hindi celebrity podcast", "Marathi podcast interview",
-        "Indian technology podcast", "English technology podcast"
-    )
+    // Keep the two existing podcast discovery roots, but search only the
+    // single broad term requested: "podcast". No extra topic keywords.
     val context = Context.DefaultWeb.copy(
         client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
     )
-    val batchSize = 4
-    val startA = Math.floorMod(batchIndex * batchSize, generalPodcastQueries.size)
-    val startB = Math.floorMod(batchIndex * batchSize, talkPodcastQueries.size)
-    val rootAQueries = (0 until batchSize).map {
-        generalPodcastQueries[(startA + it) % generalPodcastQueries.size]
-    }
-    val rootBQueries = (0 until batchSize).map {
-        talkPodcastQueries[(startB + it) % talkPodcastQueries.size]
-    }
+    suspend fun searchRoot(): List<Innertube.PlaylistItem> =
+        runCatching {
+            Innertube.searchPodcastPage(
+                SearchBody(
+                    context = context,
+                    query = "podcast",
+                    params = Innertube.SearchFilter.Podcast.value
+                )
+            )?.getOrNull().orEmpty()
+        }.getOrDefault(emptyList())
 
-    suspend fun searchPodcastRoot(rootQueries: List<String>) = rootQueries.map { query ->
+    // Search both original roots with the same broad Podcast query.
+    val showsFromBothRoots = awaitAll(
+        async(Dispatchers.IO) { searchRoot() },
+        async(Dispatchers.IO) { searchRoot() }
+    ).flatten().distinctBy(Innertube.PlaylistItem::key)
+
+    // Fetch each returned show's complete episode feed, following continuation
+    // tokens until the source has no more pages. Never apply song filters here.
+    val episodeFeeds = showsFromBothRoots.map { show ->
         async(Dispatchers.IO) {
             runCatching {
-                Innertube.searchPodcastPage(
-                    SearchBody(
-                        context = context,
-                        query = query,
-                        params = Innertube.SearchFilter.Podcast.value
-                    )
-                )?.getOrNull().orEmpty()
-            }.getOrDefault(emptyList())
-        }
-    }.awaitAll().flatten()
-
-    // Run both original roots together and merge every Podcast show they return.
-    val podcastRoots = listOf(
-        async { searchPodcastRoot(rootAQueries) },
-        async { searchPodcastRoot(rootBQueries) }
-    )
-    val podcastShows = podcastRoots.awaitAll().flatten()
-        .distinctBy(Innertube.PlaylistItem::key)
-
-    // Fetch the returned shows' episode feeds directly. Keep all feed items:
-    // a valid podcast episode may be short or may not expose duration metadata.
-    val showEpisodes = podcastShows.map { show ->
-        async(Dispatchers.IO) {
-            runCatching {
-                val firstPage = Innertube.playlistPage(
+                val episodes = mutableListOf<Innertube.SongItem>()
+                var page = Innertube.playlistPage(
                     BrowseBody(context = context, browseId = show.key)
                 )?.getOrNull()?.songsPage
-                val episodes = firstPage?.items.orEmpty().toMutableList()
-                var continuation = firstPage?.continuation
-                var pageCount = 0
-                while (!continuation.isNullOrBlank() && pageCount < 1) {
-                    val page = Innertube.playlistPage(
-                        ContinuationBody(context = context, continuation = continuation)
-                    )?.getOrNull()
-                    val nextEpisodes = page?.items.orEmpty()
-                    if (nextEpisodes.isEmpty()) break
-                    episodes += nextEpisodes
-                    val nextContinuation = page?.continuation
-                    if (nextContinuation == continuation) break
-                    continuation = nextContinuation
-                    pageCount += 1
+                val seenContinuations = mutableSetOf<String>()
+                while (page != null) {
+                    episodes += page.items.orEmpty()
+                    val token = page.continuation?.takeIf { it.isNotBlank() } ?: break
+                    if (!seenContinuations.add(token)) break
+                    page = Innertube.playlistPage(
+                        ContinuationBody(context = context, continuation = token)
+                    )?.getOrNull()?.songsPage
                 }
                 episodes.distinctBy(Innertube.SongItem::key)
             }.getOrDefault(emptyList())
         }
     }.awaitAll().flatten()
 
-    // Podcast show feeds are already classified by the Podcast root.
-    // Do not discard their episodes with song-oriented title/duration filters.
-    val candidates = showEpisodes.distinctBy(Innertube.SongItem::key)
-    personalizeAndDiversify(candidates)
+    episodeFeeds.distinctBy(Innertube.SongItem::key)
 }
-
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
