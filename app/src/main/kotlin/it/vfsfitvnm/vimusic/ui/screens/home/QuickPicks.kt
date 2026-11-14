@@ -1100,7 +1100,9 @@ private fun calmMusicCategories(): List<DiscoverySubcategory> = listOf(
 private suspend fun fetchCalmMusicCategories(refreshCycle: Int): Map<String, List<Innertube.SongItem>> = coroutineScope {
     calmMusicCategories().map { category ->
         async {
-            val categoryQueries = cycleCategoryQueries(listOf(category.query, "${category.title} instrumental relaxing music"), refreshCycle, 1)
+            // Use the dedicated query set for each Calm subcategory. Avoid adding
+            // generic "new songs/latest uploads" suffixes to ambient music searches.
+            val categoryQueries = discoverySearchQueries(category)
             val categorySongs = fetchSearchAndRelatedBundle(categoryQueries)
             val filteredSongs = filterDiscoverySongs(category, categorySongs)
             category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(prioritizeHindiSongs(filteredSongs, category.key)))
@@ -1640,8 +1642,12 @@ private suspend fun fetchQuickPickDiscoveryCategories(
     discoveryBundles().flatMap { it.categories }.map { category ->
         async {
             val isPersonal = category.kind == "personal"
-            val queries = if (isPersonal) emptyList() else
-                cycleCategoryQueries(discoverySearchQueries(category), refreshCycle, 1)
+            val queries = when {
+                isPersonal -> emptyList()
+                // Regional Mix needs one search for each supported South Indian language.
+                category.key == "mix_regional" -> discoverySearchQueries(category)
+                else -> cycleCategoryQueries(discoverySearchQueries(category), refreshCycle, 1)
+            }
 
             // First paint: show filtered Song Search/history results immediately.
             val searchFeed = if (isPersonal) {
@@ -1708,7 +1714,12 @@ private fun discoverySearchQueries(category: DiscoverySubcategory): List<String>
         "mix_hindi" -> listOf("popular Hindi hit songs Bollywood", "latest Hindi film songs")
         "mix_marathi" -> listOf("popular Marathi film songs", "latest Marathi hit songs", "Marathi romantic songs")
         "mix_punjabi" -> listOf("popular Punjabi pop songs", "latest Punjabi hit songs")
-        "mix_regional" -> listOf("popular Tamil Telugu Kannada Malayalam film songs", "latest South Indian songs")
+        "mix_regional" -> listOf(
+            "popular Tamil film songs",
+            "popular Telugu film songs",
+            "popular Kannada film songs",
+            "popular Malayalam film songs"
+        )
         "mix_romantic" -> listOf("romantic Hindi love songs", "romantic Marathi film songs", "Bollywood love duets")
         "mix_chill" -> listOf("chill Hindi acoustic songs", "soft Marathi songs", "relaxing Indian indie music")
         "trend_india" -> listOf("India trending popular film songs", "viral Indian music hits")
@@ -1777,7 +1788,12 @@ private fun filterDiscoverySongs(
                 !hasTamil && !hasTelugu && !hasKannada && !hasMalayalam && !hasGurmukhi
             "mix_punjabi" ->
                 !hasTamil && !hasTelugu && !hasKannada && !hasMalayalam && !hasDevanagari
-            "mix_regional", "trend_regional" ->
+            "mix_regional" ->
+                // The four searches above already target these languages. Many valid
+                // regional tracks use Latin transliteration, so don't discard them
+                // merely because the title/artist has no native-script characters.
+                !hasDevanagari && !hasGurmukhi
+            "trend_regional" ->
                 hasTamil || hasTelugu || hasKannada || hasMalayalam || metadata.contains("tamil") ||
                     metadata.contains("telugu") || metadata.contains("kannada") || metadata.contains("malayalam")
             else -> true
