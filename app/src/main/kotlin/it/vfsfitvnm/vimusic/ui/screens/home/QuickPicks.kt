@@ -443,7 +443,7 @@ fun QuickPicks(
         ) {
             if (selectedDiscoveryCategory == null && selectedQuickPicksShelf == null) {
             Header(
-                title = "QUICK PICKS",
+                title = "Quick Picks",
                 modifier = Modifier
                     .padding(endPaddingValues)
             )
