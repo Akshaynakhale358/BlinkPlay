@@ -254,14 +254,33 @@ fun QuickPicks(
         emptyPodcastBatches = 0
         isLoadingMorePodcasts = false
         hasMorePodcastResults = true
-        podcastSongs = withContext(Dispatchers.IO) { fetchQuickPicksPodcastSongs(0) }
+        var loadedPodcasts = emptyList<Innertube.SongItem>()
+        var lastPodcastBatch = 0
+        withContext(Dispatchers.IO) {
+            for (batch in 0 until 4) {
+                lastPodcastBatch = batch
+                val next = runCatching { fetchQuickPicksPodcastSongs(batch) }.getOrDefault(emptyList())
+                loadedPodcasts = (loadedPodcasts + next).distinctBy(Innertube.SongItem::key)
+                if (loadedPodcasts.size >= 9) break
+            }
+        }
+        podcastSongs = loadedPodcasts
+        podcastBatchIndex = lastPodcastBatch
         isLoadingPodcasts = false
     }
 
 
     // Long Listen refreshes on pull-to-refresh and automatically at Indian midnight.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
-        longListenSongs = withContext(Dispatchers.IO) { fetchLongListenSongs() }
+        var loadedLongListen = emptyList<Innertube.SongItem>()
+        withContext(Dispatchers.IO) {
+            for (batch in 0 until 4) {
+                val next = runCatching { fetchLongListenSongs(batch) }.getOrDefault(emptyList())
+                loadedLongListen = (loadedLongListen + next).distinctBy(Innertube.SongItem::key)
+                if (loadedLongListen.size >= 9) break
+            }
+        }
+        longListenSongs = loadedLongListen
     }
 
     // Songs For You and New Releases use the same YouTube Music song-search
