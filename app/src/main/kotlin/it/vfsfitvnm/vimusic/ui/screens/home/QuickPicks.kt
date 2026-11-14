@@ -140,8 +140,6 @@ fun QuickPicks(
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var isLoadingLongListen by remember { mutableStateOf(true) }
-    var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
-    var isLoadingLongListen by remember { mutableStateOf(true) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
     var isLoadingMoreDiscovery by remember { mutableStateOf(false) }
     var discoveryBatchIndex by remember { mutableStateOf(0) }
@@ -258,7 +256,6 @@ fun QuickPicks(
 
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
-    val longListenLazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
     val longListenLazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     // Built-in shelf detail pages keep loading batches as the vertical list is scrolled.
