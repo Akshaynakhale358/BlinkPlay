@@ -98,6 +98,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 
 private fun Innertube.VideoItem.toQuickPicksPodcastSong() = Innertube.SongItem(
@@ -155,10 +157,6 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
         }
     }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
 
-    val podcastTerms = listOf(
-        "podcast", "podcasts", "episode", "full episode", "interview", "conversation",
-        "talk show", "talkshow", "मुलाखत", "पॉडकास्ट", "चर्चा", "गप्पा", "संवाद"
-    )
     fun durationSeconds(value: String?): Long {
         val parts = value.orEmpty().substringBefore(" ").split(":").mapNotNull(String::toLongOrNull)
         return if (parts.isEmpty()) 0L else parts.reversed().mapIndexed { index, part ->
@@ -178,7 +176,7 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
         val duration = durationSeconds(song.durationText)
         // Video-only search plus long duration prevents ordinary tracks; podcast
         // wording may appear in either the episode title or its channel name.
-        podcastTerms.any(metadata::contains) && duration >= 8 * 60 && musicTitleTerms.none(title::contains)
+        duration >= 8 * 60 && musicTitleTerms.none(title::contains)
     }
     personalizeAndDiversify(relevant)
 }
@@ -219,6 +217,7 @@ fun QuickPicks(
     var emptyDiscoveryBatches by remember { mutableStateOf(0) }
     var hasMoreDiscoveryResults by remember { mutableStateOf(true) }
     var selectedPodcastPage by remember { mutableStateOf(false) }
+    var selectedQuickPicksShelf by remember { mutableStateOf<String?>(null) }
     var pendingShelfLoad by remember { mutableStateOf<String?>(null) }
     var loadingShelfKeys by remember { mutableStateOf(setOf<String>()) }
     var shelfBatchIndexes by remember { mutableStateOf(emptyMap<String, Int>()) }
@@ -258,11 +257,11 @@ fun QuickPicks(
         var loadedPodcasts = emptyList<Innertube.SongItem>()
         var lastPodcastBatch = 0
         withContext(Dispatchers.IO) {
-            for (batch in 0 until 4) {
+            for (batch in 0 until 8) {
                 lastPodcastBatch = batch
                 val next = runCatching { fetchQuickPicksPodcastSongs(batch) }.getOrDefault(emptyList())
                 loadedPodcasts = (loadedPodcasts + next).distinctBy(Innertube.SongItem::key)
-                if (loadedPodcasts.size >= 9) break
+                if (loadedPodcasts.size >= 15) break
             }
         }
         podcastSongs = loadedPodcasts
@@ -280,7 +279,7 @@ fun QuickPicks(
                 for (batch in 0 until 4) {
                     val next = runCatching { fetchLongListenSongs(batch) }.getOrDefault(emptyList())
                     loadedLongListen = (loadedLongListen + next).distinctBy(Innertube.SongItem::key)
-                    if (loadedLongListen.size >= 9) break
+                    if (loadedLongListen.size >= 15) break
                 }
             }
             longListenSongs = loadedLongListen
@@ -325,6 +324,7 @@ fun QuickPicks(
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
 
     val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
     val longListenLazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     // Keep one pagination collector alive while the Podcast page is open.
@@ -370,6 +370,18 @@ fun QuickPicks(
             }
         }
     }
+    // Built-in shelf detail pages keep loading batches as the vertical list is scrolled.
+    LaunchedEffect(selectedQuickPicksShelf) {
+        val shelfKey = selectedQuickPicksShelf ?: return@LaunchedEffect
+        snapshotFlow {
+            scrollState.value >= (scrollState.maxValue - 500).coerceAtLeast(0)
+        }.distinctUntilChanged().collect { nearBottom ->
+            if (nearBottom && selectedQuickPicksShelf == shelfKey && pendingShelfLoad == null && shelfKey !in loadingShelfKeys) {
+                pendingShelfLoad = shelfKey
+            }
+        }
+    }
+
     // Category detail pages also need continuous pagination, not a fixed first batch.
     // Keep this collector stable while the page is open so scroll events never cancel fetches.
     LaunchedEffect(selectedDiscoveryCategory) {
@@ -464,8 +476,11 @@ fun QuickPicks(
 
     // Keep the opened category at the top, then restore the exact Home scroll
     // position when Back returns from that category.
-    BackHandler(enabled = selectedDiscoveryCategory != null || selectedPodcastPage) {
-        if (selectedPodcastPage) {
+    BackHandler(enabled = selectedDiscoveryCategory != null || selectedPodcastPage || selectedQuickPicksShelf != null) {
+        if (selectedQuickPicksShelf != null) {
+            selectedQuickPicksShelf = null
+            restoreHomeScroll = true
+        } else if (selectedPodcastPage) {
             selectedPodcastPage = false
             restoreHomeScroll = true
         } else {
@@ -473,8 +488,8 @@ fun QuickPicks(
             selectedDiscoveryCategory = null
         }
     }
-    LaunchedEffect(selectedDiscoveryCategory, selectedPodcastPage) {
-        if (selectedDiscoveryCategory != null || selectedPodcastPage) {
+    LaunchedEffect(selectedDiscoveryCategory, selectedPodcastPage, selectedQuickPicksShelf) {
+        if (selectedDiscoveryCategory != null || selectedPodcastPage || selectedQuickPicksShelf != null) {
             scrollState.scrollTo(0)
         } else if (restoreHomeScroll) {
             scrollState.scrollTo(savedHomeScrollOffset)
@@ -522,7 +537,7 @@ fun QuickPicks(
                         .asPaddingValues()
                 )
         ) {
-            if (selectedDiscoveryCategory == null && !selectedPodcastPage) {
+            if (selectedDiscoveryCategory == null && !selectedPodcastPage && selectedQuickPicksShelf == null) {
             Header(
                 title = "QUICK PICKS",
                 modifier = Modifier
@@ -531,10 +546,14 @@ fun QuickPicks(
 
 
 
-            BasicText(
-                text = "SONGS FOR YOU",
-                style = typography.s.semiBold,
-                modifier = sectionTextModifier
+            QuickPicksSectionHeader(
+                title = "SONGS FOR YOU",
+                modifier = sectionTextModifier,
+                onPlay = {
+                    val items = songsForYou.take(15).map(Innertube.SongItem::asMediaItem)
+                    if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) }
+                },
+                onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "for_you" }
             )
 
             if (songsForYou.isNotEmpty()) {
@@ -556,7 +575,7 @@ fun QuickPicks(
                         .fillMaxWidth()
                         .height((songThumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
                 ) {
-                    items(items = songsForYou.distinctBy { it.key }, key = Innertube.SongItem::key) { song ->
+                    items(items = songsForYou.distinctBy { it.key }.take(15), key = Innertube.SongItem::key) { song ->
                         SongItem(
                             song = song,
                             thumbnailSizePx = songThumbnailSizePx,
@@ -598,6 +617,8 @@ fun QuickPicks(
             QuickPicksSongShelf(
                 title = "TRENDING SONGS",
                 songs = trendingSongs,
+                onPlay = { val items = trendingSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "trending" },
                 onLoadMore = { if (pendingShelfLoad == null && "trending" !in loadingShelfKeys) pendingShelfLoad = "trending" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
@@ -620,6 +641,8 @@ fun QuickPicks(
             QuickPicksSongShelf(
                 title = "TOP SONGS",
                 songs = topSongs,
+                onPlay = { val items = topSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "top" },
                 onLoadMore = { if (pendingShelfLoad == null && "top" !in loadingShelfKeys) pendingShelfLoad = "top" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
@@ -642,6 +665,8 @@ fun QuickPicks(
             QuickPicksSongShelf(
                 title = "NEW RELEASES",
                 songs = newReleases,
+                onPlay = { val items = newReleases.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "new" },
                 onLoadMore = { if (pendingShelfLoad == null && "new" !in loadingShelfKeys) pendingShelfLoad = "new" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
@@ -778,10 +803,11 @@ fun QuickPicks(
                 )
             }
 
-            BasicText(
-                text = "LONG LISTEN",
-                style = typography.s.semiBold,
-                modifier = sectionTextModifier
+            QuickPicksSectionHeader(
+                title = "LONG LISTEN",
+                modifier = sectionTextModifier,
+                onPlay = { val items = longListenSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "long_listen" }
             )
             LaunchedEffect(longListenLazyListState, longListenSongs.size) {
                 snapshotFlow {
@@ -810,7 +836,7 @@ fun QuickPicks(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     lazyRowItems(
-                        items = longListenSongs.chunked(3),
+                        items = longListenSongs.take(15).chunked(5),
                         key = { column -> column.firstOrNull()?.key.orEmpty() }
                     ) { songColumn ->
                         Column(
@@ -845,6 +871,50 @@ fun QuickPicks(
                 }
             }
 
+            } else if (selectedQuickPicksShelf != null) {
+                val shelfKey = selectedQuickPicksShelf!!
+                val shelfTitle = when (shelfKey) {
+                    "for_you" -> "SONGS FOR YOU"
+                    "trending" -> "TRENDING SONGS"
+                    "top" -> "TOP SONGS"
+                    "new" -> "NEW RELEASES"
+                    else -> "LONG LISTEN"
+                }
+                val shelfSongs = when (shelfKey) {
+                    "for_you" -> songsForYou
+                    "trending" -> trendingSongs
+                    "top" -> topSongs
+                    "new" -> newReleases
+                    else -> longListenSongs
+                }
+                BasicText(
+                    text = "‹  BACK TO QUICK PICKS",
+                    style = typography.s.semiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        .clickable { selectedQuickPicksShelf = null; restoreHomeScroll = true }
+                )
+                Header(title = shelfTitle)
+                QuickPicksSongShelf(
+                    title = shelfTitle + " · ALL SONGS",
+                    songs = shelfSongs,
+                    thumbnailSizePx = songThumbnailSizePx,
+                    thumbnailSizeDp = songThumbnailSizeDp,
+                    itemWidth = itemInHorizontalGridWidth,
+                    endPaddingValues = endPaddingValues,
+                    verticalList = true,
+                    onSongClick = { song ->
+                        val mediaItem = song.asMediaItem
+                        binder?.stopRadio()
+                        binder?.player?.forcePlay(mediaItem)
+                        binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                    },
+                    onSongLongClick = { song ->
+                        menuState.display { NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem) }
+                    }
+                )
+                if (shelfKey in loadingShelfKeys || pendingShelfLoad == shelfKey) {
+                    ShimmerHost { repeat(2) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) } }
+                }
             } else if (selectedPodcastPage) {
                 BasicText(
                     text = "‹  BACK TO QUICK PICKS",
@@ -911,6 +981,16 @@ fun QuickPicks(
                 }
             }
         }
+        if (scrollState.value > 300) {
+            BasicText(
+                text = "↑",
+                style = typography.s.semiBold.copy(color = Color.White),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(18.dp)
+                    .clip(RoundedCornerShape(50)).background(Color(0xFF343434))
+                    .clickable { scope.launch { scrollState.animateScrollTo(0) } }
+                    .padding(horizontal = 15.dp, vertical = 10.dp)
+            )
+        }
     }
     }
     }
@@ -954,6 +1034,31 @@ private fun QuickPicksSimpleSongRail(
 }
 
 @Composable
+private fun QuickPicksSectionHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    onPlay: () -> Unit,
+    onViewAll: () -> Unit
+) {
+    val (_, typography) = LocalAppearance.current
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+    ) {
+        BasicText(text = title, style = typography.s.semiBold, modifier = Modifier.weight(1f))
+        Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            BasicText(text = "PLAY", style = typography.xs.semiBold,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
+                    .clickable(onClick = onPlay).padding(horizontal = 9.dp, vertical = 7.dp))
+            BasicText(text = "VIEW ALL", style = typography.xs.semiBold,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
+                    .clickable(onClick = onViewAll).padding(horizontal = 9.dp, vertical = 7.dp))
+        }
+    }
+}
+
+@Composable
 private fun QuickPicksSongShelf(
     title: String,
     songs: List<Innertube.SongItem>,
@@ -963,6 +1068,8 @@ private fun QuickPicksSongShelf(
     endPaddingValues: androidx.compose.foundation.layout.PaddingValues,
     verticalList: Boolean,
     onLoadMore: (() -> Unit)? = null,
+    onPlay: (() -> Unit)? = null,
+    onViewAll: (() -> Unit)? = null,
     onSongClick: (Innertube.SongItem) -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
@@ -978,14 +1085,27 @@ private fun QuickPicksSongShelf(
         }
     }
 
-    BasicText(
-        text = title,
-        style = typography.s.semiBold,
-        modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .padding(top = 24.dp, bottom = 8.dp)
-            .padding(endPaddingValues)
-    )
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 24.dp, bottom = 8.dp).padding(endPaddingValues),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+    ) {
+        BasicText(text = title, style = typography.s.semiBold, modifier = Modifier.weight(1f))
+        if (onPlay != null || onViewAll != null) {
+            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                onPlay?.let { action ->
+                    BasicText(text = "PLAY", style = typography.xs.semiBold,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
+                            .clickable(onClick = action).padding(horizontal = 9.dp, vertical = 7.dp))
+                }
+                onViewAll?.let { action ->
+                    BasicText(text = "VIEW ALL", style = typography.xs.semiBold,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
+                            .clickable(onClick = action).padding(horizontal = 9.dp, vertical = 7.dp))
+                }
+            }
+        }
+    }
 
     if (songs.isEmpty()) {
         if (verticalList) {
