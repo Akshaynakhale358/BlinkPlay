@@ -73,6 +73,13 @@ fun PlayerSettings() {
         SettingsEntryGroupText(title = "PLAYER")
 
         SwitchSettingEntry(
+            title = "Keep mini player visible",
+            text = "Keep the mini player at the bottom even when playback is paused",
+            isChecked = miniPlayerAlwaysVisible,
+            onCheckedChange = { miniPlayerAlwaysVisible = it }
+        )
+
+        SwitchSettingEntry(
             title = "Persistent queue",
             text = "Save and restore playing songs",
             isChecked = persistentQueue,
