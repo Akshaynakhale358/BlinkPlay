@@ -287,8 +287,8 @@ fun HomeAlbums(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         BasicText(
-                            text = shelf.title.replaceFirstChar { it.uppercase() },
-                            style = typography.m.semiBold.copy(fontSize = typography.xxl.fontSize * 0.936f),
+                            text = shelf.title,
+                            style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 1.2f),
                             modifier = Modifier.weight(1f)
                         )
                         BasicText(
