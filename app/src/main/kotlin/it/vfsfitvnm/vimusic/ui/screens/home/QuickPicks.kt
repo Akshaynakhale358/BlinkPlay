@@ -1452,7 +1452,7 @@ private suspend fun fetchQuickPicksPodcastSongs(
     // FEmusic_home and FEmusic_explore. No Song/Video or Podcast/Episode search filters.
     val context = IndiaExploreContext
     val discovery = runCatching {
-        Innertube.musicDiscovery(forceRefresh = batchIndex == 0, context = context).getOrNull()
+        Innertube.musicDiscovery(forceRefresh = batchIndex == 0, context = context)?.getOrNull()
     }.getOrNull() ?: return@coroutineScope emptyList()
 
     val rootPages = listOfNotNull(discovery.home, discovery.explore)
