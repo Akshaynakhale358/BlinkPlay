@@ -74,14 +74,11 @@ fun MiniPlayerActionButton(
     val binder = LocalPlayerServiceBinder.current
     val coroutineScope = rememberCoroutineScope()
 
-    // Show the launcher only while the player sheet is dismissed.
-    if (playerSheetState?.isDismissed != true) return
-
     PrimaryButton(
         iconId = R.drawable.play,
         enabled = true,
-        transparentBackground = true,
-        circle = circle,
+        transparentBackground = false,
+        circle = true,
         onClick = {
             val player = binder?.player
             if (player == null) {
