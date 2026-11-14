@@ -1,5 +1,6 @@
 package it.vfsfitvnm.vimusic.ui.screens.home
 
+import androidx.compose.foundation.layout.offset
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -248,7 +249,7 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
                             fontSize = typography.xxl.fontSize * 0.936f,
                             textAlign = TextAlign.End
                         ),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
                     )
                     BasicText(
                         text = "All Songs",
@@ -256,7 +257,7 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
                             fontSize = typography.xxl.fontSize * 0.5616f,
                             textAlign = TextAlign.End
                         ),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
                     )
                 }
             },
