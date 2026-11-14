@@ -63,7 +63,6 @@ import kotlinx.coroutines.withContext
 private data class HomeSongCategory(val name: String, val query: String, val podcast: Boolean = false)
 
 private val homeSongCategories = listOf(
-    HomeSongCategory("Podcast", "Hindi podcasts interviews conversations full episodes", true),
     HomeSongCategory("Workout", "gym workout running fitness motivation high energy songs"),
     HomeSongCategory("Feel Good", "happy uplifting positive feel good mood songs"),
     HomeSongCategory("Romance", "romantic love songs Bollywood romance"),
