@@ -3,6 +3,7 @@ package it.vfsfitvnm.vimusic.ui.screens.home
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -28,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +61,7 @@ import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
@@ -89,7 +94,7 @@ fun HomeAlbums(
     var shelfAlbums by remember { mutableStateOf<Map<String, List<Innertube.AlbumItem>>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
     var selectedShelf by remember { mutableStateOf<AlbumShelf?>(null) }
-    var selectedShelfAlbums by remember { mutableStateOf<List<Innertube.AlbumItem>>(emptyList()) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(refreshKey) {
         loading = true
@@ -229,7 +234,7 @@ fun HomeAlbums(
                                         val firstAlbumId = albums.firstOrNull()?.info?.endpoint?.browseId
                                         if (firstAlbumId != null) {
                                             // Play starts the first album in this category.
-                                            kotlinx.coroutines.MainScope().launch {
+                                            scope.launch {
                                                 val songs = withContext(Dispatchers.IO) {
                                                     Innertube.albumPage(BrowseBody(browseId = firstAlbumId))
                                                         ?.getOrNull()?.songsPage?.items.orEmpty()
@@ -257,7 +262,6 @@ fun HomeAlbums(
                                     .background(Color.White.copy(alpha = 0.14f))
                                     .clickable {
                                         selectedShelf = shelf
-                                        selectedShelfAlbums = albums
                                     }
                                     .padding(horizontal = 10.dp, vertical = 8.dp)
                             )
