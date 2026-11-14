@@ -173,10 +173,12 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
     )
     val relevant = results.filter { song ->
         val title = song.info?.name.orEmpty().lowercase()
+        val channel = song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }.lowercase()
+        val metadata = "$title $channel"
         val duration = durationSeconds(song.durationText)
-        // Require episode wording in the title and an episode-like duration.
-        // Channel/artist names alone cannot make a normal song a podcast.
-        podcastTerms.any(title::contains) && duration >= 8 * 60 && musicTitleTerms.none(title::contains)
+        // Video-only search plus long duration prevents ordinary tracks; podcast
+        // wording may appear in either the episode title or its channel name.
+        podcastTerms.any(metadata::contains) && duration >= 8 * 60 && musicTitleTerms.none(title::contains)
     }
     personalizeAndDiversify(relevant)
 }
@@ -197,6 +199,7 @@ fun QuickPicks(
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
     var songsForYou by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var isLoadingSongsForYou by remember { mutableStateOf(true) }
     var trendingSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var topSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
@@ -264,6 +267,7 @@ fun QuickPicks(
     // Songs For You and New Releases use the same YouTube Music song-search
     // endpoint. Only the category query changes, so both shelves share one parser.
     LaunchedEffect(refreshToken) {
+        isLoadingSongsForYou = true
         val (recommendations, fetchedShelves) = withContext(Dispatchers.IO) {
             coroutineScope {
                 val forYou = async { fetchPersonalizedSongsForYou() }
@@ -273,6 +277,7 @@ fun QuickPicks(
             }
         }
         songsForYou = recommendations.distinctBy(Innertube.SongItem::key)
+        isLoadingSongsForYou = false
         // Personalize each shelf independently so its original category stays intact:
         // trending remains trending, top songs remain chart-ranked candidates, and
         // new releases remain sourced only from the new-release search.
@@ -553,10 +558,16 @@ fun QuickPicks(
                         )
                     }
                 }
-            } else {
+            } else if (isLoadingSongsForYou) {
                 ShimmerHost {
                     repeat(5) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) }
                 }
+            } else {
+                BasicText(
+                    text = "Play a few songs or like tracks to build your personal mix. Pull down to retry.",
+                    style = typography.xs.secondary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
             }
 
             QuickPicksSongShelf(
@@ -1234,28 +1245,46 @@ private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
     return dailyOrder
 }
 
-private suspend fun fetchLongListenSongs(batchIndex: Int = 0): List<Innertube.SongItem> {
-    // Rotate long-form queries on every horizontal-scroll batch.
+private suspend fun fetchLongListenSongs(batchIndex: Int = 0): List<Innertube.SongItem> = coroutineScope {
+    // Long Listen uses long-form video search, not the regular Song Search shelf.
+    // Four independent queries per batch prevent one sparse query limiting results.
     val queries = listOf(
-        "30 minute extended music full song mix",
-        "45 minute live music performance full concert",
+        "30 minute extended music full performance",
+        "45 minute live music concert full performance",
         "one hour instrumental music long play",
-        "extended rock electronic jazz music 40 minutes",
-        "one hour Indian classical instrumental music",
-        "long live acoustic music performance 45 minutes",
-        "60 minute ambient electronic music full mix",
-        "long form jazz live session full performance"
+        "extended rock electronic jazz live session",
+        "one hour Indian classical instrumental performance",
+        "long live acoustic music performance",
+        "60 minute ambient music full mix",
+        "long form jazz live session full performance",
+        "30 minutes Bollywood unplugged live songs",
+        "45 minute Indian music concert",
+        "one hour relaxing instrumental music",
+        "long form world music live session"
     )
-    val query = queries[Math.floorMod(batchIndex, queries.size)]
-    val candidates = fetchSearchAndRelatedBundle(listOf(query))
-    val nonDevotional = filterDiscoverySongs(
+    val batchSize = 4
+    val start = Math.floorMod(batchIndex * batchSize, queries.size)
+    val batchQueries = (0 until batchSize).map { queries[(start + it) % queries.size] }
+    val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN"))
+    val videoResults = batchQueries.map { query ->
+        async(Dispatchers.IO) {
+            runCatching {
+                Innertube.searchPage(
+                    body = SearchBody(context = context, query = query, params = Innertube.SearchFilter.Video.value),
+                    fromMusicShelfRendererContent = { content ->
+                        Innertube.VideoItem.from(content)?.toQuickPicksPodcastSong()
+                    }
+                )?.getOrNull()?.items.orEmpty()
+            }.getOrDefault(emptyList())
+        }
+    }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
+
+    val longVideos = videoResults.filter { it.durationText.toDurationSeconds() >= 15 * 60 }
+    val relevant = filterDiscoverySongs(
         DiscoverySubcategory("long_listen", "Long Listen", "Long Listen", "long", ""),
-        candidates
+        longVideos
     )
-    val longTracks = nonDevotional
-        .filter { it.durationText.toDurationSeconds() > 30 * 60 }
-        .distinctBy(Innertube.SongItem::key)
-    return rotateDiscoverySongsDaily(personalizeAndDiversify(longTracks))
+    rotateDiscoverySongsDaily(personalizeAndDiversify(relevant))
 }
 
 
@@ -1629,9 +1658,13 @@ private suspend fun fetchPersonalizedSongsForYou(): List<Innertube.SongItem> = c
     val seeds = (history.take(3) + favorites.take(2)).distinctBy { it.id }.take(4)
     val listenedIds = (history + favorites).map { it.id }.toSet()
 
-    // No history means no genuine personal taste signal. Do not fill this shelf
-    // with generic tracks that are not personalized.
-    if (seeds.isEmpty()) return@coroutineScope emptyList()
+    // With no listening history yet, populate from Indian discovery; taste ranking
+    // will become personal automatically after the listener starts playing tracks.
+    if (seeds.isEmpty()) {
+        return@coroutineScope fetchSearchAndRelatedBundle(
+            listOf("popular Hindi songs India", "popular Marathi songs India")
+        ).distinctBy(Innertube.SongItem::key)
+    }
 
     val relatedFeeds = seeds.map { seed ->
         async {
@@ -1653,11 +1686,15 @@ private suspend fun fetchPersonalizedSongsForYou(): List<Innertube.SongItem> = c
                 val artist = seed.artistsText.orEmpty().takeIf { it.isNotBlank() }.orEmpty()
                 val query = listOf(seed.title, artist, "similar songs")
                     .filter { it.isNotBlank() }.joinToString(" ")
-                fetchSongsByCategory(query)
+                fetchSongsByCategoryWithFallback(query)
             }
         }.awaitAll().flatten()
-        (related + seedSearches).filter { it.key !in listenedIds }
+        val personalizedCandidates = (related + seedSearches).filter { it.key !in listenedIds }
             .distinctBy(Innertube.SongItem::key)
+        if (personalizedCandidates.isNotEmpty()) personalizedCandidates else {
+            fetchSearchAndRelatedBundle(listOf("popular Hindi songs India", "popular Marathi songs India"))
+                .filter { it.key !in listenedIds }
+        }
     }
 
     // Interleave artist buckets to prevent one singer filling the shelf.
