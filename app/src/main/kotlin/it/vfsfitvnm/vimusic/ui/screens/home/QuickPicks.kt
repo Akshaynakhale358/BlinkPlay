@@ -203,6 +203,7 @@ fun QuickPicks(
     var podcastSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var podcastBatchIndex by remember { mutableStateOf(0) }
     var isLoadingMorePodcasts by remember { mutableStateOf(false) }
+    var hasMorePodcastResults by remember { mutableStateOf(true) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
     var selectedPodcastPage by remember { mutableStateOf(false) }
@@ -245,31 +246,10 @@ fun QuickPicks(
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         podcastBatchIndex = 0
         isLoadingMorePodcasts = false
+        hasMorePodcastResults = true
         podcastSongs = withContext(Dispatchers.IO) { fetchQuickPicksPodcastSongs(0) }
     }
 
-    // Infinite-scroll style loading for the full Podcast page.
-    LaunchedEffect(selectedPodcastPage, scrollState.value, scrollState.maxValue, podcastSongs.size, podcastBatchIndex) {
-        if (selectedPodcastPage && podcastSongs.isNotEmpty() &&
-            !isLoadingMorePodcasts && scrollState.value >= scrollState.maxValue - 500
-        ) {
-            isLoadingMorePodcasts = true
-            val nextBatch = podcastBatchIndex + 1
-            val moreSongs = withContext(Dispatchers.IO) {
-                fetchQuickPicksPodcastSongs(nextBatch)
-            }
-            val existingKeys = podcastSongs.map(Innertube.SongItem::key).toHashSet()
-            val uniqueMore = moreSongs.filter { it.key !in existingKeys }
-            if (uniqueMore.isNotEmpty()) {
-                podcastSongs = podcastSongs + uniqueMore
-                podcastBatchIndex = nextBatch
-            } else {
-                // Keep trying the next search group on the next scroll threshold.
-                podcastBatchIndex = nextBatch
-            }
-            isLoadingMorePodcasts = false
-        }
-    }
 
     // Long Listen refreshes on pull-to-refresh and automatically at Indian midnight.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
@@ -310,6 +290,28 @@ fun QuickPicks(
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
 
     val scrollState = rememberScrollState()
+
+    // Fetch another group when the Podcast page is close to its scroll end.
+    LaunchedEffect(selectedPodcastPage, scrollState.value, scrollState.maxValue, podcastSongs.size, podcastBatchIndex) {
+        if (selectedPodcastPage && hasMorePodcastResults && podcastSongs.isNotEmpty() &&
+            !isLoadingMorePodcasts && scrollState.value >= scrollState.maxValue - 500
+        ) {
+            isLoadingMorePodcasts = true
+            val nextBatch = podcastBatchIndex + 1
+            val moreSongs = withContext(Dispatchers.IO) {
+                fetchQuickPicksPodcastSongs(nextBatch)
+            }
+            val existingKeys = podcastSongs.map(Innertube.SongItem::key).toHashSet()
+            val uniqueMore = moreSongs.filter { it.key !in existingKeys }
+            if (uniqueMore.isNotEmpty()) {
+                podcastSongs = podcastSongs + uniqueMore
+                podcastBatchIndex = nextBatch
+            } else {
+                hasMorePodcastResults = false
+            }
+            isLoadingMorePodcasts = false
+        }
+    }
     var savedHomeScrollOffset by remember { mutableStateOf(0) }
     var restoreHomeScroll by remember { mutableStateOf(false) }
 
