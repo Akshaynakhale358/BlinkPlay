@@ -910,7 +910,7 @@ private fun QuickPicksPodcastShelf(
     val (_, typography) = LocalAppearance.current
     val artworkSong = songs.getOrNull(if (songs.isEmpty()) 0 else songs.size / 2)
     Column(
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 0.dp)
             .clip(RoundedCornerShape(26.dp)).background(Color(0xFF29231B)).padding(12.dp)
     ) {
         Box(
@@ -938,14 +938,17 @@ private fun QuickPicksPodcastShelf(
                     modifier = Modifier.fillMaxWidth().combinedClickable(
                         onClick = { onSongClick(song) }, onLongClick = { onSongLongClick(song) }))
             }
-            if (songs.size > 3) {
-                BasicText(
-                    text = "VIEW ALL",
-                    style = typography.xs.semiBold,
-                    modifier = Modifier.fillMaxWidth().clickable(onClick = onViewAll)
-                        .padding(top = 8.dp, bottom = 0.dp)
-                )
-            }
+            BasicText(
+                text = "VIEW ALL  ›",
+                style = typography.xs.semiBold,
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .padding(top = 8.dp, end = 4.dp, bottom = 2.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.14f))
+                    .clickable(onClick = onViewAll)
+                    .padding(horizontal = 14.dp, vertical = 9.dp)
+            )
         }
     }
 }
