@@ -1450,8 +1450,9 @@ private suspend fun fetchIndiaDirectSongShelvesProgressive(
 private suspend fun fetchQuickPicksPodcastSongs(
     batchIndex: Int = 0
 ): List<Innertube.SongItem> = coroutineScope {
-    // Start fresh from the same two Browse roots used by the other home categories.
     val context = IndiaExploreContext
+
+    // Keep both existing Browse roots as sources, without changing any other category.
     val roots = listOf(
         async(Dispatchers.IO) {
             runCatching { Innertube.musicHomePage(context)?.getOrNull() }.getOrNull()
@@ -1461,42 +1462,62 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
     ).awaitAll().filterNotNull()
 
-    fun hasPodcastKeyword(song: Innertube.SongItem): Boolean {
-        val searchableText = buildString {
+    fun matchesPodcastMetadata(song: Innertube.SongItem): Boolean {
+        val text = buildString {
             append(song.info?.name.orEmpty())
             append(' ')
             append(song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() })
             append(' ')
             append(song.album?.name.orEmpty())
         }
-        return searchableText.contains("podcast", ignoreCase = true)
+        return text.contains("podcast", ignoreCase = true)
     }
 
-    // Open each root shelf independently. A Podcast-named shelf is trusted as
-    // Podcast context; elsewhere, only items whose own metadata matches "podcast"
-    // are accepted. No legacy category filters or extra keywords are applied.
-    val shelfResults = roots.flatMap { root ->
-        root.sections.map { section ->
-            async(Dispatchers.IO) {
-                runCatching {
-                    val opened = Innertube.browseSection(section, context)
-                        ?.getOrNull()
-                        ?.sections
-                        .orEmpty()
-                        .flatMap { it.items.filterIsInstance<Innertube.SongItem>() }
-                    val direct = section.items.filterIsInstance<Innertube.SongItem>()
-                    val candidates = direct + opened
-                    if (section.title.contains("podcast", ignoreCase = true)) {
-                        candidates
-                    } else {
-                        candidates.filter(::hasPodcastKeyword)
-                    }
-                }.getOrDefault(emptyList())
-            }
+    // Read Podcast-related material from the two feeds, including playlist cards.
+    val rootItems = roots.flatMap { it.sections }.map { section ->
+        async(Dispatchers.IO) {
+            runCatching {
+                val openedSections = Innertube.browseSection(section, context)
+                    ?.getOrNull()?.sections.orEmpty()
+                val allItems = section.items + openedSections.flatMap { it.items }
+                val shelfIsPodcast = section.title.contains("podcast", ignoreCase = true)
+                val songs = allItems.filterIsInstance<Innertube.SongItem>()
+                    .filter { shelfIsPodcast || matchesPodcastMetadata(it) }
+                val playlists = allItems.filterIsInstance<Innertube.PlaylistItem>()
+                songs to playlists
+            }.getOrDefault(emptyList<Innertube.SongItem>() to emptyList())
+        }
+    }.awaitAll()
+
+    // Search only the exact word "podcast". Empty params deliberately avoid the
+    // dedicated Podcast/Episode search filters.
+    val searchItems = runCatching {
+        Innertube.searchPage<Innertube.Item>(
+            body = SearchBody(context = context, query = "podcast", params = ""),
+            fromMusicShelfRendererContent = Innertube.SongItem::from,
+            fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
+        )?.getOrNull()?.items.orEmpty()
+    }.getOrDefault(emptyList())
+
+    val directSearchSongs = searchItems.filterIsInstance<Innertube.SongItem>()
+    val playlists = (rootItems.flatMap { it.second } +
+        searchItems.filterIsInstance<Innertube.PlaylistItem>())
+        .distinctBy(Innertube.PlaylistItem::key)
+
+    // Open each returned playlist and collect its playable episode rows.
+    val playlistSongs = playlists.map { playlist ->
+        async(Dispatchers.IO) {
+            val browseId = playlist.info?.endpoint?.browseId
+            if (browseId.isNullOrBlank()) return@async emptyList()
+            runCatching {
+                Innertube.playlistPage(
+                    BrowseBody(context = context, browseId = browseId)
+                )?.getOrNull()?.songsPage?.items.orEmpty()
+            }.getOrDefault(emptyList())
         }
     }.awaitAll().flatten()
 
-    shelfResults
+    (rootItems.flatMap { it.first } + directSearchSongs + playlistSongs)
         .distinctBy(Innertube.SongItem::key)
         .filter { it.durationText.toDurationSeconds() > 15 * 60 }
 }
