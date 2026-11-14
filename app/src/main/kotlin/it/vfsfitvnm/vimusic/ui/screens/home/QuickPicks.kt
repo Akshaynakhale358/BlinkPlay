@@ -65,6 +65,8 @@ import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.requests.playlistPage
 import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.requests.musicDiscovery
+import it.vfsfitvnm.innertube.requests.musicHomePage
+import it.vfsfitvnm.innertube.requests.musicExplorePage
 import it.vfsfitvnm.innertube.requests.browseSection
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
@@ -1448,23 +1450,25 @@ private suspend fun fetchIndiaDirectSongShelvesProgressive(
 private suspend fun fetchQuickPicksPodcastSongs(
     batchIndex: Int = 0
 ): List<Innertube.SongItem> = coroutineScope {
-    // Podcast discovery stays inside the two existing YouTube Music browse roots:
-    // FEmusic_home and FEmusic_explore. No Song/Video or Podcast/Episode search filters.
+    // Fetch both existing Browse roots independently so one failed root cannot
+    // suppress Podcast results from the other. Only Podcast-named shelves are opened.
     val context = IndiaExploreContext
-    val discovery = runCatching {
-        Innertube.musicDiscovery(forceRefresh = batchIndex == 0, context = context)?.getOrNull()
-    }.getOrNull() ?: return@coroutineScope emptyList()
+    val rootPages = listOf(
+        async(Dispatchers.IO) {
+            runCatching { Innertube.musicHomePage(context)?.getOrNull() }.getOrNull()
+        },
+        async(Dispatchers.IO) {
+            runCatching { Innertube.musicExplorePage(context)?.getOrNull() }.getOrNull()
+        }
+    ).awaitAll().filterNotNull()
 
-    val rootPages = listOfNotNull(discovery.home, discovery.explore)
     val podcastSections = rootPages
         .flatMap { it.sections }
-        .filter { section ->
-            section.title.contains("podcast", ignoreCase = true)
-        }
+        .filter { it.title.contains("podcast", ignoreCase = true) }
         .distinctBy { listOf(it.title, it.browseId, it.params) }
 
-    // Read episodes already present in the matching Podcast shelves, then open
-    // each shelf's own YouTube Music browse destination for its episode list.
+    // Include episode items exposed on the root and on each Podcast shelf.
+    // A failure opening one shelf must not discard results from other shelves.
     val rootEpisodes = podcastSections.flatMap { section ->
         section.items.filterIsInstance<Innertube.SongItem>()
     }
