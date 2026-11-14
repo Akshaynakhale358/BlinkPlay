@@ -248,7 +248,7 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
                             fontSize = typography.xxl.fontSize * 0.936f,
                             textAlign = TextAlign.End
                         ),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
                     )
                     BasicText(
                         text = "All Songs",
@@ -256,7 +256,7 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
                             fontSize = typography.xxl.fontSize * 0.5616f,
                             textAlign = TextAlign.End
                         ),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
                     )
                 }
             },
