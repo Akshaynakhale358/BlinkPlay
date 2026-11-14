@@ -1441,21 +1441,6 @@ private fun filterDiscoverySongs(
             else -> true
         }
 
-        val positiveTerms = when (category.key) {
-            "mix_romantic", "together_romance" -> listOf("romantic", "love", "lover", "ishq", "pyaar", "pyar", "प्रेम", "लव", "इश्क")
-            "mix_chill", "together_chill" -> listOf("chill", "acoustic", "soft", "mellow", "relax", "lofi", "lo-fi", "unplugged")
-            "together_party", "together_dance" -> listOf("party", "dance", "dhamaka", "dj", "club", "dancefloor", "नाच", "डान्स")
-            "together_classics" -> listOf("evergreen", "classic", "old hindi", "retro", "90s", "80s", "golden hits")
-            "together_friends" -> listOf("friend", "yaari", "dosti", "दोस्ती", "यारी")
-            "calm_alpha" -> listOf("alpha", "8hz", "focus waves")
-            "calm_beta" -> listOf("beta", "focus", "concentration")
-            "calm_gamma" -> listOf("gamma", "meditation", "focus")
-            "calm_meditation" -> listOf("meditation", "mindfulness", "peaceful", "ध्यान")
-            "mix_marathi", "trend_marathi" -> listOf("marathi", "मराठी")
-            "mix_punjabi" -> listOf("punjabi", "ਪੰਜਾਬੀ")
-            "mix_regional", "trend_regional" -> listOf("tamil", "telugu", "kannada", "malayalam", "தமிழ்", "తెలుగు", "ಕನ್ನಡ", "മലയാളം")
-            else -> emptyList()
-        }
         // Search roots already target the requested category. Do not require
         // category words in every song title: many valid tracks have no mood/language
         // keywords in metadata. Keep only clear negative exclusions below.
