@@ -337,11 +337,18 @@ fun QuickPicks(
         newReleases = emptyList()
         coroutineScope {
             val forYouJob = launch {
+                val firstPaint = withContext(Dispatchers.IO) {
+                    fetchPersonalizedSongsForYouFirstPaint(refreshToken)
+                }
+                songsForYou = firstPaint.distinctBy(Innertube.SongItem::key)
+                isLoadingSongsForYou = false
+
+                // Continue with the complete history/related/search pipeline after
+                // the first personalized candidates are already visible.
                 val recommendations = withContext(Dispatchers.IO) {
                     fetchPersonalizedSongsForYou(refreshToken)
                 }
                 songsForYou = recommendations.distinctBy(Innertube.SongItem::key)
-                isLoadingSongsForYou = false
             }
             val chartShelvesJob = launch {
                 withContext(Dispatchers.IO) {
@@ -2033,6 +2040,35 @@ private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem
  * Four distinct history seeds are queried together so one song or artist cannot dominate.
  * YouTube Music's related feed matches language, artist, genre and musical style.
  */
+private suspend fun fetchPersonalizedSongsForYouFirstPaint(
+    refreshCycle: Int
+): List<Innertube.SongItem> = coroutineScope {
+    val weightedHistory = Database.trending(30).first()
+    val playTimeHistory = Database.songsByPlayTimeDesc().first()
+    val favorites = Database.favorites().first()
+    val seedPool = (weightedHistory + playTimeHistory + favorites).distinctBy { it.id }
+    val offset = if (seedPool.isEmpty()) 0 else Math.floorMod(refreshCycle * 2, seedPool.size)
+    val seeds = (seedPool.drop(offset) + seedPool.take(offset)).take(2)
+    val listenedIds = seedPool.map { it.id }.toSet()
+
+    val queries = if (seeds.isEmpty()) {
+        cycleCategoryQueries(
+            listOf("popular Hindi songs India", "popular Marathi songs India", "latest Hindi hit songs India"),
+            refreshCycle, 1
+        )
+    } else {
+        seeds.map { seed ->
+            listOf(seed.title, seed.artistsText.orEmpty(), "similar songs")
+                .filter { it.isNotBlank() }.joinToString(" ")
+        }
+    }
+    val candidates = fetchSearchOnlyBundle(queries)
+        .filter { it.key !in listenedIds }
+        .distinctBy(Innertube.SongItem::key)
+    personalizeAndDiversify(candidates)
+}
+
+
 private suspend fun fetchPersonalizedSongsForYou(refreshCycle: Int = 0): List<Innertube.SongItem> = coroutineScope {
     val weightedHistory = Database.trending(30).first()
     val playTimeHistory = Database.songsByPlayTimeDesc().first()
