@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -146,7 +145,7 @@ fun HomeAlbums(
                     "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional music albums",
                     "English international music albums"
                 )
-                val previousTokens = continuation?.split('\\u001F')
+                val previousTokens = continuation?.split("\\u001F")
                 val nextTokens = mutableListOf<String?>()
                 val combined = mutableListOf<Innertube.AlbumItem>()
                 languageQueries.forEachIndexed { index, languageQuery ->
@@ -322,7 +321,7 @@ fun HomeAlbums(
                             columns = GridCells.Fixed(5),
                             userScrollEnabled = false,
                             modifier = Modifier.fillMaxWidth().height(
-                                ((albums.size + 4) / 5).coerceAtLeast(1) * 112.dp
+                                112.dp * ((albums.size + 4) / 5).coerceAtLeast(1)
                             ),
                             contentPadding = PaddingValues(horizontal = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
