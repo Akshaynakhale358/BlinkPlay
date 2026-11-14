@@ -328,9 +328,17 @@ fun QuickPicks(
         }
     }
 
-    // Use the existing Song Search + Related Songs roots; keep every valid result.
+    // Publish each category as soon as its filtered Song Search results arrive.
+    // Related-song enrichment is added afterward; category filters stay unchanged.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
-        discoverySongs = withContext(Dispatchers.IO) { fetchQuickPickDiscoveryCategories(refreshToken + discoveryDailyToken) }
+        discoverySongs = emptyMap()
+        withContext(Dispatchers.IO) {
+            fetchQuickPickDiscoveryCategories(refreshToken + discoveryDailyToken) { key, songs ->
+                withContext(Dispatchers.Main.immediate) {
+                    discoverySongs = discoverySongs + (key to songs)
+                }
+            }
+        }
         markRefreshTaskComplete("discovery")
     }
 
@@ -1602,26 +1610,49 @@ private suspend fun fetchMoreQuickPicksShelf(
     return personalizeAndDiversify(prioritizeHindiSongs(relevant, category.key))
 }
 
-private suspend fun fetchQuickPickDiscoveryCategories(refreshCycle: Int): Map<String, List<Innertube.SongItem>> = coroutineScope {
+private suspend fun fetchQuickPickDiscoveryCategories(
+    refreshCycle: Int,
+    onCategoryLoaded: suspend (String, List<Innertube.SongItem>) -> Unit
+): Map<String, List<Innertube.SongItem>> = coroutineScope {
     discoveryBundles().flatMap { it.categories }.map { category ->
         async {
-            // Every card uses both roots: category Song Search -> Related Songs.
-            // For the taste card, merge those candidates with listening-history recommendations.
-            val categoryFeed = if (category.kind == "personal") {
-                // The taste shelf is sourced from listening history and favourites.
+            val isPersonal = category.kind == "personal"
+            val queries = if (isPersonal) emptyList() else
+                cycleCategoryQueries(discoverySearchQueries(category), refreshCycle, 1)
+
+            // First paint: show filtered Song Search/history results immediately.
+            val searchFeed = if (isPersonal) {
                 fetchPersonalizedSongsForYou(refreshCycle)
             } else {
-                val queries = cycleCategoryQueries(discoverySearchQueries(category), refreshCycle, 1)
-                if (category.key in strictLanguageCategoryKeys) {
-                    fetchSearchOnlyBundle(queries)
-                } else {
-                    fetchSearchAndRelatedBundle(queries)
-                }
+                fetchSearchOnlyBundle(queries)
             }
-            // Filter category relevance first; personalization only reorders valid candidates.
-            val categoryFiltered = filterDiscoverySongs(category, categoryFeed)
+            val initialFiltered = filterDiscoverySongs(category, searchFeed)
+            val initialRanked = prioritizeHindiSongs(initialFiltered, category.key)
+            val initialSongs = rotateDiscoverySongsDaily(personalizeAndDiversify(initialRanked))
+            if (initialSongs.isNotEmpty()) onCategoryLoaded(category.key, initialSongs)
+
+            // Enrich non-language-specific shelves in the background using the same
+            // Related Songs source and the exact same category filter as before.
+            val completeFeed = if (isPersonal || category.key in strictLanguageCategoryKeys) {
+                searchFeed
+            } else {
+                val related = searchFeed.take(10).map { seed ->
+                    async(Dispatchers.IO) {
+                        runCatching {
+                            Innertube.relatedPage(
+                                NextBody(context = IndiaExploreContext, videoId = seed.key)
+                            )?.getOrNull()?.songs.orEmpty()
+                        }.getOrDefault(emptyList())
+                    }
+                }.awaitAll().flatten()
+                (searchFeed + related).distinctBy(Innertube.SongItem::key)
+            }
+
+            val categoryFiltered = filterDiscoverySongs(category, completeFeed)
             val prioritized = prioritizeHindiSongs(categoryFiltered, category.key)
-            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(prioritized))
+            val finalSongs = rotateDiscoverySongsDaily(personalizeAndDiversify(prioritized))
+            onCategoryLoaded(category.key, finalSongs)
+            category.key to finalSongs
         }
     }.awaitAll().toMap()
 }
