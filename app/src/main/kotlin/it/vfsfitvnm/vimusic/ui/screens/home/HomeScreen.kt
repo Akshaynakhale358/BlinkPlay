@@ -21,6 +21,7 @@ import it.vfsfitvnm.compose.routing.isStacking
 import it.vfsfitvnm.compose.routing.isUnknown
 import it.vfsfitvnm.compose.routing.isUnstacking
 import it.vfsfitvnm.vimusic.Database
+import it.vfsfitvnm.vimusic.enums.BuiltInPlaylist
 import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.models.SearchQuery
 import it.vfsfitvnm.vimusic.query
@@ -133,12 +134,18 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                 tabColumnContent = { Item ->
                     Item(0, "Quick picks", R.drawable.sparkles)
                     Item(1, "Songs", R.drawable.musical_notes)
-                    Item(2, "Playlists", R.drawable.playlist)
-                    Item(3, "Artists", R.drawable.person)
-                    Item(4, "Albums", R.drawable.disc)
+                    Item(2, "Artists", R.drawable.person)
+                    Item(3, "Albums", R.drawable.disc)
                 },
                 bottomContent = {
                     Spacer(modifier = Modifier.height(12.dp))
+                    PrimaryButton(
+                        iconId = R.drawable.heart,
+                        onClick = { builtInPlaylistRoute(BuiltInPlaylist.Favorites) },
+                        transparentBackground = true,
+                        circle = true
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
                     PrimaryButton(
                         iconId = R.drawable.search,
                         onClick = { searchRoute("") },
@@ -164,18 +171,12 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                             onPlaylistClick = { playlistRoute(it) }
                         )
 
-                        2 -> HomePlaylists(
-                            onBuiltInPlaylist = { builtInPlaylistRoute(it) },
-                            onPlaylistClick = { localPlaylistRoute(it.id) },
-                            onSearchClick = { searchRoute("") }
-                        )
-
-                        3 -> HomeArtistList(
+                        2 -> HomeArtistList(
                             onArtistClick = { artistRoute(it) },
                             onSearchClick = { searchRoute("") }
                         )
 
-                        4 -> HomeAlbums(
+                        3 -> HomeAlbums(
                             onAlbumClick = { albumRoute(it) },
                             onSearchClick = { searchRoute("") }
                         )
