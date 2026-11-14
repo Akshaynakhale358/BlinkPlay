@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.text.BasicText
@@ -42,6 +43,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -159,6 +162,24 @@ fun Player(
                     .background(colorPalette.background1)
                     .fillMaxSize()
                     .padding(horizontalBottomPaddingValues)
+                    .pointerInput(mediaItem.mediaId) {
+                        var horizontalDrag = 0f
+                        val swipeThreshold = 48.dp.toPx()
+                        detectHorizontalDragGestures(
+                            onHorizontalDrag = { change, dragAmount ->
+                                horizontalDrag += dragAmount
+                                change.consume()
+                            },
+                            onDragEnd = {
+                                when {
+                                    horizontalDrag <= -swipeThreshold -> binder.player.forceSeekToNext()
+                                    horizontalDrag >= swipeThreshold -> binder.player.forceSeekToPrevious()
+                                }
+                                horizontalDrag = 0f
+                            },
+                            onDragCancel = { horizontalDrag = 0f }
+                        )
+                    }
                     .drawBehind {
                         val progress =
                             positionAndDuration.first.toFloat() / positionAndDuration.second.absoluteValue
