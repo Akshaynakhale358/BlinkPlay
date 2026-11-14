@@ -236,13 +236,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
             emptyItemsText = "No songs found for this category. Pull down to retry.",
             refreshOnEnter = true,
             headerContent = {
-                Header(title = category.name.uppercase()) {
-                    BasicText(
-                        text = "BACK",
-                        style = typography.xs.semiBold,
-                        modifier = Modifier.clickable { selectedCategory = null }
-                    )
-                }
+                Header(title = category.name.uppercase())
             },
             itemContent = { song ->
                 SongItem(
