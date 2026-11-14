@@ -276,7 +276,7 @@ fun QuickPicks(
         var loadedLongListen = emptyList<Innertube.SongItem>()
         try {
             withContext(Dispatchers.IO) {
-                for (batch in 0 until 4) {
+                for (batch in 0 until 8) {
                     val next = runCatching { fetchLongListenSongs(batch) }.getOrDefault(emptyList())
                     loadedLongListen = (loadedLongListen + next).distinctBy(Innertube.SongItem::key)
                     if (loadedLongListen.size >= 15) break
@@ -610,7 +610,6 @@ fun QuickPicks(
                 songs = trendingSongs,
                 onPlay = { val items = trendingSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "trending" },
-                onLoadMore = { if (pendingShelfLoad == null && "trending" !in loadingShelfKeys) pendingShelfLoad = "trending" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
@@ -634,7 +633,6 @@ fun QuickPicks(
                 songs = topSongs,
                 onPlay = { val items = topSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "top" },
-                onLoadMore = { if (pendingShelfLoad == null && "top" !in loadingShelfKeys) pendingShelfLoad = "top" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
@@ -658,7 +656,6 @@ fun QuickPicks(
                 songs = newReleases,
                 onPlay = { val items = newReleases.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "new" },
-                onLoadMore = { if (pendingShelfLoad == null && "new" !in loadingShelfKeys) pendingShelfLoad = "new" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
@@ -800,15 +797,6 @@ fun QuickPicks(
                 onPlay = { val items = longListenSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "long_listen" }
             )
-            LaunchedEffect(longListenLazyListState, longListenSongs.size) {
-                snapshotFlow {
-                    val info = longListenLazyListState.layoutInfo
-                    val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-                    info.totalItemsCount > 0 && last >= info.totalItemsCount - 2
-                }.distinctUntilChanged().collect { nearEnd ->
-                    if (nearEnd && pendingShelfLoad == null && "long_listen" !in loadingShelfKeys) pendingShelfLoad = "long_listen"
-                }
-            }
             if (longListenSongs.isEmpty() && isLoadingLongListen) {
                 ShimmerHost {
                     repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
@@ -1830,7 +1818,7 @@ private suspend fun fetchPersonalizedSongsForYou(): List<Innertube.SongItem> = c
         .distinctBy(Innertube.SongItem::key)
 
     // When related feeds are sparse, search from the actual listened-to songs, not generic hits.
-    val candidates = if (related.size >= 12) related else {
+    val candidates = if (related.size >= 15) related else {
         val seedSearches = seeds.map { seed ->
             async {
                 val artist = seed.artistsText.orEmpty().takeIf { it.isNotBlank() }.orEmpty()
