@@ -107,75 +107,6 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
 
-suspend fun fetchQuickPicksPodcastSongs(
-    batchIndex: Int
-): List<Innertube.SongItem> = coroutineScope {
-    // Keep the two existing podcast discovery roots, but search only the
-    // single broad term requested: "podcast". No extra topic keywords.
-    val context = Context.DefaultWeb.copy(
-        client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
-    )
-    // Root 1: discover dedicated Podcast shows.
-    // Root 2: extract playable episodes from the broad result for the same keyword.
-    // Both roots use only the single requested keyword: podcast.
-    val showRootsJob = async(Dispatchers.IO) {
-        runCatching {
-            Innertube.searchPodcastPage(
-                SearchBody(
-                    context = context,
-                    query = "podcast",
-                    params = ""
-                )
-            )?.getOrNull().orEmpty()
-        }.getOrDefault(emptyList())
-    }
-    val directEpisodesJob = async(Dispatchers.IO) {
-        runCatching {
-            Innertube.searchPodcastEpisodesPage(
-                SearchBody(
-                    context = context,
-                    query = "podcast",
-                    params = ""
-                )
-            )?.getOrNull().orEmpty()
-        }.getOrDefault(emptyList())
-    }
-    val showRoots = showRootsJob.await()
-    val directEpisodes = directEpisodesJob.await()
-    val shows = showRoots.distinctBy(Innertube.PlaylistItem::key)
-
-    // Expand each Podcast show into its episode feed. Read two pages per show
-    // to keep first load responsive while still collecting more than one shelf.
-    val episodeFeeds = shows.map { show ->
-        async(Dispatchers.IO) {
-            runCatching {
-                val episodes = mutableListOf<Innertube.SongItem>()
-                var page = Innertube.playlistPage(
-                    BrowseBody(context = context, browseId = show.key)
-                )?.getOrNull()?.songsPage
-                val seenContinuations = mutableSetOf<String>()
-                var pagesRead = 0
-                while (page != null && pagesRead < 2) {
-                    pagesRead += 1
-                    episodes += page.items.orEmpty()
-                    val token = page.continuation?.takeIf { it.isNotBlank() } ?: break
-                    if (!seenContinuations.add(token)) break
-                    page = Innertube.playlistPage(
-                        ContinuationBody(context = context, continuation = token)
-                    )?.getOrNull()?.let { continuationPage ->
-                        Innertube.ItemsPage(
-                            items = continuationPage.items,
-                            continuation = continuationPage.continuation
-                        )
-                    }
-                }
-                episodes.distinctBy(Innertube.SongItem::key)
-            }.getOrDefault(emptyList())
-        }
-    }.awaitAll().flatten()
-
-    personalizeSongItems((directEpisodes + episodeFeeds).distinctBy(Innertube.SongItem::key))
-}
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
@@ -196,7 +127,7 @@ fun QuickPicks(
     fun markRefreshTaskComplete(task: String) {
         val completed = completedRefreshTasks + task
         completedRefreshTasks = completed
-        if (completed.containsAll(setOf("discovery", "calm", "podcast", "long_listen", "songs"))) {
+        if (completed.containsAll(setOf("discovery", "calm", "long_listen", "songs"))) {
             isRefreshing = false
         }
     }
@@ -207,8 +138,8 @@ fun QuickPicks(
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
-    var podcastSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
-    var isLoadingPodcasts by remember { mutableStateOf(true) }
+    var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var isLoadingLongListen by remember { mutableStateOf(true) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var isLoadingLongListen by remember { mutableStateOf(true) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
@@ -255,26 +186,6 @@ fun QuickPicks(
         calmCategorySongs = withContext(Dispatchers.IO) { fetchCalmMusicCategories(refreshToken + discoveryDailyToken) }
         markRefreshTaskComplete("calm")
     }
-
-    // Load the first podcast batch on refresh; more batches are fetched on scroll.
-    LaunchedEffect(refreshToken, discoveryDailyToken) {
-        isLoadingPodcasts = true
-        var loadedPodcasts = emptyList<Innertube.SongItem>()
-        withContext(Dispatchers.IO) {
-            // Load one batch immediately; the View All page fetches later batches on scroll.
-            for (batch in 0 until 1) {
-                val next = runCatching {
-                    fetchQuickPicksPodcastSongs(batch + refreshToken + discoveryDailyToken)
-                }.getOrDefault(emptyList())
-                loadedPodcasts = (loadedPodcasts + next).distinctBy(Innertube.SongItem::key)
-                if (loadedPodcasts.size >= 15) break
-            }
-        }
-        podcastSongs = loadedPodcasts
-        isLoadingPodcasts = false
-        markRefreshTaskComplete("podcast")
-    }
-
 
     // Long Listen refreshes on pull-to-refresh and automatically at Indian midnight.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
@@ -348,7 +259,7 @@ fun QuickPicks(
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
     val longListenLazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val podcastLazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val longListenLazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     // Built-in shelf detail pages keep loading batches as the vertical list is scrolled.
     LaunchedEffect(selectedQuickPicksShelf) {
@@ -429,7 +340,7 @@ fun QuickPicks(
                 "top" -> topSongs
                 "new" -> newReleases
                 "long_listen" -> longListenSongs
-                "podcast" -> podcastSongs
+                "podcast" -> longListenSongs
                 else -> emptyList()
             }
             val nextBatch = (shelfBatchIndexes[shelfKey] ?: 0) + 1
@@ -443,7 +354,7 @@ fun QuickPicks(
                     "top" -> topSongs = filterRegularSongDuration(topSongs + unique)
                     "new" -> newReleases = filterRegularSongDuration(newReleases + unique)
                     "long_listen" -> longListenSongs = longListenSongs + unique
-                    "podcast" -> podcastSongs = (podcastSongs + unique).distinctBy(Innertube.SongItem::key)
+                    "podcast" -> longListenSongs = (longListenSongs + unique).distinctBy(Innertube.SongItem::key)
                 }
             }
             shelfBatchIndexes = shelfBatchIndexes + (shelfKey to nextBatch)
@@ -815,7 +726,7 @@ fun QuickPicks(
                     "top" -> topSongs
                     "new" -> newReleases
                     "long_listen" -> longListenSongs
-                    "podcast" -> podcastSongs
+                    "podcast" -> longListenSongs
                     else -> longListenSongs
                 }
                 BasicText(
@@ -855,8 +766,8 @@ fun QuickPicks(
                 )
                 Header(title = "PODCASTS")
                 QuickPicksSongShelf(
-                    title = "ALL PODCAST EPISODES",
-                    songs = podcastSongs,
+                    title = "PODCAST · ALL SONGS",
+                    songs = longListenSongs,
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
                     itemWidth = itemInHorizontalGridWidth,
