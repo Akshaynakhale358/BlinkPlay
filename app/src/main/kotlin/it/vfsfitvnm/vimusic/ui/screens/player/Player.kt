@@ -155,6 +155,10 @@ fun Player(
             binder.player.clearMediaItems()
         },
         collapsedContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Top,
@@ -275,6 +279,7 @@ fun Player(
                     modifier = Modifier
                         .width(2.dp)
                 )
+            }
             }
         }
     ) {
