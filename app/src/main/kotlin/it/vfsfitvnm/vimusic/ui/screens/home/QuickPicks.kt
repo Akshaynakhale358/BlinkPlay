@@ -705,6 +705,65 @@ fun QuickPicks(
                 }
             }
 
+            QuickPicksSectionHeader(
+                title = "LONG LISTEN",
+                modifier = sectionTextModifier,
+                onPlay = { val items = longListenSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "long_listen" }
+            )
+            if (longListenSongs.isEmpty() && isLoadingLongListen) {
+                ShimmerHost {
+                    repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
+                }
+            } else if (longListenSongs.isEmpty()) {
+                BasicText(
+                    text = "Finding long-form music. Pull down to retry.",
+                    style = typography.xs.secondary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            } else {
+                LazyRow(
+                    state = longListenLazyListState,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    lazyRowItems(
+                        items = longListenSongs.take(15).chunked(5),
+                        key = { column -> column.firstOrNull()?.key.orEmpty() }
+                    ) { songColumn ->
+                        Column(
+                            modifier = Modifier.width(itemInHorizontalGridWidth),
+                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                        ) {
+                            songColumn.forEach { song ->
+                                SongItem(
+                                    song = song,
+                                    thumbnailSizePx = 64.dp.px,
+                                    thumbnailSizeDp = 64.dp,
+                                    modifier = Modifier.fillMaxWidth().combinedClickable(
+                                        onClick = {
+                                            val mediaItem = song.asMediaItem
+                                            binder?.stopRadio()
+                                            binder?.player?.forcePlay(mediaItem)
+                                            binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                                        },
+                                        onLongClick = {
+                                            menuState.display {
+                                                NonQueuedMediaItemMenu(
+                                                    onDismiss = menuState::hide,
+                                                    mediaItem = song.asMediaItem
+                                                )
+                                            }
+                                        }
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
 
             
             } else if (selectedQuickPicksShelf != null) {
