@@ -110,6 +110,13 @@ private fun Innertube.VideoItem.toHomePodcastSong() = Innertube.SongItem(
     info = info, authors = authors, album = null, durationText = durationText, thumbnail = thumbnail
 )
 
+private fun String?.toHomeDurationSeconds(): Int {
+    if (this.isNullOrBlank()) return 0
+    val parts = trim().split(":").mapNotNull { it.toIntOrNull() }
+    if (parts.isEmpty()) return 0
+    return parts.fold(0) { total, part -> total * 60 + part }
+}
+
 private suspend fun fetchHomeSongCategory(
     category: HomeSongCategory,
     continuation: String?,
@@ -151,7 +158,12 @@ private suspend fun fetchHomeSongCategory(
     }
     return result?.map { page ->
         if (page != null) {
-            val uniqueSongs = page.items.orEmpty().distinctBy { it.key }
+            val uniqueSongs = page.items.orEmpty()
+                .distinctBy { it.key }
+                .let { items ->
+                    if (category.podcast) items.filter { it.durationText.toHomeDurationSeconds() > 15 * 60 }
+                    else items
+                }
             val categoryRanked = prioritizeHomeCategorySongs(category, uniqueSongs)
             val personalized = personalizeSongItems(categoryRanked)
             page.copy(
@@ -170,7 +182,18 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     val menuState = LocalMenuState.current
     val thumbnailSizeDp = Dimensions.thumbnails.song
     val thumbnailSizePx = thumbnailSizeDp.px
-    val dailySeed = homeSongsDailySeed()
+    var dailySeed by remember { mutableStateOf(homeSongsDailySeed()) }
+
+    // Refresh the category cards automatically at midnight in India time.
+    LaunchedEffect(Unit) {
+        while (true) {
+            val dayMillis = 86_400_000L
+            val indiaOffsetMillis = 19_800_000L
+            val indiaNow = System.currentTimeMillis() + indiaOffsetMillis
+            delay(dayMillis - (indiaNow % dayMillis))
+            dailySeed = homeSongsDailySeed()
+        }
+    }
     var selectedCategory by remember { mutableStateOf<HomeSongCategory?>(null) }
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -290,9 +313,20 @@ private fun HomeSongCategoryCard(
 
     LaunchedEffect(category, dailySeed, refreshToken, retryKey) {
         failed = false
-        val result = withContext(Dispatchers.IO) { fetchHomeSongCategory(category, null, dailySeed, refreshToken) }
-        songs = result?.getOrNull()?.items.orEmpty().take(20)
-        failed = result == null || result.isFailure
+        val collected = mutableListOf<Innertube.SongItem>()
+        // Retry with rotated, category-specific search terms until at least three
+        // distinct valid songs are available; Podcast keeps its 15-minute rule.
+        for (attempt in 0..3) {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    fetchHomeSongCategory(category, null, dailySeed, refreshToken + attempt)
+                }.getOrNull()
+            }
+            collected += result?.getOrNull()?.items.orEmpty()
+            if (collected.distinctBy(Innertube.SongItem::key).size >= 3) break
+        }
+        songs = collected.distinctBy(Innertube.SongItem::key).take(20)
+        failed = songs.isNullOrEmpty()
     }
 
     val categoryArtwork = songs.orEmpty().takeIf { it.isNotEmpty() }?.let { available ->
@@ -300,6 +334,12 @@ private fun HomeSongCategoryCard(
         val artworkIndex = Math.floorMod(dailySeed + category.name.hashCode() + refreshToken, available.size)
         available[artworkIndex].thumbnail?.size(320)
     }
+
+    BasicText(
+        text = category.name.uppercase(),
+        style = typography.s.semiBold,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 12.dp, bottom = 4.dp)
+    )
 
     Column(
         modifier = Modifier
@@ -330,7 +370,6 @@ private fun HomeSongCategoryCard(
                     .padding(14.dp),
                 verticalArrangement = Arrangement.Bottom
             ) {
-                BasicText(text = category.name.uppercase(), style = typography.s.semiBold)
                 BasicText(text = "UPDATED DAILY", style = typography.xs.secondary,
                     modifier = Modifier.padding(top = 4.dp))
                 BasicText(
