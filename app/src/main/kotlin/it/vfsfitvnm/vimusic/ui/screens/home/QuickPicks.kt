@@ -463,56 +463,39 @@ fun QuickPicks(
 
 
 
-            QuickPicksSectionHeader(
+            QuickPicksSongShelf(
                 title = "SONGS FOR YOU",
-                modifier = sectionTextModifier,
+                songs = songsForYou,
                 onPlay = {
                     val items = songsForYou.take(15).map(Innertube.SongItem::asMediaItem)
-                    if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) }
+                    if (items.isNotEmpty()) {
+                        binder?.stopRadio()
+                        binder?.player?.forcePlayFromBeginning(items)
+                    }
                 },
-                onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "for_you" }
-            )
-
-            if (songsForYou.isNotEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
-                ) {
-                    songsForYou.distinctBy(Innertube.SongItem::key).take(5).forEach { song ->
-                        SongItem(
-                            song = song,
-                            thumbnailSizePx = songThumbnailSizePx,
-                            thumbnailSizeDp = songThumbnailSizeDp,
-                            modifier = Modifier.fillMaxWidth().combinedClickable(
-                                onLongClick = {
-                                    menuState.display {
-                                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                                    }
-                                },
-                                onClick = {
-                                    val mediaItem = song.asMediaItem
-                                    binder?.stopRadio()
-                                    binder?.player?.forcePlay(mediaItem)
-                                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
-                                }
-                            )
-                        )
+                onViewAll = {
+                    savedHomeScrollOffset = scrollState.value
+                    restoreHomeScroll = false
+                    selectedQuickPicksShelf = "for_you"
+                },
+                thumbnailSizePx = songThumbnailSizePx,
+                thumbnailSizeDp = songThumbnailSizeDp,
+                itemWidth = itemInHorizontalGridWidth,
+                endPaddingValues = endPaddingValues,
+                verticalList = false,
+                previewLimit = 15,
+                onSongClick = { song ->
+                    val mediaItem = song.asMediaItem
+                    binder?.stopRadio()
+                    binder?.player?.forcePlay(mediaItem)
+                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                },
+                onSongLongClick = { song ->
+                    menuState.display {
+                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
                     }
                 }
-            } else if (isLoadingSongsForYou) {
-                ShimmerHost {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
-                    ) { repeat(5) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) } }
-                }
-            } else {
-                BasicText(
-                    text = "Play a few songs or like tracks to build your personal mix. Pull down to retry.",
-                    style = typography.xs.secondary,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                )
-            }
+            )
 
             QuickPicksSongShelf(
                 title = "TRENDING SONGS",
