@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -491,8 +492,9 @@ fun QuickPicks(
             BasicText(
                 text = "LONG LISTEN",
                 style = typography.s.semiBold,
-                // Keep Long Listen close to Calm; remove only the extra top gap.
+                // Pull this header up to remove the remaining visible gap after Calm Categories.
                 modifier = Modifier
+                    .offset(y = (-24).dp)
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 8.dp)
                     .padding(endPaddingValues)
