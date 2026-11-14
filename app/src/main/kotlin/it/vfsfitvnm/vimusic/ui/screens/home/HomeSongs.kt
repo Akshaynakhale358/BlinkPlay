@@ -182,7 +182,7 @@ private suspend fun fetchHomeSongCategory(
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalAnimationApi::class)
 @Composable
-fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
+fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     val (palette, typography) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
@@ -201,6 +201,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
         }
     }
     var selectedCategory by remember { mutableStateOf<HomeSongCategory?>(null) }
+    LaunchedEffect(homeResetKey) { if (homeResetKey > 0) selectedCategory = null }
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
 
