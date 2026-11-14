@@ -305,7 +305,7 @@ fun QuickPicks(
                 val firstPaint = withContext(Dispatchers.IO) {
                     fetchPersonalizedSongsForYouFirstPaint(refreshToken)
                 }
-                songsForYou = firstPaint.distinctBy(Innertube.SongItem::key)
+                songsForYou = filterRegularSongDuration(firstPaint).distinctBy(Innertube.SongItem::key)
                 isLoadingSongsForYou = false
 
                 // Continue with the complete history/related/search pipeline after
@@ -313,16 +313,16 @@ fun QuickPicks(
                 val recommendations = withContext(Dispatchers.IO) {
                     fetchPersonalizedSongsForYou(refreshToken)
                 }
-                songsForYou = recommendations.distinctBy(Innertube.SongItem::key)
+                songsForYou = filterRegularSongDuration(recommendations).distinctBy(Innertube.SongItem::key)
             }
             val chartShelvesJob = launch {
                 withContext(Dispatchers.IO) {
                     fetchIndiaDirectSongShelvesProgressive(refreshToken) { shelfKey, songs ->
                         withContext(Dispatchers.Main.immediate) {
                             when (shelfKey) {
-                                "trending" -> trendingSongs = songs
-                                "top" -> topSongs = songs
-                                "new" -> newReleases = songs
+                                "trending" -> trendingSongs = filterRegularSongDuration(songs)
+                                "top" -> topSongs = filterRegularSongDuration(songs)
+                                "new" -> newReleases = filterRegularSongDuration(songs)
                             }
                         }
                     }
@@ -434,10 +434,10 @@ fun QuickPicks(
             val unique = more.filter { it.key !in existing }
             if (unique.isNotEmpty()) {
                 when (shelfKey) {
-                    "for_you" -> songsForYou = songsForYou + unique
-                    "trending" -> trendingSongs = trendingSongs + unique
-                    "top" -> topSongs = topSongs + unique
-                    "new" -> newReleases = newReleases + unique
+                    "for_you" -> songsForYou = filterRegularSongDuration(songsForYou + unique)
+                    "trending" -> trendingSongs = filterRegularSongDuration(trendingSongs + unique)
+                    "top" -> topSongs = filterRegularSongDuration(topSongs + unique)
+                    "new" -> newReleases = filterRegularSongDuration(newReleases + unique)
                     "long_listen" -> longListenSongs = longListenSongs + unique
                 }
             }
@@ -1365,6 +1365,20 @@ private fun QuickPicksDiscoveryShelf(
     }
 }
 
+/**
+ * Standard music shelves/cards: strictly under 10 minutes.
+ * Tracks from 10:00 through 15:00 are intentionally excluded from both
+ * standard shelves and Long Listen.
+ */
+private fun filterRegularSongDuration(
+    songs: List<Innertube.SongItem>
+): List<Innertube.SongItem> = songs
+    .distinctBy(Innertube.SongItem::key)
+    .filter { duration ->
+        val seconds = duration.durationText.toDurationSeconds()
+        seconds in 1 until (10 * 60)
+    }
+
 private fun String?.toDurationSeconds(): Int {
     if (this.isNullOrBlank()) return 0
     val parts = trim().split(":").mapNotNull { it.toIntOrNull() }
@@ -1506,7 +1520,7 @@ private suspend fun fetchLongListenSongs(batchIndex: Int = 0): List<Innertube.So
         }
     }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
 
-    val longVideos = videoResults.filter { it.durationText.toDurationSeconds() >= 15 * 60 }
+    val longVideos = videoResults.filter { it.durationText.toDurationSeconds() > 15 * 60 }
     val relevant = filterDiscoverySongs(
         DiscoverySubcategory("long_listen", "Long Listen", "Long Listen", "long", ""),
         longVideos
