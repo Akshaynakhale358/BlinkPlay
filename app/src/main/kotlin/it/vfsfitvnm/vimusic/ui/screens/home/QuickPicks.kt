@@ -186,6 +186,7 @@ fun QuickPicks(
     var podcastSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
+    var showAllPodcastSongs by remember { mutableStateOf(false) }
 
     var discoveryDailyToken by remember { mutableStateOf(0) }
 
@@ -527,6 +528,8 @@ fun QuickPicks(
 
             QuickPicksPodcastShelf(
                 songs = podcastSongs,
+                showAll = showAllPodcastSongs,
+                onViewAll = { showAllPodcastSongs = !showAllPodcastSongs },
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -550,7 +553,7 @@ fun QuickPicks(
         when {
             serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
                 sections = serverDiscovery!!.sections,
-                sectionTextModifier = sectionTextModifier,
+                sectionTextModifier = sectionTextModifier.padding(top = 0.dp),
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -859,6 +862,8 @@ private fun discoveryBundles(): List<DiscoveryBundle> {
 @Composable
 private fun QuickPicksPodcastShelf(
     songs: List<Innertube.SongItem>,
+    showAll: Boolean,
+    onViewAll: () -> Unit,
     onSongClick: (Innertube.SongItem) -> Unit,
     onPlayBundle: () -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit
@@ -889,10 +894,18 @@ private fun QuickPicksPodcastShelf(
         if (songs.isEmpty()) {
             ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
         } else {
-            songs.take(3).forEach { song ->
+            (if (showAll) songs else songs.take(3)).forEach { song ->
                 SongItem(song = song, thumbnailSizePx = 64.dp.px, thumbnailSizeDp = 64.dp,
                     modifier = Modifier.fillMaxWidth().combinedClickable(
                         onClick = { onSongClick(song) }, onLongClick = { onSongLongClick(song) }))
+            }
+            if (songs.size > 3) {
+                BasicText(
+                    text = if (showAll) "SHOW LESS" else "VIEW ALL",
+                    style = typography.xs.semiBold,
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = onViewAll)
+                        .padding(top = 8.dp, bottom = 0.dp)
+                )
             }
         }
     }
