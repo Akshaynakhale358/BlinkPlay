@@ -711,12 +711,6 @@ fun QuickPicks(
                     "long_listen" -> longListenSongs
                     else -> longListenSongs
                 }
-                BasicText(
-                    text = "‹  BACK TO QUICK PICKS",
-                    style = typography.s.semiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                        .clickable { selectedQuickPicksShelf = null; restoreHomeScroll = true }
-                )
                 Header(title = "Quick Picks")
                 BasicText(
                     text = shelfTitle,
@@ -747,13 +741,6 @@ fun QuickPicks(
                 }
             } else {
                 val category = selectedDiscoveryCategory!!
-                BasicText(
-                    text = "‹  BACK TO QUICK PICKS",
-                    style = typography.s.semiBold,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .clickable { restoreHomeScroll = true; selectedDiscoveryCategory = null }
-                )
                 Header(title = "Quick Picks")
                 BasicText(
                     text = category.title.replaceFirstChar { it.uppercase() },
