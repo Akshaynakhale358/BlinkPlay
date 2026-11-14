@@ -155,7 +155,7 @@ fun HomeArtistList(
     ) {
     Box(modifier = Modifier.fillMaxSize()) {
     Column(modifier = Modifier.fillMaxSize()) {
-        Header(title = "Artists") {
+        Header(title = "Artists", titleScale = 1.404f) {
         }
 
         BasicText(
