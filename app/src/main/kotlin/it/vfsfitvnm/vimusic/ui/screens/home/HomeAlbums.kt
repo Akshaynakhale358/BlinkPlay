@@ -268,14 +268,14 @@ fun HomeAlbums(
                 val albums = shelfAlbums[shelf.key].orEmpty()
                 Column(modifier = Modifier.fillMaxWidth()) {
                     androidx.compose.foundation.layout.Row(
-                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        BasicText(text = shelf.title, style = typography.s.semiBold, modifier = Modifier.weight(1f))
+                        BasicText(text = shelf.title, style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 1.2f), modifier = Modifier.weight(1f))
                         BasicText(
                             text = "VIEW ALL",
-                            style = typography.xs.semiBold,
+                            style = typography.xs.semiBold.copy(fontSize = typography.xs.fontSize * 1.2f),
                             modifier = Modifier.clip(RoundedCornerShape(50))
                                 .background(Color.White.copy(alpha = 0.14f))
                                 .clickable {
