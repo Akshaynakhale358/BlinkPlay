@@ -242,7 +242,7 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
             refreshOnEnter = true,
             headerContent = {
                 Column {
-                    Header(title = "Songs")
+                    Header(title = "Songs", titleScale = 1.404f)
                     BasicText(
                         text = category.name,
                         style = typography.m.semiBold.copy(
@@ -292,7 +292,7 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
         modifier = Modifier.fillMaxSize()
     ) {
       Column(modifier = Modifier.fillMaxSize().background(palette.background0)) {
-        Header(title = "Songs")
+        Header(title = "Songs", titleScale = 1.404f)
         LazyColumn(
             contentPadding = LocalPlayerAwareWindowInsets.current
                 .only(WindowInsetsSides.Bottom)
