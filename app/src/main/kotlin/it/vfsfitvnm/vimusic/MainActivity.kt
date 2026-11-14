@@ -376,7 +376,9 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
                         val alwaysVisible = preferences.getBoolean(miniPlayerAlwaysVisibleKey, true)
                         if (!alwaysVisible && !player.shouldBePlaying && player.currentMediaItem != null) {
                             playerBottomSheetState.dismiss()
-                        } else if (player.shouldBePlaying && playerBottomSheetState.isDismissed) {
+                        } else if (player.currentMediaItem != null && playerBottomSheetState.isDismissed) {
+                            // ON: keep the mini player visible even while paused.
+                            // OFF: show it again whenever playback is active.
                             playerBottomSheetState.collapse(tween(500))
                         }
                     }
