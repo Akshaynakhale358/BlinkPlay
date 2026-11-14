@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -87,10 +88,13 @@ private fun Innertube.VideoItem.toHomePodcastSong() = Innertube.SongItem(
 private suspend fun fetchHomeSongCategory(
     category: HomeSongCategory,
     continuation: String?,
-    dailySeed: Int
+    dailySeed: Int,
+    refreshToken: Int = 0
 ): Result<Innertube.ItemsPage<Innertube.SongItem>?>? {
     val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN"))
-    val query = if (category.podcast) category.query else "Hindi Bollywood songs ${category.query}"
+    val refreshTerms = listOf("latest", "new songs", "popular hits", "trending songs")
+    val refreshTerm = refreshTerms[Math.floorMod(refreshToken, refreshTerms.size)]
+    val query = if (category.podcast) "${category.query} $refreshTerm" else "Hindi Bollywood songs ${category.query} $refreshTerm"
     val filter = if (category.podcast) Innertube.SearchFilter.Video.value else Innertube.SearchFilter.Song.value
     val result = if (continuation == null) {
         Innertube.searchPage(
@@ -126,6 +130,13 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     val thumbnailSizePx = thumbnailSizeDp.px
     val dailySeed = homeSongsDailySeed()
     var selectedCategory by remember { mutableStateOf<HomeSongCategory?>(null) }
+    var refreshToken by remember { mutableStateOf(0) }
+    var isRefreshing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(refreshToken) {
+        // Give all category cards a fresh query whenever the user pulls to refresh.
+        isRefreshing = false
+    }
 
     BackHandler(enabled = selectedCategory != null) { selectedCategory = null }
 
@@ -139,7 +150,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
         val category = selectedCategory!!
         ItemsPage(
             tag = "home/category-songs-${category.name}",
-            itemsPageProvider = { continuation -> fetchHomeSongCategory(category, continuation, dailySeed) },
+            itemsPageProvider = { continuation -> fetchHomeSongCategory(category, continuation, dailySeed, refreshToken) },
             emptyItemsText = "No songs found for this category. Pull down to retry.",
             refreshOnEnter = true,
             headerContent = {
@@ -209,9 +220,9 @@ private fun HomeSongCategoryCard(
     var failed by remember(category.name, dailySeed) { mutableStateOf(false) }
     var retryKey by remember(category.name, dailySeed) { mutableStateOf(0) }
 
-    LaunchedEffect(category, dailySeed, retryKey) {
+    LaunchedEffect(category, dailySeed, refreshToken, retryKey) {
         failed = false
-        val result = withContext(Dispatchers.IO) { fetchHomeSongCategory(category, null, dailySeed) }
+        val result = withContext(Dispatchers.IO) { fetchHomeSongCategory(category, null, dailySeed, refreshToken) }
         songs = result?.getOrNull()?.items.orEmpty().take(20)
         failed = result == null || result.isFailure
     }
