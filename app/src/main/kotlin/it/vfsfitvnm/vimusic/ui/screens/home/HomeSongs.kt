@@ -362,8 +362,8 @@ private fun HomeSongCategoryCard(
 
     BasicText(
         text = category.name.uppercase(),
-        style = typography.s.semiBold,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 12.dp, bottom = 4.dp)
+        style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 1.2f),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 8.dp, bottom = 4.dp)
     )
 
     Column(
@@ -432,7 +432,7 @@ private fun HomeSongCategoryCard(
 
         BasicText(
             text = "VIEW ALL  ›",
-            style = typography.xs.semiBold,
+            style = typography.xs.semiBold.copy(fontSize = typography.xs.fontSize * 1.2f),
             modifier = Modifier
                 .align(Alignment.End)
                 .padding(top = 8.dp, end = 4.dp, bottom = 2.dp)
