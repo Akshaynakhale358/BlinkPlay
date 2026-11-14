@@ -449,7 +449,7 @@ fun QuickPicks(
                 .verticalScroll(scrollState)
                 .padding(
                     windowInsets
-                        .only(WindowInsetsSides.Vertical)
+                        .only(WindowInsetsSides.Bottom)
                         .asPaddingValues()
                 )
         ) {
