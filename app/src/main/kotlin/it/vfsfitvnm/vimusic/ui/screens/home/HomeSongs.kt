@@ -5,7 +5,6 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -13,6 +12,7 @@ import coil.compose.AsyncImage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,7 +29,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
@@ -50,6 +52,7 @@ import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.forcePlay
+import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
@@ -151,6 +154,14 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
         binder?.setupRadio(song.info?.endpoint)
     }
 
+    fun playBundle(songs: List<Innertube.SongItem>) {
+        val mediaItems = songs.map { it.asMediaItem }
+        if (mediaItems.isNotEmpty()) {
+            binder?.stopRadio()
+            binder?.player?.forcePlayFromBeginning(mediaItems)
+        }
+    }
+
     if (selectedCategory != null) {
         val category = selectedCategory!!
         ItemsPage(
@@ -209,6 +220,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                     thumbnailSizePx = thumbnailSizePx,
                     onViewAll = { selectedCategory = category },
                     onSongClick = ::playSong,
+                    onPlayBundle = ::playBundle,
                     onSongLongClick = { song ->
                         menuState.display {
                             NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
@@ -231,9 +243,10 @@ private fun HomeSongCategoryCard(
     thumbnailSizePx: Int,
     onViewAll: () -> Unit,
     onSongClick: (Innertube.SongItem) -> Unit,
+    onPlayBundle: (List<Innertube.SongItem>) -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
-    val (palette, typography) = LocalAppearance.current
+    val (_, typography) = LocalAppearance.current
     var songs by remember(category.name, dailySeed) { mutableStateOf<List<Innertube.SongItem>?>(null) }
     var failed by remember(category.name, dailySeed) { mutableStateOf(false) }
     var retryKey by remember(category.name, dailySeed) { mutableStateOf(0) }
@@ -245,42 +258,59 @@ private fun HomeSongCategoryCard(
         failed = result == null || result.isFailure
     }
 
+    val categoryArtwork = songs.orEmpty().takeIf { it.isNotEmpty() }?.let { available ->
+        // Rotate the category banner on each refresh; never reuse the first visible song artwork by default.
+        val artworkIndex = Math.floorMod(dailySeed + category.name.hashCode() + refreshToken, available.size)
+        available[artworkIndex].thumbnail?.size(320)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 7.dp)
-            .background(palette.background1, RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(26.dp))
+            .background(Color(0xFF29231B))
             .padding(12.dp)
     ) {
-        val categoryArtwork = songs.orEmpty().takeIf { it.isNotEmpty() }?.let { available ->
-            // Daily category-matched artwork; deliberately not tied to the first visible song.
-            val artworkIndex = Math.floorMod(dailySeed + category.name.hashCode(), available.size)
-            available[artworkIndex].thumbnail?.size(256)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(128.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color(0xFF40372C))
+                .clickable { songs?.firstOrNull()?.let(onSongClick) }
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                AsyncImage(
-                    model = categoryArtwork,
-                    contentDescription = category.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp))
-                )
-                Column {
-                    BasicText(text = category.name.uppercase(), style = typography.s.semiBold)
-                    BasicText(text = "Updated daily", style = typography.xs.secondary)
-                }
-            }
-            BasicText(
-                text = "View All",
-                style = typography.xs.secondary,
-                modifier = Modifier.clickable(onClick = onViewAll)
+            AsyncImage(
+                model = categoryArtwork,
+                contentDescription = category.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
             )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.48f))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                BasicText(text = category.name.uppercase(), style = typography.s.semiBold)
+                BasicText(text = "UPDATED DAILY", style = typography.xs.secondary,
+                    modifier = Modifier.padding(top = 4.dp))
+                BasicText(
+                    text = "▶  PLAY BUNDLE",
+                    style = typography.xs.semiBold,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.18f))
+                        .clickable { onPlayBundle(songs.orEmpty()) }
+                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                )
+            }
         }
+
         when {
-            songs == null -> repeat(3) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) }
+            songs == null -> repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
             failed || songs.isNullOrEmpty() -> BasicText(
                 text = "Could not load. Tap to retry.",
                 style = typography.xs.secondary,
@@ -289,14 +319,26 @@ private fun HomeSongCategoryCard(
             else -> songs.orEmpty().take(3).forEach { song ->
                 SongItem(
                     song = song,
-                    thumbnailSizePx = thumbnailSizePx,
-                    thumbnailSizeDp = thumbnailSizeDp,
-                    modifier = Modifier.combinedClickable(
+                    thumbnailSizePx = 64.dp.px,
+                    thumbnailSizeDp = 64.dp,
+                    modifier = Modifier.fillMaxWidth().combinedClickable(
                         onLongClick = { onSongLongClick(song) },
                         onClick = { onSongClick(song) }
                     )
                 )
             }
         }
+
+        BasicText(
+            text = "VIEW ALL  ›",
+            style = typography.xs.semiBold,
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(top = 8.dp, end = 4.dp, bottom = 2.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Color.White.copy(alpha = 0.14f))
+                .clickable(onClick = onViewAll)
+                .padding(horizontal = 14.dp, vertical = 9.dp)
+        )
     }
 }
