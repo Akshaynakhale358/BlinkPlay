@@ -557,16 +557,7 @@ fun QuickPicks(
             )
 
             if (songsForYou.isNotEmpty()) {
-                LaunchedEffect(quickPicksLazyGridState, songsForYou.size) {
-                    snapshotFlow {
-                        val info = quickPicksLazyGridState.layoutInfo
-                        val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-                        info.totalItemsCount > 0 && last >= info.totalItemsCount - 6
-                    }.distinctUntilChanged().collect { nearEnd ->
-                        if (nearEnd && pendingShelfLoad == null && "for_you" !in loadingShelfKeys) pendingShelfLoad = "for_you"
-                    }
-                }
-                LazyHorizontalGrid(
+                    LazyHorizontalGrid(
                     state = quickPicksLazyGridState,
                     rows = GridCells.Fixed(5),
                     flingBehavior = rememberSnapFlingBehavior(quickPicksLazyGridState, SnapPosition.Center),
@@ -1147,7 +1138,7 @@ private fun QuickPicksSongShelf(
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth().height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 5)
         ) {
-            items(items = songs.distinctBy(Innertube.SongItem::key), key = Innertube.SongItem::key) { song ->
+            items(items = songs.distinctBy(Innertube.SongItem::key).take(if (verticalList) Int.MAX_VALUE else 15), key = Innertube.SongItem::key) { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = thumbnailSizePx,
@@ -1275,7 +1266,7 @@ private fun QuickPicksPodcastShelf(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 14.dp)
             )
         } else {
-            songs.take(3).forEach { song ->
+            songs.take(15).forEach { song ->
                 SongItem(song = song, thumbnailSizePx = 64.dp.px, thumbnailSizeDp = 64.dp,
                     modifier = Modifier.fillMaxWidth().combinedClickable(
                         onClick = { onSongClick(song) }, onLongClick = { onSongLongClick(song) }))
