@@ -176,6 +176,23 @@ suspend fun fetchQuickPicksPodcastSongs(
 
     personalizeSongItems((directEpisodes + episodeFeeds).distinctBy(Innertube.SongItem::key))
 }
+private fun filterPodcastEpisodes(
+    songs: List<Innertube.SongItem>
+): List<Innertube.SongItem> {
+    // Podcast search roots are already podcast-scoped. Remove only unmistakable
+    // music-track/video results; do not apply music duration limits to episodes.
+    val musicOnlyMarkers = listOf(
+        "official audio", "official video", "music video", "lyric video", "lyrics",
+        "karaoke", "full song", "remix", "slowed", "reverb", "dj mix",
+        "status video", "whatsapp status", "instrumental version", "cover song"
+    )
+    return songs.distinctBy(Innertube.SongItem::key).filterNot { song ->
+        val metadata = (song.info?.name.orEmpty() + " " +
+            song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
+        musicOnlyMarkers.any(metadata::contains)
+    }
+}
+
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
@@ -263,7 +280,9 @@ fun QuickPicks(
         withContext(Dispatchers.IO) {
             // Load one batch immediately; the View All page fetches later batches on scroll.
             for (batch in 0 until 1) {
-                val next = runCatching { fetchQuickPicksPodcastSongs(batch + refreshToken + discoveryDailyToken) }.getOrDefault(emptyList())
+                val next = runCatching {
+                    filterPodcastEpisodes(fetchQuickPicksPodcastSongs(batch + refreshToken + discoveryDailyToken))
+                }.getOrDefault(emptyList())
                 loadedPodcasts = (loadedPodcasts + next).distinctBy(Innertube.SongItem::key)
                 if (loadedPodcasts.size >= 15) break
             }
@@ -426,7 +445,8 @@ fun QuickPicks(
                 "trending" -> trendingSongs
                 "top" -> topSongs
                 "new" -> newReleases
-                "long_listen", "podcast" -> longListenSongs
+                "long_listen" -> longListenSongs
+                "podcast" -> podcastSongs
                 else -> emptyList()
             }
             val nextBatch = (shelfBatchIndexes[shelfKey] ?: 0) + 1
@@ -439,7 +459,8 @@ fun QuickPicks(
                     "trending" -> trendingSongs = filterRegularSongDuration(trendingSongs + unique)
                     "top" -> topSongs = filterRegularSongDuration(topSongs + unique)
                     "new" -> newReleases = filterRegularSongDuration(newReleases + unique)
-                    "long_listen", "podcast" -> longListenSongs = longListenSongs + unique
+                    "long_listen" -> longListenSongs = longListenSongs + unique
+                    "podcast" -> podcastSongs = filterPodcastEpisodes(podcastSongs + unique)
                 }
             }
             shelfBatchIndexes = shelfBatchIndexes + (shelfKey to nextBatch)
@@ -797,16 +818,16 @@ fun QuickPicks(
             QuickPicksSectionHeader(
                 title = "PODCAST",
                 modifier = sectionTextModifier,
-                onPlay = { val items = longListenSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                onPlay = { val items = podcastSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "podcast" }
             )
-            if (longListenSongs.isEmpty() && isLoadingLongListen) {
+            if (podcastSongs.isEmpty() && isLoadingPodcasts) {
                 ShimmerHost {
                     repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
                 }
-            } else if (longListenSongs.isEmpty()) {
+            } else if (podcastSongs.isEmpty()) {
                 BasicText(
-                    text = "Finding long-form music. Pull down to retry.",
+                    text = "Finding podcast episodes. Pull down to retry.",
                     style = typography.xs.secondary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 )
@@ -818,7 +839,7 @@ fun QuickPicks(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     lazyRowItems(
-                        items = longListenSongs.take(15).chunked(5),
+                        items = podcastSongs.take(15).chunked(5),
                         key = { column -> column.firstOrNull()?.key.orEmpty() }
                     ) { songColumn ->
                         Column(
@@ -868,7 +889,8 @@ fun QuickPicks(
                     "trending" -> trendingSongs
                     "top" -> topSongs
                     "new" -> newReleases
-                    "long_listen", "podcast" -> longListenSongs
+                    "long_listen" -> longListenSongs
+                    "podcast" -> podcastSongs
                     else -> longListenSongs
                 }
                 BasicText(
@@ -1573,7 +1595,8 @@ private suspend fun fetchMoreQuickPicksShelf(
     currentSongs: List<Innertube.SongItem>,
     batchIndex: Int
 ): List<Innertube.SongItem> {
-    if (shelfKey == "long_listen" || shelfKey == "podcast") return fetchLongListenSongs(batchIndex)
+    if (shelfKey == "podcast") return emptyList() // Podcast results come from the dedicated Podcast search roots.
+    if (shelfKey == "long_listen") return fetchLongListenSongs(batchIndex)
     if (shelfKey == "for_you") {
         val seeds = currentSongs.takeLast(10)
         val related = coroutineScope {
