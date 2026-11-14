@@ -714,7 +714,7 @@ fun QuickPicks(
                         fontSize = typography.xxl.fontSize * 0.78f,
                         textAlign = TextAlign.End
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
                 )
                 BasicText(
                     text = "All Songs",
@@ -722,7 +722,7 @@ fun QuickPicks(
                         fontSize = typography.xxl.fontSize * 0.468f,
                         textAlign = TextAlign.End
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
                 )
                 QuickPicksSongShelf(
                     title = "All Songs",
@@ -755,7 +755,7 @@ fun QuickPicks(
                         fontSize = typography.xxl.fontSize * 0.78f,
                         textAlign = TextAlign.End
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
                 )
                 BasicText(
                     text = "All Songs",
@@ -763,7 +763,7 @@ fun QuickPicks(
                         fontSize = typography.xxl.fontSize * 0.468f,
                         textAlign = TextAlign.End
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
                 )
                 QuickPicksSongShelf(
                     title = "All Songs",
