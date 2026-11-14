@@ -6,6 +6,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.SnapPosition
@@ -820,6 +821,7 @@ private fun QuickPicksSectionHeader(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.size(32.dp).clip(CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
                     .background(Color.White.copy(alpha = 0.14f))
                     .clickable(onClick = onPlay)
             ) {
@@ -1081,6 +1083,7 @@ private fun QuickPicksDiscoveryShelf(
                         .padding(top = 8.dp)
                         .size(38.dp)
                         .clip(CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
                         .background(Color.White.copy(alpha = 0.2f))
                         .clickable(onClick = onPlayBundle)
                 ) {
