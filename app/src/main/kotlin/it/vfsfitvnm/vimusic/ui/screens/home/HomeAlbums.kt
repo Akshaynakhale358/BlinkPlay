@@ -1,5 +1,6 @@
 package it.vfsfitvnm.vimusic.ui.screens.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -128,6 +129,8 @@ fun HomeAlbums(
         shelfAlbums = loaded
         loading = false
     }
+
+    BackHandler(enabled = selectedShelf != null) { selectedShelf = null }
 
     if (selectedShelf != null) {
         val shelf = selectedShelf!!
