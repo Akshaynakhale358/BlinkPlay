@@ -1201,9 +1201,11 @@ private fun filterRegularSongDuration(
 
 private fun String?.toDurationSeconds(): Int {
     if (this.isNullOrBlank()) return 0
-    val parts = trim().split(":").mapNotNull { it.toIntOrNull() }
-    if (parts.isEmpty()) return 0
-    return parts.fold(0) { total, part -> total * 60 + part }
+    val parts = trim().split(":")
+    if (parts.size !in 2..3 || parts.any { it.isBlank() || it.toIntOrNull() == null }) return 0
+    val values = parts.map { it.toInt() }
+    if (values.drop(1).any { it !in 0..59 } || values.first() < 0) return 0
+    return values.fold(0) { total, part -> total * 60 + part }
 }
 
 private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
@@ -1591,6 +1593,11 @@ private fun filterDiscoverySongs(
         val title = song.info?.name.orEmpty().lowercase()
         val metadata = (title + " " +
             song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
+        val blockedFormats = listOf(
+            "podcast", "episode", "shorts", "#shorts", "status video", "whatsapp status",
+            "teaser", "trailer", "promo", "highlights", "karaoke", "reaction", "review"
+        )
+        if (blockedFormats.any(metadata::contains)) return@filter false
         val isPersonalTaste = category.kind == "personal"
         val isCalmCategory = category.key.startsWith("calm_")
         val blockedDevotionalTerms = if (category.key == "calm_meditation") {
