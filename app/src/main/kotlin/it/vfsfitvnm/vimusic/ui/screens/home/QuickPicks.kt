@@ -536,6 +536,11 @@ fun QuickPicks(
                 }
             }
 
+            BasicText(
+                text = "PODCAST",
+                style = typography.s.semiBold,
+                modifier = sectionTextModifier
+            )
             QuickPicksPodcastShelf(
                 songs = podcastSongs,
                 onViewAll = {
@@ -923,7 +928,6 @@ private fun QuickPicksPodcastShelf(
                 modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.48f)).padding(14.dp),
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.Bottom
             ) {
-                BasicText(text = "PODCAST", style = typography.s.semiBold)
                 BasicText(text = "▶  PLAY BUNDLE", style = typography.xs.semiBold,
                     modifier = Modifier.padding(top = 8.dp).clip(RoundedCornerShape(50))
                         .background(Color.White.copy(alpha = 0.18f)).clickable(onClick = onPlayBundle)
