@@ -97,7 +97,7 @@ private fun prioritizeHomeCategorySongs(
         .filter { it.length >= 3 && it !in setOf("songs", "song", "music", "indian", "hindi", "bollywood") }
     return songs.withIndex().sortedWith(
         compareByDescending<IndexedValue<Innertube.SongItem>> { indexed ->
-            val metadata = (indexed.value.title.orEmpty() + " " +
+            val metadata = (indexed.value.info?.name.orEmpty() + " " +
                 indexed.value.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
             terms.count(metadata::contains)
         }.thenBy { it.index }
