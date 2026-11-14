@@ -171,12 +171,16 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
         }.sum()
     }
 
+    val musicTitleTerms = listOf(
+        "official audio", "official video", "music video", "lyrics", "lyric video",
+        "full song", "audio song", "remix", " slowed", " lofi", "4k video"
+    )
     val relevant = results.filter { song ->
-        val title = song.info?.name.orEmpty()
-        val authors = song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }
-        val metadata = "$title $authors".lowercase()
-        // Do not treat every long music track as a podcast episode.
-        podcastTerms.any(metadata::contains)
+        val title = song.info?.name.orEmpty().lowercase()
+        val duration = durationSeconds(song.durationText)
+        // Require episode wording in the title and an episode-like duration.
+        // Channel/artist names alone cannot make a normal song a podcast.
+        podcastTerms.any(title::contains) && duration >= 8 * 60 && musicTitleTerms.none(title::contains)
     }
     personalizeAndDiversify(relevant)
 }
@@ -215,6 +219,9 @@ fun QuickPicks(
     var emptyDiscoveryBatches by remember { mutableStateOf(0) }
     var hasMoreDiscoveryResults by remember { mutableStateOf(true) }
     var selectedPodcastPage by remember { mutableStateOf(false) }
+    var pendingShelfLoad by remember { mutableStateOf<String?>(null) }
+    var loadingShelfKeys by remember { mutableStateOf(setOf<String>()) }
+    var shelfBatchIndexes by remember { mutableStateOf(emptyMap<String, Int>()) }
 
     var discoveryDailyToken by remember { mutableStateOf(0) }
 
@@ -292,6 +299,7 @@ fun QuickPicks(
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
 
     val scrollState = rememberScrollState()
+    val longListenLazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     // Keep one pagination collector alive while the Podcast page is open.
     // Do not key this effect on scrollState.value: doing so cancels an in-flight
@@ -391,6 +399,40 @@ fun QuickPicks(
         }
     }
 
+    // Fetch another batch when a non-card music shelf reaches its end.
+    LaunchedEffect(pendingShelfLoad) {
+        val shelfKey = pendingShelfLoad ?: return@LaunchedEffect
+        if (shelfKey in loadingShelfKeys) return@LaunchedEffect
+        loadingShelfKeys = loadingShelfKeys + shelfKey
+        try {
+            val current = when (shelfKey) {
+                "for_you" -> songsForYou
+                "trending" -> trendingSongs
+                "top" -> topSongs
+                "new" -> newReleases
+                "long_listen" -> longListenSongs
+                else -> emptyList()
+            }
+            val nextBatch = (shelfBatchIndexes[shelfKey] ?: 0) + 1
+            val more = withContext(Dispatchers.IO) { fetchMoreQuickPicksShelf(shelfKey, current, nextBatch) }
+            val existing = current.map(Innertube.SongItem::key).toHashSet()
+            val unique = more.filter { it.key !in existing }
+            if (unique.isNotEmpty()) {
+                when (shelfKey) {
+                    "for_you" -> songsForYou = songsForYou + unique
+                    "trending" -> trendingSongs = trendingSongs + unique
+                    "top" -> topSongs = topSongs + unique
+                    "new" -> newReleases = newReleases + unique
+                    "long_listen" -> longListenSongs = longListenSongs + unique
+                }
+            }
+            shelfBatchIndexes = shelfBatchIndexes + (shelfKey to nextBatch)
+        } finally {
+            loadingShelfKeys = loadingShelfKeys - shelfKey
+            pendingShelfLoad = null
+        }
+    }
+
     var savedHomeScrollOffset by remember { mutableStateOf(0) }
     var restoreHomeScroll by remember { mutableStateOf(false) }
 
@@ -470,6 +512,15 @@ fun QuickPicks(
             )
 
             if (songsForYou.isNotEmpty()) {
+                LaunchedEffect(quickPicksLazyGridState, songsForYou.size) {
+                    snapshotFlow {
+                        val info = quickPicksLazyGridState.layoutInfo
+                        val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+                        info.totalItemsCount > 0 && last >= info.totalItemsCount - 6
+                    }.distinctUntilChanged().collect { nearEnd ->
+                        if (nearEnd && pendingShelfLoad == null && "for_you" !in loadingShelfKeys) pendingShelfLoad = "for_you"
+                    }
+                }
                 LazyHorizontalGrid(
                     state = quickPicksLazyGridState,
                     rows = GridCells.Fixed(5),
@@ -515,6 +566,7 @@ fun QuickPicks(
             QuickPicksSongShelf(
                 title = "TRENDING SONGS",
                 songs = trendingSongs,
+                onLoadMore = { if (pendingShelfLoad == null && "trending" !in loadingShelfKeys) pendingShelfLoad = "trending" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
@@ -536,6 +588,7 @@ fun QuickPicks(
             QuickPicksSongShelf(
                 title = "TOP SONGS",
                 songs = topSongs,
+                onLoadMore = { if (pendingShelfLoad == null && "top" !in loadingShelfKeys) pendingShelfLoad = "top" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
@@ -557,6 +610,7 @@ fun QuickPicks(
             QuickPicksSongShelf(
                 title = "NEW RELEASES",
                 songs = newReleases,
+                onLoadMore = { if (pendingShelfLoad == null && "new" !in loadingShelfKeys) pendingShelfLoad = "new" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
@@ -696,12 +750,22 @@ fun QuickPicks(
                 style = typography.s.semiBold,
                 modifier = sectionTextModifier
             )
+            LaunchedEffect(longListenLazyListState, longListenSongs.size) {
+                snapshotFlow {
+                    val info = longListenLazyListState.layoutInfo
+                    val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+                    info.totalItemsCount > 0 && last >= info.totalItemsCount - 2
+                }.distinctUntilChanged().collect { nearEnd ->
+                    if (nearEnd && pendingShelfLoad == null && "long_listen" !in loadingShelfKeys) pendingShelfLoad = "long_listen"
+                }
+            }
             if (longListenSongs.isEmpty()) {
                 ShimmerHost {
                     repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
                 }
             } else {
                 LazyRow(
+                    state = longListenLazyListState,
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -859,10 +923,21 @@ private fun QuickPicksSongShelf(
     itemWidth: androidx.compose.ui.unit.Dp,
     endPaddingValues: androidx.compose.foundation.layout.PaddingValues,
     verticalList: Boolean,
+    onLoadMore: (() -> Unit)? = null,
     onSongClick: (Innertube.SongItem) -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
+    val shelfGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    LaunchedEffect(shelfGridState, songs.size) {
+        snapshotFlow {
+            val info = shelfGridState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 6
+        }.distinctUntilChanged().collect { nearEnd ->
+            if (nearEnd) onLoadMore?.invoke()
+        }
+    }
 
     BasicText(
         text = title,
@@ -907,6 +982,7 @@ private fun QuickPicksSongShelf(
     } else {
         // Keep the Home screen's original five-row horizontally scrolling shelves.
         LazyHorizontalGrid(
+            state = shelfGridState,
             rows = GridCells.Fixed(5),
             contentPadding = endPaddingValues,
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
@@ -1162,15 +1238,20 @@ private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
     return dailyOrder
 }
 
-private suspend fun fetchLongListenSongs(): List<Innertube.SongItem> {
-    // Search long-form music, then keep only tracks strictly longer than 30 minutes.
+private suspend fun fetchLongListenSongs(batchIndex: Int = 0): List<Innertube.SongItem> {
+    // Rotate long-form queries on every horizontal-scroll batch.
     val queries = listOf(
         "30 minute extended music full song mix",
         "45 minute live music performance full concert",
         "one hour instrumental music long play",
-        "extended rock electronic jazz music 40 minutes"
+        "extended rock electronic jazz music 40 minutes",
+        "one hour Indian classical instrumental music",
+        "long live acoustic music performance 45 minutes",
+        "60 minute ambient electronic music full mix",
+        "long form jazz live session full performance"
     )
-    val candidates = fetchSearchAndRelatedBundle(queries)
+    val query = queries[Math.floorMod(batchIndex, queries.size)]
+    val candidates = fetchSearchAndRelatedBundle(listOf(query))
     val nonDevotional = filterDiscoverySongs(
         DiscoverySubcategory("long_listen", "Long Listen", "Long Listen", "long", ""),
         candidates
@@ -1179,6 +1260,65 @@ private suspend fun fetchLongListenSongs(): List<Innertube.SongItem> {
         .filter { it.durationText.toDurationSeconds() > 30 * 60 }
         .distinctBy(Innertube.SongItem::key)
     return rotateDiscoverySongsDaily(personalizeAndDiversify(longTracks))
+}
+
+
+private suspend fun fetchMoreQuickPicksShelf(
+    shelfKey: String,
+    currentSongs: List<Innertube.SongItem>,
+    batchIndex: Int
+): List<Innertube.SongItem> {
+    if (shelfKey == "long_listen") return fetchLongListenSongs(batchIndex)
+    if (shelfKey == "for_you") {
+        val seeds = currentSongs.takeLast(5)
+        val related = coroutineScope {
+            seeds.map { seed ->
+                async {
+                    runCatching {
+                        Innertube.relatedPage(NextBody(context = IndiaExploreContext, videoId = seed.key))
+                            ?.getOrNull()?.songs.orEmpty()
+                    }.getOrDefault(emptyList())
+                }
+            }.awaitAll().flatten()
+        }
+        val searches = seeds.take(3).map { seed ->
+            listOf(seed.info?.name.orEmpty(), seed.authors?.firstOrNull()?.name.orEmpty(), "similar songs")
+                .filter { it.isNotBlank() }.joinToString(" ")
+        }.filter { it.isNotBlank() }
+        val searched = searches.map { fetchSongsByCategoryWithFallback(it) }.flatten()
+        return personalizeAndDiversify((related + searched).distinctBy(Innertube.SongItem::key))
+    }
+    val queries = when (shelfKey) {
+        "trending" -> listOf(
+            "India trending viral songs this week Hindi",
+            "latest trending Indian hit songs chart",
+            "viral Hindi Marathi songs India",
+            "trending Indian music videos songs"
+        )
+        "top" -> listOf(
+            "India top chart songs Hindi Marathi",
+            "most popular Indian songs all time chart",
+            "top Hindi Bollywood songs India chart",
+            "India top Punjabi Tamil Telugu songs"
+        )
+        "new" -> listOf(
+            "new Hindi Marathi song releases this week",
+            "latest Indian music releases new songs",
+            "new Bollywood songs official release",
+            "new Punjabi and regional Indian songs"
+        )
+        else -> emptyList()
+    }
+    if (queries.isEmpty()) return emptyList()
+    val query = queries[Math.floorMod(batchIndex - 1, queries.size)]
+    val category = when (shelfKey) {
+        "trending" -> DiscoverySubcategory("trend_india", "Trending", "Trending India", "trending", query)
+        "new" -> DiscoverySubcategory("trend_new", "New Releases", "New Releases", "trending", query)
+        else -> DiscoverySubcategory("top_india", "Top Songs", "Top Songs", "top", query)
+    }
+    val candidates = fetchSearchAndRelatedBundle(listOf(query))
+    val relevant = filterDiscoverySongs(category, candidates)
+    return personalizeAndDiversify(prioritizeHindiSongs(relevant, category.key))
 }
 
 private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
