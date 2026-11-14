@@ -160,18 +160,18 @@ fun HomeArtistList(
         BasicText(
             text = selectedCategory,
             style = typography.m.semiBold.copy(
-                fontSize = typography.xxl.fontSize * 0.78f,
+                fontSize = typography.xxl.fontSize * 0.936f,
                 textAlign = TextAlign.End
             ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp)
         )
         BasicText(
             text = "All Artists",
             style = typography.s.semiBold.copy(
-                fontSize = typography.xxl.fontSize * 0.468f,
+                fontSize = typography.xxl.fontSize * 0.5616f,
                 textAlign = TextAlign.End
             ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp)
         )
         LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
             rowItems(categories, key = { it.first }) { category ->
