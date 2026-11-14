@@ -5,6 +5,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -52,6 +53,7 @@ import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 private data class HomeSongCategory(val name: String, val query: String, val podcast: Boolean = false)
@@ -134,8 +136,11 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
     var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(refreshToken) {
-        // Give all category cards a fresh query whenever the user pulls to refresh.
-        isRefreshing = false
+        if (refreshToken > 0) {
+            // Let visible cards finish their fresh search requests before ending the indicator.
+            delay(1400)
+            isRefreshing = false
+        }
     }
 
     BackHandler(enabled = selectedCategory != null) { selectedCategory = null }
@@ -182,13 +187,24 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(palette.background0)) {
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            if (!isRefreshing) {
+                isRefreshing = true
+                refreshToken += 1
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
+      Column(modifier = Modifier.fillMaxSize().background(palette.background0)) {
         Header(title = "Songs")
         LazyColumn(contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
             items(homeSongCategories, key = { it.name }) { category ->
                 HomeSongCategoryCard(
                     category = category,
                     dailySeed = dailySeed,
+                    refreshToken = refreshToken,
                     thumbnailSizeDp = thumbnailSizeDp,
                     thumbnailSizePx = thumbnailSizePx,
                     onViewAll = { selectedCategory = category },
@@ -201,6 +217,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
                 )
             }
         }
+      }
     }
 }
 
@@ -209,6 +226,7 @@ fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
 private fun HomeSongCategoryCard(
     category: HomeSongCategory,
     dailySeed: Int,
+    refreshToken: Int,
     thumbnailSizeDp: androidx.compose.ui.unit.Dp,
     thumbnailSizePx: Int,
     onViewAll: () -> Unit,
