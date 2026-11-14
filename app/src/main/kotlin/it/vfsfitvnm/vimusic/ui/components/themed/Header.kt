@@ -26,7 +26,7 @@ import kotlin.random.Random
 fun Header(
     title: String,
     modifier: Modifier = Modifier,
-    titleScale: Float = 1.56f,
+    titleScale: Float = 1.404f,
     actionsContent: @Composable RowScope.() -> Unit = {},
 ) {
     val typography = LocalAppearance.current.typography
