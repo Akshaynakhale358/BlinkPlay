@@ -57,6 +57,7 @@ import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
+import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.requests.indiaChartSongs
@@ -153,9 +154,27 @@ private suspend fun fetchQuickPicksPodcastSongs(
     val showEpisodes = podcastShows.map { show ->
         async(Dispatchers.IO) {
             runCatching {
-                Innertube.playlistPage(
+                val firstPage = Innertube.playlistPage(
                     BrowseBody(context = context, browseId = show.key)
-                )?.getOrNull()?.songsPage?.items.orEmpty()
+                )?.getOrNull()?.songsPage
+                val episodes = firstPage?.items.orEmpty().toMutableList()
+                var continuation = firstPage?.continuation
+                var pageCount = 0
+                // Podcast show feeds are often paginated; fetch several pages per show
+                // so the episode shelf is not limited to the first small server page.
+                while (!continuation.isNullOrBlank() && pageCount < 3) {
+                    val page = Innertube.playlistPage(
+                        ContinuationBody(context = context, continuation = continuation)
+                    )?.getOrNull()
+                    val nextEpisodes = page?.items.orEmpty()
+                    if (nextEpisodes.isEmpty()) break
+                    episodes += nextEpisodes
+                    val nextContinuation = page?.continuation
+                    if (nextContinuation == continuation) break
+                    continuation = nextContinuation
+                    pageCount += 1
+                }
+                episodes.distinctBy(Innertube.SongItem::key)
             }.getOrDefault(emptyList())
         }
     }.awaitAll().flatten()
