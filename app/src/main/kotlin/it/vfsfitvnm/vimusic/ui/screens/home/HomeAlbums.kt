@@ -75,6 +75,7 @@ private data class AlbumShelf(
 @ExperimentalAnimationApi
 @Composable
 fun HomeAlbums(
+    homeResetKey: Int = 0,
     onAlbumClick: (String) -> Unit,
     onSearchClick: () -> Unit,
 ) {
@@ -94,6 +95,7 @@ fun HomeAlbums(
     var shelfAlbums by remember { mutableStateOf<Map<String, List<Innertube.AlbumItem>>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
     var selectedShelf by remember { mutableStateOf<AlbumShelf?>(null) }
+    LaunchedEffect(homeResetKey) { if (homeResetKey > 0) selectedShelf = null }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(refreshKey) {
