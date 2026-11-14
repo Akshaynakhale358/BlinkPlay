@@ -1020,14 +1020,17 @@ private fun QuickPicksSongShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
+    // Podcast episodes keep their own duration behavior; every other standard
+    // shelf/detail card enforces the under-10-minute rule.
+    val displaySongs = if (title == "ALL PODCAST EPISODES") songs else filterRegularSongDuration(songs)
     val shelfGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
-    LaunchedEffect(shelfGridState, songs.size) {
+    LaunchedEffect(shelfGridState, displaySongs.size) {
         snapshotFlow {
             val info = shelfGridState.layoutInfo
             val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
             info.totalItemsCount > 0 && last >= info.totalItemsCount - 6
         }.distinctUntilChanged().collect { nearEnd ->
-            if (nearEnd && songs.isNotEmpty()) onLoadMore?.invoke()
+            if (nearEnd && displaySongs.isNotEmpty()) onLoadMore?.invoke()
         }
     }
 
@@ -1053,7 +1056,7 @@ private fun QuickPicksSongShelf(
         }
     }
 
-    if (songs.isEmpty()) {
+    if (displaySongs.isEmpty()) {
         if (verticalList) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -1072,7 +1075,7 @@ private fun QuickPicksSongShelf(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
         ) {
-            songs.distinctBy(Innertube.SongItem::key).forEach { song ->
+            displaySongs.distinctBy(Innertube.SongItem::key).forEach { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = thumbnailSizePx,
@@ -1289,7 +1292,8 @@ private fun QuickPicksDiscoveryShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    val artworkSong = songs.getOrNull(if (songs.isEmpty()) 0 else Math.floorMod(category.title.hashCode() + refreshToken + songs.size / 2, songs.size))
+    val displaySongs = filterRegularSongDuration(songs)
+    val artworkSong = displaySongs.getOrNull(if (displaySongs.isEmpty()) 0 else Math.floorMod(category.title.hashCode() + refreshToken + displaySongs.size / 2, displaySongs.size))
 
     Column(
         modifier = Modifier
@@ -1333,10 +1337,10 @@ private fun QuickPicksDiscoveryShelf(
             }
         }
 
-        if (songs.isEmpty()) {
+        if (displaySongs.isEmpty()) {
             ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
         } else {
-            songs.take(3).forEach { song ->
+            displaySongs.take(3).forEach { song ->
                 SongItem(
                     song = song,
                     thumbnailSizePx = 64.dp.px,
