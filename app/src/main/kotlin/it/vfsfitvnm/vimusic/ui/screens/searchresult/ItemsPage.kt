@@ -32,6 +32,7 @@ import it.vfsfitvnm.innertube.utils.plus
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
+import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeSongItems
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.utils.center
 import it.vfsfitvnm.vimusic.utils.secondary
@@ -102,7 +103,17 @@ inline fun <T : Innertube.Item> ItemsPage(
                                     previousContinuation != null &&
                                     page.continuation == previousContinuation
                                 ) page.copy(continuation = null) else page
-                                itemsPage += safePage
+                                val mergedPage = itemsPage?.plus(safePage) ?: safePage
+                                val pageItems = mergedPage.items.orEmpty()
+                                if (pageItems.isNotEmpty() && pageItems.all { it is Innertube.SongItem }) {
+                                    @Suppress("UNCHECKED_CAST")
+                                    val rankedSongs = personalizeSongItems(
+                                        pageItems.filterIsInstance<Innertube.SongItem>()
+                                    ) as List<T>
+                                    itemsPage = mergedPage.copy(items = rankedSongs)
+                                } else {
+                                    itemsPage = mergedPage
+                                }
                             }
                             hasLoadError = false
                         }
