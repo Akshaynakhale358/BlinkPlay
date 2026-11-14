@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
@@ -157,9 +158,20 @@ fun HomeArtistList(
         }
 
         BasicText(
-            text = "Explore artists",
-            style = typography.m,
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
+            text = selectedCategory,
+            style = typography.m.semiBold.copy(
+                fontSize = typography.xxl.fontSize * 0.78f,
+                textAlign = TextAlign.End
+            ),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+        BasicText(
+            text = "All Artists",
+            style = typography.s.semiBold.copy(
+                fontSize = typography.xxl.fontSize * 0.468f,
+                textAlign = TextAlign.End
+            ),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
         )
         LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
             rowItems(categories, key = { it.first }) { category ->
