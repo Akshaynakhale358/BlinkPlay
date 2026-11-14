@@ -362,8 +362,8 @@ private fun HomeSongCategoryCard(
     }
 
     BasicText(
-        text = category.name.replaceFirstChar { it.uppercase() },
-        style = typography.m.semiBold.copy(fontSize = typography.xxl.fontSize * 0.936f),
+        text = category.name.uppercase(),
+        style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 1.2f),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 8.dp, bottom = 4.dp)
     )
 
