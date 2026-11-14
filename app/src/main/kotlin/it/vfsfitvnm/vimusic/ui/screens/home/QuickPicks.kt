@@ -41,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -287,28 +288,47 @@ fun QuickPicks(
 
     val scrollState = rememberScrollState()
 
-    // Fetch more episodes near the bottom. Skip a few duplicate/empty batches
-    // before stopping so one sparse result page cannot end pagination.
-    LaunchedEffect(selectedPodcastPage, scrollState.value, scrollState.maxValue, podcastSongs.size, podcastBatchIndex) {
-        if (selectedPodcastPage && hasMorePodcastResults && !isLoadingPodcasts &&
-            !isLoadingMorePodcasts && scrollState.value >= scrollState.maxValue - 500
-        ) {
-            isLoadingMorePodcasts = true
-            val nextBatch = podcastBatchIndex + 1
-            val moreSongs = withContext(Dispatchers.IO) {
-                fetchQuickPicksPodcastSongs(nextBatch)
+    // Keep one pagination collector alive while the Podcast page is open.
+    // Do not key this effect on scrollState.value: doing so cancels an in-flight
+    // network request on every scroll event and can leave the loading flag stuck.
+    LaunchedEffect(selectedPodcastPage) {
+        if (!selectedPodcastPage) return@LaunchedEffect
+
+        snapshotFlow {
+            scrollState.value >= (scrollState.maxValue - 500).coerceAtLeast(0)
+        }.distinctUntilChanged().collect { nearBottom ->
+            if (nearBottom) {
+                // If the current list is shorter than the screen, keep requesting
+                // batches until it can scroll or the source is genuinely exhausted.
+                while (
+                    selectedPodcastPage &&
+                    hasMorePodcastResults &&
+                    !isLoadingPodcasts &&
+                    !isLoadingMorePodcasts &&
+                    scrollState.value >= (scrollState.maxValue - 500).coerceAtLeast(0)
+                ) {
+                    isLoadingMorePodcasts = true
+                    try {
+                        val nextBatch = podcastBatchIndex + 1
+                        val moreSongs = withContext(Dispatchers.IO) {
+                            runCatching { fetchQuickPicksPodcastSongs(nextBatch) }
+                                .getOrDefault(emptyList())
+                        }
+                        val existingKeys = podcastSongs.map(Innertube.SongItem::key).toHashSet()
+                        val uniqueMore = moreSongs.filter { it.key !in existingKeys }
+                        if (uniqueMore.isNotEmpty()) {
+                            podcastSongs = podcastSongs + uniqueMore
+                            emptyPodcastBatches = 0
+                        } else {
+                            emptyPodcastBatches += 1
+                            if (emptyPodcastBatches >= 6) hasMorePodcastResults = false
+                        }
+                        podcastBatchIndex = nextBatch
+                    } finally {
+                        isLoadingMorePodcasts = false
+                    }
+                }
             }
-            val existingKeys = podcastSongs.map(Innertube.SongItem::key).toHashSet()
-            val uniqueMore = moreSongs.filter { it.key !in existingKeys }
-            if (uniqueMore.isNotEmpty()) {
-                podcastSongs = podcastSongs + uniqueMore
-                emptyPodcastBatches = 0
-            } else {
-                emptyPodcastBatches += 1
-                if (emptyPodcastBatches >= 6) hasMorePodcastResults = false
-            }
-            podcastBatchIndex = nextBatch
-            isLoadingMorePodcasts = false
         }
     }
     var savedHomeScrollOffset by remember { mutableStateOf(0) }
