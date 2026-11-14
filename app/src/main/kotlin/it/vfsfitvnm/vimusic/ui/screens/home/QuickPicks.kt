@@ -286,16 +286,17 @@ private suspend fun fetchQuickPicksPodcastSongs(
         "best moments", "snippet"
     )
 
-    // Show-browse results and typed Episode results are trusted sources.
-    // Keep duration and anti-music checks as a final quality gate.
-    val candidates = (showEpisodes + searchedEpisodes)
+    // Merge all three discovery paths. The previous final gate accidentally
+    // discarded the Video fallback entirely and rejected dedicated Episode
+    // results unless YouTube supplied one exact endpoint type string.
+    // The search filters themselves identify the source; apply shared quality
+    // checks here without requiring unstable endpoint metadata.
+    val candidates = (showEpisodes + searchedEpisodes + fallbackVideoEpisodes)
         .distinctBy(Innertube.SongItem::key)
         .filter { song ->
             val title = song.info?.name.orEmpty().lowercase()
             val duration = durationSeconds(song.durationText) ?: 0L
-            val typedEpisode = song.info?.endpoint?.type == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
-            duration >= 8 * 60 && excludedTerms.none(title::contains) &&
-                (typedEpisode || showEpisodes.any { it.key == song.key })
+            duration >= 8 * 60 && excludedTerms.none(title::contains)
         }
 
     personalizeAndDiversify(candidates)
