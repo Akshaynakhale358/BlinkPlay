@@ -717,9 +717,18 @@ fun QuickPicks(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                         .clickable { selectedQuickPicksShelf = null; restoreHomeScroll = true }
                 )
-                Header(title = shelfTitle)
+                if (shelfKey == "for_you") {
+                    Header(title = "Quick Picks")
+                    BasicText(
+                        text = "Songs for You",
+                        style = typography.m.semiBold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                } else {
+                    Header(title = shelfTitle)
+                }
                 QuickPicksSongShelf(
-                    title = shelfTitle + " · ALL SONGS",
+                    title = if (shelfKey == "for_you") "All Songs" else shelfTitle + " · ALL SONGS",
                     songs = shelfSongs,
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
