@@ -106,7 +106,14 @@ fun SearchResultScreen(query: String, onSearchAgain: () -> Unit) {
                                         Innertube.searchPage(
                                             body = SearchBody(query = query, params = Innertube.SearchFilter.Song.value),
                                             fromMusicShelfRendererContent = Innertube.SongItem.Companion::from
-                                        )
+                                        )?.map { page ->
+                                            page?.copy(items = page.items.orEmpty().sortedByDescending { song ->
+                                                val metadata = (song.info?.name.orEmpty() + " " +
+                                                    song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
+                                                query.lowercase().split(Regex("[^a-z0-9]+"))
+                                                    .filter { it.length >= 2 }.count(metadata::contains)
+                                            })
+                                        }
                                     } else {
                                         Innertube.searchPage(
                                             body = ContinuationBody(continuation = continuation),
