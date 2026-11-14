@@ -1505,7 +1505,15 @@ private suspend fun fetchLongListenSongs(batchIndex: Int = 0): List<Innertube.So
                 Innertube.searchPage(
                     body = SearchBody(context = context, query = query, params = Innertube.SearchFilter.Video.value),
                     fromMusicShelfRendererContent = { content ->
-                        Innertube.VideoItem.from(content)?.toQuickPicksPodcastSong()
+                        Innertube.VideoItem.from(content)?.let { video ->
+                            Innertube.SongItem(
+                                info = video.info,
+                                authors = video.authors,
+                                album = null,
+                                durationText = video.durationText,
+                                thumbnail = video.thumbnail
+                            )
+                        }
                     }
                 )?.getOrNull()?.items.orEmpty()
             }.getOrDefault(emptyList())
