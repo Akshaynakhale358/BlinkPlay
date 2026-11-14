@@ -158,7 +158,7 @@ suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancel
                                     ?.firstOrNull()
                             )
                         }
-                        ?.let(::addAll)
+                        ?.forEach { add(it) }
                     section.gridRenderer
                         ?.items
                         ?.mapNotNull { it.musicTwoRowItemRenderer }
@@ -166,7 +166,7 @@ suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancel
                             Innertube.PlaylistItem.from(renderer)
                                 ?.takeIf { it.key.startsWith("MPSP") }
                         }
-                        ?.let(::addAll)
+                        ?.forEach { add(it) }
                 }
             }
     }.distinctBy(Innertube.PlaylistItem::key)
