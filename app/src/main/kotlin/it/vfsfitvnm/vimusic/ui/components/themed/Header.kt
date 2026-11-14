@@ -35,7 +35,7 @@ fun Header(
         titleContent = {
             BasicText(
                 text = title,
-                style = typography.xxl.medium,
+                style = typography.xxl.medium.copy(fontSize = typography.xxl.fontSize * 1.3f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
