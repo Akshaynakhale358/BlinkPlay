@@ -159,12 +159,12 @@ private suspend fun fetchHomeSongCategory(
     val result = if (continuation == null) {
         Innertube.searchPage(
             body = SearchBody(context = context, query = query, params = filter),
-            fromMusicShelfRendererContent = Innertube.SongItem::from
+            fromMusicShelfRendererContent = { content -> Innertube.SongItem.from(content) }
         )
     } else {
         Innertube.searchPage(
             body = ContinuationBody(context = context, continuation = continuation),
-            fromMusicShelfRendererContent = Innertube.SongItem::from
+            fromMusicShelfRendererContent = { content -> Innertube.SongItem.from(content) }
         )
     }
     return result?.map { page ->
