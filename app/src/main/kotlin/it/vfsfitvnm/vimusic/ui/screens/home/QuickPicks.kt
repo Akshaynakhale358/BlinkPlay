@@ -1253,19 +1253,34 @@ private fun QuickPicksPodcastShelf(
                 )
             }
         }
-        songs.take(3).forEach { song ->
-            SongItem(
-                song = song,
-                thumbnailSizePx = 64.dp.px,
-                thumbnailSizeDp = 64.dp,
-                modifier = Modifier.fillMaxWidth().combinedClickable(
-                    onClick = { onSongClick(song) },
-                    onLongClick = { onSongLongClick(song) }
-                )
-            )
-        }
-        if (songs.isEmpty() && isLoading) {
-            ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
+        if (songs.isNotEmpty()) {
+            LazyHorizontalGrid(
+                rows = GridCells.Fixed(5),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height((64.dp + Dimensions.itemsVerticalPadding * 2) * 5)
+            ) {
+                items(items = songs.distinctBy(Innertube.SongItem::key).take(15), key = Innertube.SongItem::key) { song ->
+                    SongItem(
+                        song = song,
+                        thumbnailSizePx = 64.dp.px,
+                        thumbnailSizeDp = 64.dp,
+                        modifier = Modifier.width(220.dp).combinedClickable(
+                            onClick = { onSongClick(song) },
+                            onLongClick = { onSongLongClick(song) }
+                        )
+                    )
+                }
+            }
+        } else if (isLoading) {
+            LazyHorizontalGrid(
+                rows = GridCells.Fixed(5),
+                modifier = Modifier.fillMaxWidth().height((64.dp + Dimensions.itemsVerticalPadding * 2) * 5)
+            ) {
+                items(5) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
+            }
         } else if (songs.isEmpty()) {
             BasicText(
                 text = "No podcast episodes found yet. Pull down to refresh.",
