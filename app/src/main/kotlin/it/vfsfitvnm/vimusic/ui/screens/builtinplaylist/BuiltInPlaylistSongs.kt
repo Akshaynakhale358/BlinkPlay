@@ -100,13 +100,15 @@ fun BuiltInPlaylistSongs(builtInPlaylist: BuiltInPlaylist) {
                     modifier = Modifier
                         .padding(bottom = 8.dp)
                 ) {
-                    SecondaryTextButton(
-                        text = "Enqueue",
-                        enabled = songs.isNotEmpty(),
-                        onClick = {
-                            binder?.player?.enqueue(songs.map(Song::asMediaItem))
-                        }
-                    )
+                    if (builtInPlaylist == BuiltInPlaylist.Favorites) {
+                        SecondaryTextButton(
+                            text = "Enqueue",
+                            enabled = songs.isNotEmpty(),
+                            onClick = {
+                                binder?.player?.enqueue(songs.map(Song::asMediaItem))
+                            }
+                        )
+                    }
 
                     Spacer(
                         modifier = Modifier
