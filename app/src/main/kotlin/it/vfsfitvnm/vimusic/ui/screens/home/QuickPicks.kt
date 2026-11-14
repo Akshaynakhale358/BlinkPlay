@@ -1571,7 +1571,12 @@ private suspend fun fetchQuickPickDiscoveryCategories(refreshCycle: Int): Map<St
                 // The taste shelf is sourced from listening history and favourites.
                 fetchPersonalizedSongsForYou(refreshCycle)
             } else {
-                fetchSearchAndRelatedBundle(cycleCategoryQueries(discoverySearchQueries(category), refreshCycle, 2))
+                val queries = cycleCategoryQueries(discoverySearchQueries(category), refreshCycle, 2)
+                if (category.key in strictLanguageCategoryKeys) {
+                    fetchSearchOnlyBundle(queries)
+                } else {
+                    fetchSearchAndRelatedBundle(queries)
+                }
             }
             // Filter category relevance first; personalization only reorders valid candidates.
             val categoryFiltered = filterDiscoverySongs(category, categoryFeed)
@@ -1742,14 +1747,16 @@ private suspend fun fetchDiscoveryCategoryMore(
     val queries = discoverySearchQueries(category)
     if (queries.isEmpty()) return@coroutineScope emptyList()
 
-    // Rotate the category's original Song Search queries on each batch. Then expand
-    // from a fresh group of songs using the same Related Songs root as the first load.
+    // Rotate category-specific Song Search queries for every page of results.
     val query = queries[Math.floorMod(batchIndex - 1, queries.size)]
     val searchSeeds = fetchSongsByCategoryWithFallback(query)
-    // Expand from the newest items already appended to this category so each
-    // successful batch creates the seeds for the next batch.
-    val freshSeeds = currentSongs.takeLast(10).ifEmpty { searchSeeds.take(10) }
+    if (category.key in strictLanguageCategoryKeys) {
+        val relevant = filterDiscoverySongs(category, searchSeeds)
+        return@coroutineScope personalizeAndDiversify(prioritizeHindiSongs(relevant, category.key))
+    }
 
+    // Other mixed shelves may expand from related tracks, then re-apply their filters.
+    val freshSeeds = currentSongs.takeLast(10).ifEmpty { searchSeeds.take(10) }
     val related = freshSeeds.map { seed ->
         async {
             runCatching {
@@ -1764,6 +1771,17 @@ private suspend fun fetchDiscoveryCategoryMore(
     val relevant = filterDiscoverySongs(category, candidates)
     val prioritized = prioritizeHindiSongs(relevant, category.key)
     personalizeAndDiversify(prioritized)
+}
+
+private val strictLanguageCategoryKeys = setOf(
+    "mix_hindi", "mix_marathi", "mix_punjabi", "mix_regional",
+    "trend_hindi", "trend_marathi", "trend_regional"
+)
+
+private suspend fun fetchSearchOnlyBundle(queries: List<String>): List<Innertube.SongItem> = coroutineScope {
+    queries.map { query ->
+        async { fetchSongsByCategoryWithFallback(query) }
+    }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
 }
 
 private suspend fun fetchSearchAndRelatedBundle(queries: List<String>): List<Innertube.SongItem> = coroutineScope {
