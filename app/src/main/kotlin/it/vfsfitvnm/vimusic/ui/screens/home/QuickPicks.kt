@@ -105,61 +105,35 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
 
-private suspend fun fetchQuickPicksPodcastSongs(
-    batchIndex: Int
-): List<Innertube.SongItem> = coroutineScope {
-    // Keep the two existing podcast discovery roots, but search only the
-    // single broad term requested: "podcast". No extra topic keywords.
-    val context = Context.DefaultWeb.copy(
-        client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
-    )
-    suspend fun searchRoot(): List<Innertube.PlaylistItem> =
-        runCatching {
-            Innertube.searchPodcastPage(
-                SearchBody(
-                    context = context,
-                    query = "podcast",
-                    params = Innertube.SearchFilter.Podcast.value
-                )
-            )?.getOrNull().orEmpty()
-        }.getOrDefault(emptyList())
+private suspend fun fetchQuickPicksPodcastPage(
+    continuation: String? = null
+): Pair<List<Innertube.SongItem>, String?> {
+    // Use the dedicated YouTube Music Episodes category with the one requested
+    // keyword. This returns playable episodes directly: no generic Video search,
+    // no show-to-playlist browse fan-out, and no duplicate identical root calls.
+    val page = if (continuation.isNullOrBlank()) {
+        Innertube.searchPage(
+            body = SearchBody(
+                context = IndiaExploreContext,
+                query = "podcast",
+                params = Innertube.SearchFilter.Episode.value
+            ),
+            fromMusicShelfRendererContent = Innertube.SongItem::from
+        )?.getOrNull()
+    } else {
+        Innertube.searchPage(
+            body = ContinuationBody(
+                context = IndiaExploreContext,
+                continuation = continuation
+            ),
+            fromMusicShelfRendererContent = Innertube.SongItem::from
+        )?.getOrNull()
+    }
 
-    // Search both original roots with the same broad Podcast query.
-    val showsFromBothRoots = awaitAll(
-        async(Dispatchers.IO) { searchRoot() },
-        async(Dispatchers.IO) { searchRoot() }
-    ).flatten().distinctBy(Innertube.PlaylistItem::key)
-
-    // Fetch each returned show's complete episode feed, following continuation
-    // tokens until the source has no more pages. Never apply song filters here.
-    val episodeFeeds = showsFromBothRoots.map { show ->
-        async(Dispatchers.IO) {
-            runCatching {
-                val episodes = mutableListOf<Innertube.SongItem>()
-                var page = Innertube.playlistPage(
-                    BrowseBody(context = context, browseId = show.key)
-                )?.getOrNull()?.songsPage
-                val seenContinuations = mutableSetOf<String>()
-                while (page != null) {
-                    episodes += page.items.orEmpty()
-                    val token = page.continuation?.takeIf { it.isNotBlank() } ?: break
-                    if (!seenContinuations.add(token)) break
-                    page = Innertube.playlistPage(
-                        ContinuationBody(context = context, continuation = token)
-                    )?.getOrNull()?.let { continuationPage ->
-                        Innertube.ItemsPage(
-                            items = continuationPage.items,
-                            continuation = continuationPage.continuation
-                        )
-                    }
-                }
-                episodes.distinctBy(Innertube.SongItem::key)
-            }.getOrDefault(emptyList())
-        }
-    }.awaitAll().flatten()
-
-    episodeFeeds.distinctBy(Innertube.SongItem::key)
+    page?.items.orEmpty().distinctBy(Innertube.SongItem::key) to
+        page?.continuation?.takeIf { it.isNotBlank() }
 }
+
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
@@ -193,7 +167,7 @@ fun QuickPicks(
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var podcastSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var isLoadingPodcasts by remember { mutableStateOf(true) }
-    var podcastBatchIndex by remember { mutableStateOf(0) }
+    var podcastBatchIndex by remember { mutableStateOf(0) }\n    var podcastContinuation by remember { mutableStateOf<String?>(null) }
     var isLoadingMorePodcasts by remember { mutableStateOf(false) }
     var emptyPodcastBatches by remember { mutableStateOf(0) }
     var hasMorePodcastResults by remember { mutableStateOf(true) }
@@ -244,26 +218,22 @@ fun QuickPicks(
         markRefreshTaskComplete("calm")
     }
 
-    // Load the first podcast batch on refresh; more batches are fetched on scroll.
+    // One direct Podcast Episodes search paints the shelf quickly. Continuation
+    // pages are fetched only when the user scrolls the full Podcast list.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         isLoadingPodcasts = true
         podcastBatchIndex = 0
+        podcastContinuation = null
         emptyPodcastBatches = 0
         isLoadingMorePodcasts = false
         hasMorePodcastResults = true
-        var loadedPodcasts = emptyList<Innertube.SongItem>()
-        var lastPodcastBatch = 0
-        withContext(Dispatchers.IO) {
-            // Load one batch immediately; the View All page fetches later batches on scroll.
-            for (batch in 0 until 1) {
-                lastPodcastBatch = batch
-                val next = runCatching { fetchQuickPicksPodcastSongs(batch + refreshToken + discoveryDailyToken) }.getOrDefault(emptyList())
-                loadedPodcasts = (loadedPodcasts + next).distinctBy(Innertube.SongItem::key)
-                if (loadedPodcasts.size >= 15) break
-            }
+        val firstPage = withContext(Dispatchers.IO) {
+            runCatching { fetchQuickPicksPodcastPage() }
+                .getOrElse { emptyList<Innertube.SongItem>() to null }
         }
-        podcastSongs = loadedPodcasts
-        podcastBatchIndex = lastPodcastBatch
+        podcastSongs = firstPage.first
+        podcastContinuation = firstPage.second
+        hasMorePodcastResults = firstPage.second != null
         isLoadingPodcasts = false
         markRefreshTaskComplete("podcast")
     }
@@ -364,19 +334,21 @@ fun QuickPicks(
                     isLoadingMorePodcasts = true
                     try {
                         val nextBatch = podcastBatchIndex + 1
-                        val moreSongs = withContext(Dispatchers.IO) {
-                            runCatching { fetchQuickPicksPodcastSongs(nextBatch + refreshToken + discoveryDailyToken) }
-                                .getOrDefault(emptyList())
+                        val nextPage = withContext(Dispatchers.IO) {
+                            runCatching { fetchQuickPicksPodcastPage(podcastContinuation) }
+                                .getOrElse { emptyList<Innertube.SongItem>() to null }
                         }
                         val existingKeys = podcastSongs.map(Innertube.SongItem::key).toHashSet()
-                        val uniqueMore = moreSongs.filter { it.key !in existingKeys }
+                        val uniqueMore = nextPage.first.filter { it.key !in existingKeys }
                         if (uniqueMore.isNotEmpty()) {
                             podcastSongs = podcastSongs + uniqueMore
                             emptyPodcastBatches = 0
                         } else {
                             emptyPodcastBatches += 1
-                            if (emptyPodcastBatches >= 6) hasMorePodcastResults = false
+                            if (emptyPodcastBatches >= 3 || nextPage.second == null) hasMorePodcastResults = false
                         }
+                        podcastContinuation = nextPage.second
+                        if (podcastContinuation == null) hasMorePodcastResults = false
                         podcastBatchIndex = nextBatch
                     } finally {
                         isLoadingMorePodcasts = false
