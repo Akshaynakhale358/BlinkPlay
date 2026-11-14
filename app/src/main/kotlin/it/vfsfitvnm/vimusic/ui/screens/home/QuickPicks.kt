@@ -174,7 +174,7 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
         val duration = durationSeconds(song.durationText)
         // Video-only search plus long duration prevents ordinary tracks; podcast
         // wording may appear in either the episode title or its channel name.
-        duration >= 8 * 60 && musicTitleTerms.none(title::contains)
+        duration >= 4 * 60 && musicTitleTerms.none(title::contains)
     }
     personalizeAndDiversify(relevant)
 }
