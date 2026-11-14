@@ -31,6 +31,8 @@ import it.vfsfitvnm.vimusic.utils.resumePlaybackWhenDeviceConnectedKey
 import it.vfsfitvnm.vimusic.utils.skipSilenceKey
 import it.vfsfitvnm.vimusic.utils.toast
 import it.vfsfitvnm.vimusic.utils.volumeNormalizationKey
+import it.vfsfitvnm.vimusic.utils.deepBassKey
+import it.vfsfitvnm.vimusic.utils.speakerSurroundKey
 
 @ExperimentalAnimationApi
 @Composable
@@ -46,6 +48,8 @@ fun PlayerSettings() {
     )
     var skipSilence by rememberPreference(skipSilenceKey, false)
     var volumeNormalization by rememberPreference(volumeNormalizationKey, false)
+    var deepBass by rememberPreference(deepBassKey, false)
+    var speakerSurround by rememberPreference(speakerSurroundKey, false)
     var prefer320Kbps by rememberPreference(prefer320KbpsKey, true)
 
     val activityResultLauncher =
@@ -111,6 +115,20 @@ fun PlayerSettings() {
             onCheckedChange = {
                 volumeNormalization = it
             }
+        )
+
+        SwitchSettingEntry(
+            title = "Deep Bass",
+            text = "Add stronger, fuller bass to music",
+            isChecked = deepBass,
+            onCheckedChange = { deepBass = it }
+        )
+
+        SwitchSettingEntry(
+            title = "Speaker Surround",
+            text = "Create a wider, immersive sound on the phone speaker (Dolby-style effect)",
+            isChecked = speakerSurround,
+            onCheckedChange = { speakerSurround = it }
         )
 
         SettingsEntry(
