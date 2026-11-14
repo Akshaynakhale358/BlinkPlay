@@ -258,6 +258,25 @@ fun QuickPicks(
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
 
+    fun requestCategoryLoad(category: DiscoverySubcategory, cycle: Int) {
+        if (requestedCategoryCycles[category.key] == cycle) return
+        requestedCategoryCycles = requestedCategoryCycles + (category.key to cycle)
+        scope.launch {
+            val loaded = runCatching {
+                withContext(Dispatchers.IO) {
+                    fetchQuickPickDiscoveryCategory(category, cycle)
+                }
+            }.getOrDefault(emptyList())
+            completedCategoryCycles = completedCategoryCycles + (category.key to cycle)
+            if (category.key.startsWith("calm_")) {
+                calmCategorySongs = calmCategorySongs + (category.key to loaded)
+            } else {
+                discoverySongs = discoverySongs + (category.key to loaded)
+            }
+        }
+    }
+
+
     // Built-in shelf detail pages keep loading batches as the vertical list is scrolled.
     LaunchedEffect(selectedQuickPicksShelf) {
         val shelfKey = selectedQuickPicksShelf ?: return@LaunchedEffect
@@ -572,54 +591,12 @@ fun QuickPicks(
                             songs = discoverySongs[category.key].orEmpty(),
                             refreshToken = refreshToken + discoveryDailyToken,
 
-                            onLoadCategory = {
-
-                                val cycle = refreshToken + discoveryDailyToken
-
-                                if (requestedCategoryCycles[category.key] != cycle) {
-
-                                    requestedCategoryCycles = requestedCategoryCycles + (category.key to cycle)
-
-                                    scope.launch {
-
-                                        val loaded = runCatching {
-
-
-                                            withContext(Dispatchers.IO) {
-
-
-                                                fetchQuickPickDiscoveryCategory(category, cycle)
-
-
-                                            }
-
-
-                                        }.getOrDefault(emptyList())
-
-
-                                        completedCategoryCycles = completedCategoryCycles + (category.key to cycle)
-
-
-                                        if (category.key.startsWith("calm_")) {
-
-                                            calmCategorySongs = calmCategorySongs + (category.key to loaded)
-
-                                        } else {
-
-                                            discoverySongs = discoverySongs + (category.key to loaded)
-
-                                        }
-
-                                    }
-
-                                }
-
-                            },
+                            onLoadCategory = { requestCategoryLoad(category, refreshToken + discoveryDailyToken) },
                             isLoading = completedCategoryCycles[category.key] != refreshToken + discoveryDailyToken,
                             onRetryCategory = {
                                 requestedCategoryCycles = requestedCategoryCycles - category.key
                                 completedCategoryCycles = completedCategoryCycles - category.key
-                                onLoadCategory()
+                                requestCategoryLoad(category, refreshToken + discoveryDailyToken)
                             },
                             onSongClick = { song ->
                                 val mediaItem = song.asMediaItem
@@ -662,54 +639,12 @@ fun QuickPicks(
                         songs = calmCategorySongs[category.key].orEmpty(),
                         refreshToken = refreshToken + discoveryDailyToken,
 
-                        onLoadCategory = {
-
-                            val cycle = refreshToken + discoveryDailyToken
-
-                            if (requestedCategoryCycles[category.key] != cycle) {
-
-                                requestedCategoryCycles = requestedCategoryCycles + (category.key to cycle)
-
-                                scope.launch {
-
-                                    val loaded = runCatching {
-
-
-                                        withContext(Dispatchers.IO) {
-
-
-                                            fetchQuickPickDiscoveryCategory(category, cycle)
-
-
-                                        }
-
-
-                                    }.getOrDefault(emptyList())
-
-
-                                    completedCategoryCycles = completedCategoryCycles + (category.key to cycle)
-
-
-                                    if (category.key.startsWith("calm_")) {
-
-                                        calmCategorySongs = calmCategorySongs + (category.key to loaded)
-
-                                    } else {
-
-                                        discoverySongs = discoverySongs + (category.key to loaded)
-
-                                    }
-
-                                }
-
-                            }
-
-                        },
-                        isLoading = completedCategoryCycles[category.key] != refreshToken + discoveryDailyToken,
+                        onLoadCategory = { requestCategoryLoad(category, refreshToken + discoveryDailyToken) },
+                            isLoading = completedCategoryCycles[category.key] != refreshToken + discoveryDailyToken,
                         onRetryCategory = {
                             requestedCategoryCycles = requestedCategoryCycles - category.key
                             completedCategoryCycles = completedCategoryCycles - category.key
-                            onLoadCategory()
+                            requestCategoryLoad(category, refreshToken + discoveryDailyToken)
                         },
                         onSongClick = { song ->
                             val mediaItem = song.asMediaItem
@@ -1133,7 +1068,7 @@ private fun QuickPicksDiscoveryShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    LaunchedEffect(category.key, refreshToken) { onLoadCategory() }
+    LaunchedEffect(category.key, refreshToken) { requestCategoryLoad(category, refreshToken + discoveryDailyToken) }
     val displaySongs = filterRegularSongDuration(songs)
     val artworkSong = displaySongs.getOrNull(if (displaySongs.isEmpty()) 0 else Math.floorMod(category.title.hashCode() + refreshToken + displaySongs.size / 2, displaySongs.size))
 
