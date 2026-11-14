@@ -88,6 +88,8 @@ import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.getEnum
 import it.vfsfitvnm.vimusic.utils.intent
 import it.vfsfitvnm.vimusic.utils.isAtLeastAndroid8
+import it.vfsfitvnm.vimusic.utils.miniPlayerAlwaysVisibleKey
+import it.vfsfitvnm.vimusic.utils.shouldBePlaying
 import it.vfsfitvnm.vimusic.utils.preferences
 import it.vfsfitvnm.vimusic.utils.thumbnailRoundnessKey
 import it.vfsfitvnm.vimusic.utils.useSystemFontKey
@@ -370,21 +372,51 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
                         }
                     }
 
+                    fun syncMiniPlayerVisibility() {
+                        val alwaysVisible = preferences.getBoolean(miniPlayerAlwaysVisibleKey, true)
+                        if (!alwaysVisible && !player.shouldBePlaying && player.currentMediaItem != null) {
+                            playerBottomSheetState.dismiss()
+                        } else if (player.shouldBePlaying && playerBottomSheetState.isDismissed) {
+                            playerBottomSheetState.collapse(tween(500))
+                        }
+                    }
+
                     val listener = object : Player.Listener {
                         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED && mediaItem != null) {
                                 if (mediaItem.mediaMetadata.extras?.getBoolean("isFromPersistentQueue") != true) {
                                     playerBottomSheetState.expand(tween(500))
                                 } else {
-                                    playerBottomSheetState.collapse(tween(700))
+                                    if (preferences.getBoolean(miniPlayerAlwaysVisibleKey, true) || player.shouldBePlaying) {
+                                        playerBottomSheetState.collapse(tween(700))
+                                    } else {
+                                        playerBottomSheetState.dismiss()
+                                    }
                                 }
                             }
+                            syncMiniPlayerVisibility()
+                        }
+
+                        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                            syncMiniPlayerVisibility()
+                        }
+
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            syncMiniPlayerVisibility()
                         }
                     }
 
+                    val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                        if (key == miniPlayerAlwaysVisibleKey) syncMiniPlayerVisibility()
+                    }
+                    preferences.registerOnSharedPreferenceChangeListener(preferenceListener)
                     player.addListener(listener)
+                    syncMiniPlayerVisibility()
 
-                    onDispose { player.removeListener(listener) }
+                    onDispose {
+                        player.removeListener(listener)
+                        preferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
+                    }
                 }
             }
         }
