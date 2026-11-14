@@ -289,7 +289,7 @@ fun HomeAlbums(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            items(5) {
+                            repeat(5) {
                                 AlbumItemPlaceholder(
                                     thumbnailSizeDp = 72.dp,
                                     modifier = Modifier.fillMaxWidth()
