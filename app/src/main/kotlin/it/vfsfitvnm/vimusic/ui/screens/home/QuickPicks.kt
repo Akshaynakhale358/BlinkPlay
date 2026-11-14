@@ -1266,7 +1266,7 @@ private suspend fun fetchMoreQuickPicksShelf(
 ): List<Innertube.SongItem> {
     if (shelfKey == "long_listen") return fetchLongListenSongs(batchIndex)
     if (shelfKey == "for_you") {
-        val seeds = currentSongs.takeLast(5)
+        val seeds = currentSongs.takeLast(10)
         val related = coroutineScope {
             seeds.map { seed ->
                 async {
@@ -1277,7 +1277,7 @@ private suspend fun fetchMoreQuickPicksShelf(
                 }
             }.awaitAll().flatten()
         }
-        val searches = seeds.take(3).map { seed ->
+        val searches = seeds.take(5).map { seed ->
             listOf(seed.info?.name.orEmpty(), seed.authors?.firstOrNull()?.name.orEmpty(), "similar songs")
                 .filter { it.isNotBlank() }.joinToString(" ")
         }.filter { it.isNotBlank() }
@@ -1475,7 +1475,7 @@ private suspend fun fetchDiscoveryCategoryMore(
     val searchSeeds = fetchSongsByCategoryWithFallback(query)
     // Expand from the newest items already appended to this category so each
     // successful batch creates the seeds for the next batch.
-    val freshSeeds = currentSongs.takeLast(5).ifEmpty { searchSeeds.take(5) }
+    val freshSeeds = currentSongs.takeLast(10).ifEmpty { searchSeeds.take(10) }
 
     val related = freshSeeds.map { seed ->
         async {
@@ -1499,7 +1499,7 @@ private suspend fun fetchSearchAndRelatedBundle(queries: List<String>): List<Inn
         async { fetchSongsByCategoryWithFallback(query) }
     }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
 
-    val relatedResults = searchResults.take(5).map { seed ->
+    val relatedResults = searchResults.take(10).map { seed ->
         async {
             runCatching {
                 Innertube.relatedPage(
