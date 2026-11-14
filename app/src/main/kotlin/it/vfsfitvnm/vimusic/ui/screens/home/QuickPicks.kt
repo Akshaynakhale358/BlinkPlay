@@ -201,6 +201,34 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
     }.awaitAll().flatten()
 
+    // Fallback path: YouTube Music's Episode filter can return an empty renderer
+    // even when podcast/interview videos exist. Search the same podcast-specific
+    // queries in the Video tab and convert only long-form results to episodes.
+    val searchedVideoEpisodes = queries.map { query ->
+        async(Dispatchers.IO) {
+            runCatching {
+                Innertube.searchPage(
+                    body = SearchBody(
+                        context = context,
+                        query = query,
+                        params = Innertube.SearchFilter.Video.value
+                    ),
+                    fromMusicShelfRendererContent = { content ->
+                        Innertube.VideoItem.from(content)?.let { video ->
+                            Innertube.SongItem(
+                                info = video.info,
+                                authors = video.authors,
+                                album = null,
+                                durationText = video.durationText,
+                                thumbnail = video.thumbnail
+                            )
+                        }
+                    }
+                )?.getOrNull()?.items.orEmpty()
+            }.getOrDefault(emptyList())
+        }
+    }.awaitAll().flatten()
+
     fun durationSeconds(value: String?): Long? {
         val text = value.orEmpty().trim().lowercase()
         if (text.isBlank()) return null
@@ -253,7 +281,8 @@ private suspend fun fetchQuickPicksPodcastSongs(
 
     val trustedShowEpisodes = showEpisodes.filter(::isCleanLongFormEpisode)
     val trustedEpisodeSearch = searchedEpisodes.filter(::isCleanLongFormEpisode)
-    val candidates = (trustedShowEpisodes + trustedEpisodeSearch)
+    val trustedVideoFallback = searchedVideoEpisodes.filter(::isCleanLongFormEpisode)
+    val candidates = (trustedShowEpisodes + trustedEpisodeSearch + trustedVideoFallback)
         .distinctBy(Innertube.SongItem::key)
         .filter { song ->
             val title = song.info?.name.orEmpty().lowercase()
