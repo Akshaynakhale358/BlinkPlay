@@ -831,7 +831,7 @@ private fun QuickPicksPodcastShelf(
     val (_, typography) = LocalAppearance.current
     val artworkSong = songs.getOrNull(if (songs.isEmpty()) 0 else songs.size / 2)
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
             .clip(RoundedCornerShape(26.dp)).background(Color(0xFF29231B)).padding(12.dp)
     ) {
         Box(
