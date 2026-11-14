@@ -143,6 +143,7 @@ fun QuickPicks(
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var requestedCategoryCycles by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var completedCategoryCycles by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var isLoadingLongListen by remember { mutableStateOf(true) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
@@ -581,11 +582,23 @@ fun QuickPicks(
 
                                     scope.launch {
 
-                                        val loaded = withContext(Dispatchers.IO) {
+                                        val loaded = runCatching {
 
-                                            fetchQuickPickDiscoveryCategory(category, cycle)
 
-                                        }
+                                            withContext(Dispatchers.IO) {
+
+
+                                                fetchQuickPickDiscoveryCategory(category, cycle)
+
+
+                                            }
+
+
+                                        }.getOrDefault(emptyList())
+
+
+                                        completedCategoryCycles = completedCategoryCycles + (category.key to cycle)
+
 
                                         if (category.key.startsWith("calm_")) {
 
@@ -601,6 +614,12 @@ fun QuickPicks(
 
                                 }
 
+                            },
+                            isLoading = completedCategoryCycles[category.key] != refreshToken + discoveryDailyToken,
+                            onRetryCategory = {
+                                requestedCategoryCycles = requestedCategoryCycles - category.key
+                                completedCategoryCycles = completedCategoryCycles - category.key
+                                onLoadCategory()
                             },
                             onSongClick = { song ->
                                 val mediaItem = song.asMediaItem
@@ -653,11 +672,23 @@ fun QuickPicks(
 
                                 scope.launch {
 
-                                    val loaded = withContext(Dispatchers.IO) {
+                                    val loaded = runCatching {
 
-                                        fetchQuickPickDiscoveryCategory(category, cycle)
 
-                                    }
+                                        withContext(Dispatchers.IO) {
+
+
+                                            fetchQuickPickDiscoveryCategory(category, cycle)
+
+
+                                        }
+
+
+                                    }.getOrDefault(emptyList())
+
+
+                                    completedCategoryCycles = completedCategoryCycles + (category.key to cycle)
+
 
                                     if (category.key.startsWith("calm_")) {
 
@@ -673,6 +704,12 @@ fun QuickPicks(
 
                             }
 
+                        },
+                        isLoading = completedCategoryCycles[category.key] != refreshToken + discoveryDailyToken,
+                        onRetryCategory = {
+                            requestedCategoryCycles = requestedCategoryCycles - category.key
+                            completedCategoryCycles = completedCategoryCycles - category.key
+                            onLoadCategory()
                         },
                         onSongClick = { song ->
                             val mediaItem = song.asMediaItem
@@ -1088,6 +1125,8 @@ private fun QuickPicksDiscoveryShelf(
     songs: List<Innertube.SongItem>,
     refreshToken: Int,
     onLoadCategory: () -> Unit,
+    isLoading: Boolean,
+    onRetryCategory: () -> Unit,
     onSongClick: (Innertube.SongItem) -> Unit,
     onViewAll: () -> Unit,
     onPlayBundle: () -> Unit,
@@ -1153,7 +1192,15 @@ private fun QuickPicksDiscoveryShelf(
         }
 
         if (displaySongs.isEmpty()) {
-            ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
+            if (isLoading) {
+                ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
+            } else {
+                BasicText(
+                    text = "No songs found. Tap to retry.",
+                    style = typography.xs.secondary,
+                    modifier = Modifier.clickable(onClick = onRetryCategory).padding(vertical = 12.dp)
+                )
+            }
         } else {
             displaySongs.take(3).forEach { song ->
                 SongItem(
