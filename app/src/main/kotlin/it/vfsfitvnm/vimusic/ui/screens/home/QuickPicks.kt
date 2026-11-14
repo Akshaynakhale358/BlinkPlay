@@ -48,6 +48,7 @@ import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
@@ -816,9 +817,19 @@ private fun QuickPicksSectionHeader(
     ) {
         BasicText(text = title, style = typography.s.semiBold, modifier = Modifier.weight(1f))
         Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            BasicText(text = "PLAY", style = typography.xs.semiBold,
-                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
-                    .clickable(onClick = onPlay).padding(horizontal = 9.dp, vertical = 7.dp))
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(32.dp).clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.14f))
+                    .clickable(onClick = onPlay)
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.play),
+                    contentDescription = "Play",
+                    colorFilter = ColorFilter.tint(Color.White),
+                    modifier = Modifier.size(15.dp)
+                )
+            }
             BasicText(text = "VIEW ALL", style = typography.xs.semiBold,
                 modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
                     .clickable(onClick = onViewAll).padding(horizontal = 9.dp, vertical = 7.dp))
@@ -866,9 +877,19 @@ private fun QuickPicksSongShelf(
         if (onPlay != null || onViewAll != null) {
             Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 onPlay?.let { action ->
-                    BasicText(text = "PLAY", style = typography.xs.semiBold,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
-                            .clickable(onClick = action).padding(horizontal = 9.dp, vertical = 7.dp))
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(32.dp).clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.14f))
+                            .clickable(onClick = action)
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.play),
+                            contentDescription = "Play",
+                            colorFilter = ColorFilter.tint(Color.White),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
                 }
                 onViewAll?.let { action ->
                     BasicText(text = "VIEW ALL", style = typography.xs.semiBold,
@@ -1020,9 +1041,15 @@ private fun QuickPicksDiscoveryShelf(
     val displaySongs = filterRegularSongDuration(songs)
     val artworkSong = displaySongs.getOrNull(if (displaySongs.isEmpty()) 0 else Math.floorMod(category.title.hashCode() + refreshToken + displaySongs.size / 2, displaySongs.size))
 
-    Column(
+    Column(modifier = Modifier.width(276.dp)) {
+        BasicText(
+            text = category.title.uppercase(),
+            style = typography.s.semiBold,
+            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+        )
+        Column(
         modifier = Modifier
-            .width(276.dp)
+            .fillMaxWidth()
             .clip(RoundedCornerShape(26.dp))
             .background(Color(0xFF29231B))
             .padding(12.dp)
@@ -1048,17 +1075,22 @@ private fun QuickPicksDiscoveryShelf(
                     .padding(14.dp),
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.Bottom
             ) {
-                BasicText(text = category.title, style = typography.s.semiBold)
-                BasicText(
-                    text = "▶  PLAY BUNDLE",
-                    style = typography.xs.semiBold,
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.18f))
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.2f))
                         .clickable(onClick = onPlayBundle)
-                        .padding(horizontal = 12.dp, vertical = 7.dp)
-                )
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.play),
+                        contentDescription = "Play bundle",
+                        colorFilter = ColorFilter.tint(Color.White),
+                        modifier = Modifier.size(17.dp)
+                    )
+                }
             }
         }
 
@@ -1091,6 +1123,7 @@ private fun QuickPicksDiscoveryShelf(
                 .clickable(onClick = onViewAll)
                 .padding(horizontal = 14.dp, vertical = 9.dp)
         )
+        }
     }
 }
 
