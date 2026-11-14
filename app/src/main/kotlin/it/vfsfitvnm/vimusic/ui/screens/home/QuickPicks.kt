@@ -1331,9 +1331,9 @@ private suspend fun fetchDiscoveryCategoryMore(
     // from a fresh group of songs using the same Related Songs root as the first load.
     val query = queries[Math.floorMod(batchIndex - 1, queries.size)]
     val searchSeeds = fetchSongsByCategoryWithFallback(query)
-    val seedPool = (currentSongs + searchSeeds).distinctBy(Innertube.SongItem::key)
-    val seedOffset = (batchIndex - 1) * 5
-    val freshSeeds = seedPool.drop(seedOffset).take(5)
+    // Expand from the newest items already appended to this category so each
+    // successful batch creates the seeds for the next batch.
+    val freshSeeds = currentSongs.takeLast(5).ifEmpty { searchSeeds.take(5) }
 
     val related = freshSeeds.map { seed ->
         async {
