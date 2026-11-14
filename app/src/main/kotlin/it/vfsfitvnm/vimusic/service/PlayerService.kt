@@ -22,6 +22,8 @@ import android.media.MediaDescription
 import android.media.MediaMetadata
 import android.media.audiofx.AudioEffect
 import android.media.audiofx.LoudnessEnhancer
+import android.media.audiofx.BassBoost
+import android.media.audiofx.Virtualizer
 import android.media.session.MediaSession
 import android.media.Rating
 import android.os.Bundle
@@ -115,6 +117,8 @@ import it.vfsfitvnm.vimusic.utils.skipSilenceKey
 import it.vfsfitvnm.vimusic.utils.timer
 import it.vfsfitvnm.vimusic.utils.trackLoopEnabledKey
 import it.vfsfitvnm.vimusic.utils.volumeNormalizationKey
+import it.vfsfitvnm.vimusic.utils.deepBassKey
+import it.vfsfitvnm.vimusic.utils.speakerSurroundKey
 import kotlin.math.roundToInt
 import kotlin.system.exitProcess
 import kotlinx.coroutines.CoroutineScope
@@ -188,6 +192,8 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     private var audioDeviceCallback: AudioDeviceCallback? = null
 
     private var loudnessEnhancer: LoudnessEnhancer? = null
+    private var bassBoost: BassBoost? = null
+    private var speakerVirtualizer: Virtualizer? = null
 
     private val binder = Binder()
 
@@ -270,6 +276,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         }
 
         player.skipSilenceEnabled = preferences.getBoolean(skipSilenceKey, false)
+        applyAudioEnhancements()
         player.addListener(this)
         player.addAnalyticsListener(PlaybackStatsListener(false, this))
 
@@ -335,6 +342,8 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         cache.release()
 
         loudnessEnhancer?.release()
+        bassBoost?.release()
+        speakerVirtualizer?.release()
 
         super.onDestroy()
     }
@@ -564,7 +573,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             volumeNormalizationJob = coroutineScope.launch(Dispatchers.Main) {
                 Database.loudnessDb(songId).cancellable().collectLatest { loudnessDb ->
                     try {
-                        loudnessEnhancer?.setTargetGain(-((loudnessDb ?: 0f) * 100).toInt() + 500)
+                        loudnessEnhancer?.setTargetGain((-((loudnessDb ?: 0f) * 100).toInt() + 500).coerceIn(0, 6000))
                         loudnessEnhancer?.enabled = true
                     } catch (_: Exception) { }
                 }
@@ -577,6 +586,32 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
      * compat one -- so they ride along as custom actions, which is also what lets each icon
      * reflect the current mode instead of being a static glyph.
      */
+    private fun applyAudioEnhancements() {
+        val sessionId = player.audioSessionId
+        runCatching {
+            if (preferences.getBoolean(deepBassKey, false)) {
+                if (bassBoost == null) bassBoost = BassBoost(0, sessionId)
+                bassBoost?.setStrength(700)
+                bassBoost?.enabled = true
+            } else {
+                bassBoost?.enabled = false
+                bassBoost?.release()
+                bassBoost = null
+            }
+        }
+        runCatching {
+            if (preferences.getBoolean(speakerSurroundKey, false)) {
+                if (speakerVirtualizer == null) speakerVirtualizer = Virtualizer(0, sessionId)
+                speakerVirtualizer?.setStrength(650)
+                speakerVirtualizer?.enabled = true
+            } else {
+                speakerVirtualizer?.enabled = false
+                speakerVirtualizer?.release()
+                speakerVirtualizer = null
+            }
+        }
+    }
+
     private val playbackState: PlaybackState
         get() = PlaybackState.Builder()
             .setActions(BaseActions)
@@ -796,6 +831,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             }
 
             volumeNormalizationKey -> maybeNormalizeVolume()
+            deepBassKey, speakerSurroundKey -> applyAudioEnhancements()
 
             resumePlaybackWhenDeviceConnectedKey -> maybeResumePlaybackWhenDeviceConnected()
 
