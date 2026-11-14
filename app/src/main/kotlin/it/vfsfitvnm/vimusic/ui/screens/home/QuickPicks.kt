@@ -419,7 +419,7 @@ fun QuickPicks(
 
     val sectionTextModifier = Modifier
         .padding(horizontal = 16.dp)
-        .padding(top = 24.dp, bottom = 8.dp)
+        .padding(top = 20.dp, bottom = 8.dp)
         .padding(endPaddingValues)
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -573,7 +573,7 @@ fun QuickPicks(
             discoveryBundles().forEach { bundle ->
                 BasicText(
                     text = bundle.title.uppercase(),
-                    style = typography.s.semiBold,
+                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 1.2f),
                     modifier = sectionTextModifier
                 )
                 LazyRow(
