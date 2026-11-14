@@ -1911,16 +1911,57 @@ private suspend fun fetchSongsByCategoryWithFallback(query: String): List<Innert
     return collected.distinctBy(Innertube.SongItem::key)
 }
 
-private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem> =
-    Innertube.searchPage(
-        body = SearchBody(
-            context = IndiaExploreContext,
-            query = query,
-            params = Innertube.SearchFilter.Song.value
-        ),
-        fromMusicShelfRendererContent = Innertube.SongItem::from
-    )?.getOrNull()?.items.orEmpty()
+private suspend fun fetchSongsByCategory(query: String): List<Innertube.SongItem> = coroutineScope {
+    // Primary source: YouTube Music's dedicated Song filter.
+    val songResults = runCatching {
+        Innertube.searchPage(
+            body = SearchBody(
+                context = IndiaExploreContext,
+                query = query,
+                params = Innertube.SearchFilter.Song.value
+            ),
+            fromMusicShelfRendererContent = Innertube.SongItem::from
+        )?.getOrNull()?.items.orEmpty()
+    }.getOrDefault(emptyList())
+
+    // YouTube Music sometimes returns an empty/incomplete Song tab while its
+    // Video tab still contains the official music results. Long Listen already
+    // uses this endpoint successfully, so use it as a bounded fallback for the
+    // normal song shelves instead of silently leaving every card empty.
+    val videoResults = if (songResults.size < 8) {
+        runCatching {
+            Innertube.searchPage(
+                body = SearchBody(
+                    context = IndiaExploreContext,
+                    query = query,
+                    params = Innertube.SearchFilter.Video.value
+                ),
+                fromMusicShelfRendererContent = { content ->
+                    Innertube.VideoItem.from(content)?.let { video ->
+                        val title = video.info?.name.orEmpty().lowercase()
+                        val excluded = listOf(
+                            "podcast", "episode", "shorts", "#shorts", "status video",
+                            "whatsapp status", "teaser", "trailer", "promo", "highlights",
+                            "lyrics", "lyric video", "karaoke", "reaction", "review"
+                        ).any(title::contains)
+                        val duration = video.durationText.toDurationSeconds()
+                        if (excluded || duration < 45L) null
+                        else Innertube.SongItem(
+                            info = video.info,
+                            authors = video.authors,
+                            album = null,
+                            durationText = video.durationText,
+                            thumbnail = video.thumbnail
+                        )
+                    }
+                }
+            )?.getOrNull()?.items.orEmpty()
+        }.getOrDefault(emptyList())
+    } else emptyList()
+
+    (songResults + videoResults)
         .distinctBy(Innertube.SongItem::key)
+}
 
 /**
  * Personal recommendations use the listener's most-played and liked tracks.
