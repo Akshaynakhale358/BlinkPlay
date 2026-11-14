@@ -168,7 +168,8 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
 
     val musicTitleTerms = listOf(
         "official audio", "official video", "music video", "lyrics", "lyric video",
-        "full song", "audio song", "remix", " slowed", " lofi", "4k video"
+        "full song", "audio song", "remix", " slowed", " lofi", "4k video",
+        "official song", "video song", "jukebox", "song"
     )
     val relevant = results.filter { song ->
         val title = song.info?.name.orEmpty().lowercase()
@@ -1312,7 +1313,18 @@ private suspend fun fetchMoreQuickPicksShelf(
         else -> DiscoverySubcategory("top_india", "Top Songs", "Top Songs", "top", query)
     }
     val candidates = fetchSearchAndRelatedBundle(listOf(query))
-    val relevant = filterDiscoverySongs(category, candidates)
+    val strictCandidates = candidates.filter { song ->
+        val metadata = (song.info?.name.orEmpty() + " " +
+            song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
+        val signals = when (shelfKey) {
+            "trending" -> listOf("trending", "viral", "chart", "popular", "hit", "reels", "2026")
+            "top" -> listOf("top", "chart", "popular", "greatest", "best", "hits", "2026")
+            "new" -> listOf("new", "latest", "2026", "fresh", "recent", "official release")
+            else -> emptyList()
+        }
+        signals.any(metadata::contains)
+    }
+    val relevant = filterDiscoverySongs(category, strictCandidates)
     return personalizeAndDiversify(prioritizeHindiSongs(relevant, category.key))
 }
 
@@ -1438,7 +1450,24 @@ private fun filterDiscoverySongs(
             else -> true
         }
 
-        val categoryMatches = when (category.key) {
+        val positiveTerms = when (category.key) {
+            "mix_romantic", "together_romance" -> listOf("romantic", "love", "lover", "ishq", "pyaar", "pyar", "प्रेम", "लव", "इश्क")
+            "mix_chill", "together_chill" -> listOf("chill", "acoustic", "soft", "mellow", "relax", "lofi", "lo-fi", "unplugged")
+            "together_party", "together_dance" -> listOf("party", "dance", "dhamaka", "dj", "club", "dancefloor", "नाच", "डान्स")
+            "together_classics" -> listOf("evergreen", "classic", "old hindi", "retro", "90s", "80s", "golden hits")
+            "together_friends" -> listOf("friend", "yaari", "dosti", "दोस्ती", "यारी")
+            "calm_alpha" -> listOf("alpha", "8hz", "focus waves")
+            "calm_beta" -> listOf("beta", "focus", "concentration")
+            "calm_gamma" -> listOf("gamma", "meditation", "focus")
+            "calm_meditation" -> listOf("meditation", "mindfulness", "peaceful", "ध्यान")
+            "mix_marathi", "trend_marathi" -> listOf("marathi", "मराठी")
+            "mix_punjabi" -> listOf("punjabi", "ਪੰਜਾਬੀ")
+            "mix_regional", "trend_regional" -> listOf("tamil", "telugu", "kannada", "malayalam", "தமிழ்", "తెలుగు", "ಕನ್ನಡ", "മലയാളം")
+            else -> emptyList()
+        }
+        val categoryMatches = (if (positiveTerms.isNotEmpty()) {
+            positiveTerms.any(metadata::contains)
+        } else true) && when (category.key) {
             "mix_romantic", "together_romance" ->
                 listOf("party", "remix", "dj mix", "devotional", "qawwali").none(metadata::contains)
             "mix_chill", "together_chill" ->
@@ -1593,12 +1622,9 @@ private suspend fun fetchPersonalizedSongsForYou(): List<Innertube.SongItem> = c
     val seeds = (history.take(3) + favorites.take(2)).distinctBy { it.id }.take(4)
     val listenedIds = (history + favorites).map { it.id }.toSet()
 
-    // Cold start: until listening history exists, start with an India-wide discovery feed.
-    if (seeds.isEmpty()) {
-        return@coroutineScope fetchSongsByCategory(
-            "popular Indian songs Hindi Marathi Punjabi Tamil Telugu Kannada Malayalam"
-        )
-    }
+    // No history means no genuine personal taste signal. Do not fill this shelf
+    // with generic tracks that are not personalized.
+    if (seeds.isEmpty()) return@coroutineScope emptyList()
 
     val relatedFeeds = seeds.map { seed ->
         async {
