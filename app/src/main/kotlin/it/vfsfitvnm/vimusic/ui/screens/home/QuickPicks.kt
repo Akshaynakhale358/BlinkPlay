@@ -1450,10 +1450,9 @@ private suspend fun fetchIndiaDirectSongShelvesProgressive(
 private suspend fun fetchQuickPicksPodcastSongs(
     batchIndex: Int = 0
 ): List<Innertube.SongItem> = coroutineScope {
-    // Fetch both existing Browse roots independently so one failed root cannot
-    // suppress Podcast results from the other. Only Podcast-named shelves are opened.
+    // Start fresh from the same two Browse roots used by the other home categories.
     val context = IndiaExploreContext
-    val rootPages = listOf(
+    val roots = listOf(
         async(Dispatchers.IO) {
             runCatching { Innertube.musicHomePage(context)?.getOrNull() }.getOrNull()
         },
@@ -1462,33 +1461,45 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
     ).awaitAll().filterNotNull()
 
-    val podcastSections = rootPages
-        .flatMap { it.sections }
-        .filter { it.title.contains("podcast", ignoreCase = true) }
-        .distinctBy { listOf(it.title, it.browseId, it.params) }
-
-    // Include episode items exposed on the root and on each Podcast shelf.
-    // A failure opening one shelf must not discard results from other shelves.
-    val rootEpisodes = podcastSections.flatMap { section ->
-        section.items.filterIsInstance<Innertube.SongItem>()
+    fun hasPodcastKeyword(song: Innertube.SongItem): Boolean {
+        val searchableText = buildString {
+            append(song.info?.name.orEmpty())
+            append(' ')
+            append(song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() })
+            append(' ')
+            append(song.album?.name.orEmpty())
+        }
+        return searchableText.contains("podcast", ignoreCase = true)
     }
-    val openedEpisodes = podcastSections.map { section ->
-        async(Dispatchers.IO) {
-            runCatching {
-                Innertube.browseSection(section, context)
-                    ?.getOrNull()
-                    ?.sections
-                    .orEmpty()
-                    .flatMap { it.items.filterIsInstance<Innertube.SongItem>() }
-            }.getOrDefault(emptyList())
+
+    // Open each root shelf independently. A Podcast-named shelf is trusted as
+    // Podcast context; elsewhere, only items whose own metadata matches "podcast"
+    // are accepted. No legacy category filters or extra keywords are applied.
+    val shelfResults = roots.flatMap { root ->
+        root.sections.map { section ->
+            async(Dispatchers.IO) {
+                runCatching {
+                    val opened = Innertube.browseSection(section, context)
+                        ?.getOrNull()
+                        ?.sections
+                        .orEmpty()
+                        .flatMap { it.items.filterIsInstance<Innertube.SongItem>() }
+                    val direct = section.items.filterIsInstance<Innertube.SongItem>()
+                    val candidates = direct + opened
+                    if (section.title.contains("podcast", ignoreCase = true)) {
+                        candidates
+                    } else {
+                        candidates.filter(::hasPodcastKeyword)
+                    }
+                }.getOrDefault(emptyList())
+            }
         }
     }.awaitAll().flatten()
 
-    (rootEpisodes + openedEpisodes)
+    shelfResults
         .distinctBy(Innertube.SongItem::key)
         .filter { it.durationText.toDurationSeconds() > 15 * 60 }
 }
-
 private suspend fun fetchLongListenSongs(batchIndex: Int = 0): List<Innertube.SongItem> = coroutineScope {
     // Long Listen uses long-form video search, not the regular Song Search shelf.
     // Four independent queries per batch prevent one sparse query limiting results.
