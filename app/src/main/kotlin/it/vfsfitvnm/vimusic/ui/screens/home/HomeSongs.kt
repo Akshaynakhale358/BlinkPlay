@@ -1,43 +1,41 @@
 package it.vfsfitvnm.vimusic.ui.screens.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.unit.dp
-import it.vfsfitvnm.compose.persist.persist
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.utils.from
+import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
 import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
-import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
-import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
-import it.vfsfitvnm.vimusic.ui.items.PlaylistItem
-import it.vfsfitvnm.vimusic.ui.items.PlaylistItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.items.SongItem
-import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeSongLists
 import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
@@ -45,322 +43,208 @@ import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.forcePlay
-import it.vfsfitvnm.vimusic.utils.semiBold
 import it.vfsfitvnm.vimusic.utils.secondary
+import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-@ExperimentalFoundationApi
-@ExperimentalAnimationApi
+private data class HomeSongCategory(val name: String, val query: String, val podcast: Boolean = false)
+
+private val homeSongCategories = listOf(
+    HomeSongCategory("Podcast", "Hindi podcasts interviews conversations full episodes", true),
+    HomeSongCategory("Workout", "gym workout running fitness motivation high energy songs"),
+    HomeSongCategory("Feel Good", "happy uplifting positive feel good mood songs"),
+    HomeSongCategory("Romance", "romantic love songs Bollywood romance"),
+    HomeSongCategory("Energetic", "fast beat high energy energetic dance songs"),
+    HomeSongCategory("Relax", "calm relaxing chill soft acoustic songs"),
+    HomeSongCategory("Commute", "road trip driving travel commute music songs"),
+    HomeSongCategory("Sad", "sad heartbreak emotional melancholy songs"),
+    HomeSongCategory("Focus", "study focus concentration instrumental background music"),
+    HomeSongCategory("Sleep", "sleep peaceful soft ambient lullaby music"),
+    HomeSongCategory("Party", "party dance celebration upbeat hit songs")
+)
+
+private fun homeSongsDailySeed(): Int {
+    val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))
+    return calendar.get(java.util.Calendar.YEAR) * 366 + calendar.get(java.util.Calendar.DAY_OF_YEAR)
+}
+
+private fun <T> dailyRotate(items: List<T>, seed: Int): List<T> {
+    if (items.size < 2) return items
+    val offset = Math.floorMod(seed, items.size)
+    return items.drop(offset) + items.take(offset)
+}
+
+private fun Innertube.VideoItem.toHomePodcastSong() = Innertube.SongItem(
+    info = info, authors = authors, album = null, durationText = durationText, thumbnail = thumbnail
+)
+
+private suspend fun fetchHomeSongCategory(
+    category: HomeSongCategory,
+    continuation: String?,
+    dailySeed: Int
+): Result<Innertube.ItemsPage<Innertube.SongItem>?>? {
+    val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN"))
+    val query = if (category.podcast) category.query else "Hindi Bollywood songs ${category.query}"
+    val filter = if (category.podcast) Innertube.SearchFilter.Video.value else Innertube.SearchFilter.Song.value
+    val result = if (continuation == null) {
+        Innertube.searchPage(
+            body = SearchBody(context = context, query = query, params = filter),
+            fromMusicShelfRendererContent = { content ->
+                if (category.podcast) Innertube.VideoItem.from(content)?.toHomePodcastSong()
+                else Innertube.SongItem.from(content)
+            }
+        )
+    } else {
+        Innertube.searchPage(
+            body = ContinuationBody(context = context, continuation = continuation),
+            fromMusicShelfRendererContent = { content ->
+                if (category.podcast) Innertube.VideoItem.from(content)?.toHomePodcastSong()
+                else Innertube.SongItem.from(content)
+            }
+        )
+    }
+    return result?.map { page ->
+        if (continuation == null && page != null) {
+            page.copy(items = dailyRotate(page.items.orEmpty().distinctBy { it.key }, dailySeed))
+        } else page
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalAnimationApi::class)
 @Composable
 fun HomeSongs(onSearchClick: () -> Unit, onPlaylistClick: (String) -> Unit) {
-    val (colorPalette, typography) = LocalAppearance.current
+    val (palette, typography) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
     val thumbnailSizeDp = Dimensions.thumbnails.song
     val thumbnailSizePx = thumbnailSizeDp.px
-    // Each shelf has a distinct intent so search results match the selected category.
-    // Keep these as discovery phrases rather than generic "popular songs" queries.
-    val categories = listOf(
-        "Podcast" to "podcast episodes full episodes interviews conversations",
-        "Workout" to "gym workout running fitness motivation high energy songs",
-        "Feel Good" to "happy uplifting positive feel good mood songs",
-        "Romance" to "romantic love songs Bollywood romance",
-        "Energetic" to "fast beat high energy energetic dance songs",
-        "Relax" to "calm relaxing chill soft acoustic songs",
-        "Commute" to "road trip driving travel commute music songs",
-        "Sad" to "sad heartbreak emotional melancholy songs",
-        "Focus" to "study focus concentration instrumental background music",
-        "Sleep" to "sleep peaceful soft ambient lullaby music",
-        "Party" to "party dance celebration upbeat hit songs"
-    )
-    var selectedCategory by persist("home/songsCategory", "Workout")
-    val selectedQuery = categories.firstOrNull { it.first == selectedCategory }?.second
-        ?: "workout motivation songs"
-    var categoryPlaylistRefreshKey by remember { mutableStateOf(0) }
+    val dailySeed = homeSongsDailySeed()
+    var selectedCategory by remember { mutableStateOf<HomeSongCategory?>(null) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-    if (selectedCategory == "Podcast") {
-        PodcastDiscoveryPage(
-            categories = categories,
-            onCategorySelect = { selectedCategory = it }
-        )
-    } else {
-    ItemsPage(
-        tag = "home/category-songs-$selectedCategory",
-        itemsPageProvider = { continuation ->
-            // Fetch every language group independently. Keep a continuation token for
-            // each group so later pages preserve Hindi -> Marathi -> other Indian -> English.
-            val indiaHindiContext = Context.DefaultWeb.copy(
-                client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
-            )
-            val isPodcastCategory = selectedCategory == "Podcast"
-            val categoryFilter = if (isPodcastCategory) {
-                Innertube.SearchFilter.Video.value
-            } else {
-                Innertube.SearchFilter.Song.value
-            }
-            val languageQueries = listOf(
-                "Hindi Bollywood songs",
-                "Marathi songs",
-                "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional songs",
-                "English language songs international"
-            )
-            val previousTokens = continuation?.split('\u001F')
-            val nextTokens = mutableListOf<String?>()
-            // Keep each language batch separate so Hindi stays first, while personalizing
-            // the order of songs inside each language using listening history and favorites.
-            val languageGroups = mutableListOf<List<Innertube.SongItem>>()
-            val failedLanguageSearches = mutableListOf<String>()
+    BackHandler(enabled = selectedCategory != null) { selectedCategory = null }
 
-            languageQueries.forEachIndexed { index, languageQuery ->
-                val token = previousTokens?.getOrNull(index)?.takeIf { it.isNotBlank() }
-                // On later pages, an exhausted language group must stay exhausted;
-                // do not restart its first page and append duplicate songs.
-                if (continuation != null && token == null) {
-                    nextTokens += null
-                    return@forEachIndexed
-                }
-                val result = if (token == null) {
-                    Innertube.searchPage(
-                        body = SearchBody(
-                            context = indiaHindiContext,
-                            query = if (isPodcastCategory) {
-                                "$languageQuery podcast episodes full episodes interviews conversations"
-                            } else {
-                                "$languageQuery $selectedQuery"
-                            },
-                            params = categoryFilter
-                        ),
-                        fromMusicShelfRendererContent = { content ->
-                            if (isPodcastCategory) {
-                                Innertube.VideoItem.from(content)?.let { video ->
-                                    Innertube.SongItem(
-                                        info = video.info,
-                                        authors = video.authors,
-                                        album = null,
-                                        durationText = video.durationText,
-                                        thumbnail = video.thumbnail
-                                    )
-                                }
-                            } else {
-                                Innertube.SongItem.from(content)
-                            }
-                        }
-                    )
-                } else {
-                    Innertube.searchPage(
-                        body = ContinuationBody(context = indiaHindiContext, continuation = token),
-                        fromMusicShelfRendererContent = { content ->
-                            if (isPodcastCategory) {
-                                Innertube.VideoItem.from(content)?.let { video ->
-                                    Innertube.SongItem(
-                                        info = video.info,
-                                        authors = video.authors,
-                                        album = null,
-                                        durationText = video.durationText,
-                                        thumbnail = video.thumbnail
-                                    )
-                                }
-                            } else {
-                                Innertube.SongItem.from(content)
-                            }
-                        }
-                    )
-                }
-                val page = result?.getOrNull()
-                if (result == null || result.isFailure || page == null) {
-                    failedLanguageSearches += languageQuery
-                    nextTokens += token
-                } else {
-                    val languageItems = page.items.orEmpty()
-                    languageGroups += languageItems
-                    nextTokens += page.continuation
-                }
-            }
-
-            if (failedLanguageSearches.isNotEmpty()) {
-                Result.failure(
-                    IllegalStateException("Some language searches failed: " + failedLanguageSearches.joinToString())
-                )
-            } else {
-                // Apply the same personal ranking to every language group separately.
-                // Flattening only after ranking preserves Hindi -> Marathi -> other Indian
-                // languages -> English, without allowing another language to jump ahead.
-                val orderedItems = personalizeSongLists(languageGroups)
-                    .flatten()
-                    .distinctBy { it.key }
-                val nextContinuation = nextTokens
-                    .takeIf { tokens -> tokens.any { it != null } }
-                    ?.joinToString("\u001F") { it.orEmpty() }
-
-                Result.success(
-                    Innertube.ItemsPage(
-                        items = orderedItems,
-                        continuation = nextContinuation
-                    )
-                )
-            }
-        },
-        emptyItemsText = "No online songs found. Try Search.",
-        refreshOnEnter = true,
-        onRefresh = { categoryPlaylistRefreshKey += 1 },
-        headerContent = {
-            androidx.compose.foundation.layout.Column {
-                Header(title = "Songs") {
-                }
-
-                BasicText(
-                    text = "EXPLORE CATEGORIES",
-                    style = typography.s.semiBold,
-                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp)
-                )
-                LazyRow {
-                    items(categories, key = { it.first }) { category ->
-                        BasicText(
-                            text = category.first.uppercase(),
-                            style = typography.s.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
-                            modifier = Modifier
-                                .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 12.dp)
-                                .background(
-                                    if (selectedCategory == category.first) colorPalette.accent else colorPalette.background1,
-                                    androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
-                                )
-                                .clickable { selectedCategory = category.first }
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
-                        )
-                    }
-                }
-                CategoryPublicPlaylists(
-                    category = selectedCategory,
-                    query = selectedQuery,
-                    refreshKey = categoryPlaylistRefreshKey,
-                    onPlaylistClick = onPlaylistClick
-                )
-                BasicText(
-                    text = selectedCategory.uppercase(),
-                    style = typography.s.semiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-        },
-        itemContent = { song ->
-            SongItem(
-                song = song,
-                thumbnailSizePx = thumbnailSizePx,
-                thumbnailSizeDp = thumbnailSizeDp,
-                modifier = Modifier.combinedClickable(
-                    onLongClick = {
-                        menuState.display {
-                            NonQueuedMediaItemMenu(
-                                onDismiss = menuState::hide,
-                                mediaItem = song.asMediaItem
-                            )
-                        }
-                    },
-                    onClick = {
-                        binder?.stopRadio()
-                        binder?.player?.forcePlay(song.asMediaItem)
-                        binder?.setupRadio(song.info?.endpoint)
-                    }
-                )
-            )
-        },
-        itemPlaceholderContent = {
-            SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
-        }
-    )
+    fun playSong(song: Innertube.SongItem) {
+        binder?.stopRadio()
+        binder?.player?.forcePlay(song.asMediaItem)
+        binder?.setupRadio(song.info?.endpoint)
     }
+
+    if (selectedCategory != null) {
+        val category = selectedCategory!!
+        ItemsPage(
+            tag = "home/category-songs-${category.name}",
+            itemsPageProvider = { continuation -> fetchHomeSongCategory(category, continuation, dailySeed) },
+            emptyItemsText = "No songs found for this category. Pull down to retry.",
+            refreshOnEnter = true,
+            headerContent = {
+                Header(title = category.name.uppercase()) {
+                    BasicText(
+                        text = "BACK",
+                        style = typography.xs.semiBold,
+                        modifier = Modifier.clickable { selectedCategory = null }
+                    )
+                }
+            },
+            itemContent = { song ->
+                SongItem(
+                    song = song,
+                    thumbnailSizePx = thumbnailSizePx,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    modifier = Modifier.combinedClickable(
+                        onLongClick = {
+                            menuState.display {
+                                NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                            }
+                        },
+                        onClick = { playSong(song) }
+                    )
+                )
+            },
+            itemPlaceholderContent = { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) }
+        )
+        return
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(palette.background0)) {
+        Header(title = "Songs")
+        LazyColumn(contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+            items(homeSongCategories, key = { it.name }) { category ->
+                HomeSongCategoryCard(
+                    category = category,
+                    dailySeed = dailySeed,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    thumbnailSizePx = thumbnailSizePx,
+                    onViewAll = { selectedCategory = category },
+                    onSongClick = ::playSong,
+                    onSongLongClick = { song ->
+                        menuState.display {
+                            NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 
-
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun CategoryPublicPlaylists(
-    category: String,
-    query: String,
-    refreshKey: Int,
-    onPlaylistClick: (String) -> Unit
+private fun HomeSongCategoryCard(
+    category: HomeSongCategory,
+    dailySeed: Int,
+    thumbnailSizeDp: androidx.compose.ui.unit.Dp,
+    thumbnailSizePx: Int,
+    onViewAll: () -> Unit,
+    onSongClick: (Innertube.SongItem) -> Unit,
+    onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
-    val (_, typography) = LocalAppearance.current
-    val playlistThumbnailSizeDp = 108.dp
-    val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
-    var playlists by remember(category, refreshKey) { mutableStateOf<List<Innertube.PlaylistItem>?>(null) }
-    LaunchedEffect(category, query, refreshKey) {
-        playlists = withContext(Dispatchers.IO) {
-            val searchContext = Context.DefaultWeb.copy(
-                client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
-            )
+    val (palette, typography) = LocalAppearance.current
+    var songs by remember(category.name, dailySeed) { mutableStateOf<List<Innertube.SongItem>?>(null) }
+    var failed by remember(category.name, dailySeed) { mutableStateOf(false) }
+    var retryKey by remember(category.name, dailySeed) { mutableStateOf(0) }
 
-            suspend fun fetch(searchQuery: String, filter: String) =
-                Innertube.searchPage(
-                    body = SearchBody(
-                        context = searchContext,
-                        query = searchQuery,
-                        params = filter
-                    ),
-                    fromMusicShelfRendererContent = Innertube.PlaylistItem::from,
-                    fromMusicTwoRowItemRenderer = Innertube.PlaylistItem::from
-                )?.getOrNull()?.items.orEmpty()
-
-            // Keep each shelf tied to its selected category. Search both playlist
-            // types, just like the working Quick Picks playlist discovery flow.
-            val categoryQueries = listOf(
-                "$query playlist",
-                "$category music playlist India",
-                "$category songs mix playlist"
-            )
-            val featured = categoryQueries
-                .flatMap { searchQuery ->
-                    fetch(searchQuery, Innertube.SearchFilter.FeaturedPlaylist.value)
-                }
-                .distinctBy { it.key }
-
-            val matching = if (featured.isNotEmpty()) featured else {
-                categoryQueries
-                    .flatMap { searchQuery ->
-                        fetch(searchQuery, Innertube.SearchFilter.CommunityPlaylist.value)
-                    }
-                    .distinctBy { it.key }
-            }
-            matching.take(20)
-        }
+    LaunchedEffect(category, dailySeed, retryKey) {
+        failed = false
+        val result = withContext(Dispatchers.IO) { fetchHomeSongCategory(category, null, dailySeed) }
+        songs = result?.getOrNull()?.items.orEmpty().take(20)
+        failed = result == null || result.isFailure
     }
 
-    BasicText(
-        text = "${category.uppercase()} PUBLIC PLAYLISTS",
-        style = typography.s.semiBold,
-        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
-    )
-
-    if (playlists == null) {
-        LazyRow {
-            items(3) {
-                PlaylistItemPlaceholder(
-                    thumbnailSizeDp = playlistThumbnailSizeDp,
-                    alternative = true
-                )
-            }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 7.dp)
+            .background(palette.background1, RoundedCornerShape(18.dp))
+            .padding(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            BasicText(text = category.name.uppercase(), style = typography.s.semiBold)
+            BasicText(
+                text = "View All",
+                style = typography.xs.secondary,
+                modifier = Modifier.clickable(onClick = onViewAll)
+            )
         }
-    } else if (playlists.isNullOrEmpty()) {
-        // Keep the shelf in its loading state instead of showing a dead-end retry action.
-        LazyRow {
-            items(3) {
-                PlaylistItemPlaceholder(
-                    thumbnailSizeDp = playlistThumbnailSizeDp,
-                    alternative = true
-                )
-            }
-        }
-    } else {
-        LazyRow {
-            items(playlists.orEmpty(), key = Innertube.PlaylistItem::key) { playlist ->
-                PlaylistItem(
-                    playlist = playlist,
-                    thumbnailSizePx = playlistThumbnailSizePx,
-                    thumbnailSizeDp = playlistThumbnailSizeDp,
-                    alternative = true,
-                    modifier = Modifier.clickable { onPlaylistClick(playlist.key) }
+        when {
+            songs == null -> repeat(3) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) }
+            failed || songs.isNullOrEmpty() -> BasicText(
+                text = "Could not load. Tap to retry.",
+                style = typography.xs.secondary,
+                modifier = Modifier.fillMaxWidth().clickable { retryKey += 1 }.padding(vertical = 18.dp)
+            )
+            else -> songs.orEmpty().take(3).forEach { song ->
+                SongItem(
+                    song = song,
+                    thumbnailSizePx = thumbnailSizePx,
+                    thumbnailSizeDp = thumbnailSizeDp,
+                    modifier = Modifier.combinedClickable(
+                        onLongClick = { onSongLongClick(song) },
+                        onClick = { onSongClick(song) }
+                    )
                 )
             }
         }
