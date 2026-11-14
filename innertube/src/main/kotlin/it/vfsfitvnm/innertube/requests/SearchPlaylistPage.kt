@@ -98,3 +98,76 @@ suspend fun Innertube.searchPlaylistPage(body: SearchBody) = runCatchingNonCance
 
     playlists
 }
+
+
+/**
+ * Search the dedicated YouTube Music Podcasts result type.
+ * Podcast shows use MPSP browse IDs; they are not ordinary featured playlists.
+ */
+suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancellable {
+    val response = client.post(search) {
+        setBody(body)
+        mask("*")
+    }.body<SearchResponse>()
+
+    val tabs = response.contents
+        ?.tabbedSearchResultsRenderer
+        ?.tabs
+        .orEmpty()
+
+    tabs.flatMap { tab ->
+        tab.tabRenderer
+            ?.content
+            ?.sectionListRenderer
+            ?.contents
+            .orEmpty()
+            .flatMap { section ->
+                buildList {
+                    section.musicShelfRenderer
+                        ?.contents
+                        ?.mapNotNull { it.musicResponsiveListItemRenderer }
+                        ?.mapNotNull { renderer ->
+                            val titleRun = renderer.flexColumns
+                                .firstOrNull()
+                                ?.musicResponsiveListItemFlexColumnRenderer
+                                ?.text
+                                ?.runs
+                                ?.firstOrNull()
+                            val endpoint = renderer.navigationEndpoint?.browseEndpoint
+                                ?: titleRun?.navigationEndpoint?.browseEndpoint
+                            val browseId = endpoint?.browseId
+                            if (browseId?.startsWith("MPSP") != true) return@mapNotNull null
+
+                            Innertube.PlaylistItem(
+                                info = Innertube.Info(
+                                    name = titleRun?.text,
+                                    endpoint = endpoint
+                                ),
+                                channel = renderer.flexColumns
+                                    .getOrNull(1)
+                                    ?.musicResponsiveListItemFlexColumnRenderer
+                                    ?.text
+                                    ?.runs
+                                    ?.firstOrNull()
+                                    ?.let(Innertube::Info),
+                                songCount = null,
+                                thumbnail = renderer.thumbnail
+                                    ?.musicThumbnailRenderer
+                                    ?.thumbnail
+                                    ?.thumbnails
+                                    ?.firstOrNull()
+                            )
+                        }
+                        ?.let(::addAll)
+                    section.gridRenderer
+                        ?.items
+                        ?.mapNotNull { it.musicTwoRowItemRenderer }
+                        ?.mapNotNull { renderer ->
+                            Innertube.PlaylistItem.from(renderer)
+                                ?.takeIf { it.key.startsWith("MPSP") }
+                        }
+                        ?.let(::addAll)
+                }
+            }
+    }.distinctBy(Innertube.PlaylistItem::key)
+}
