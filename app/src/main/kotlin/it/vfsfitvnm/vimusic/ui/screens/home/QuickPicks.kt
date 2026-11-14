@@ -249,6 +249,14 @@ fun QuickPicks(
 
     var refreshToken by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
+    var completedRefreshTasks by remember { mutableStateOf(emptySet<String>()) }
+    fun markRefreshTaskComplete(task: String) {
+        val completed = completedRefreshTasks + task
+        completedRefreshTasks = completed
+        if (completed.containsAll(setOf("discovery", "calm", "podcast", "long_listen", "songs"))) {
+            isRefreshing = false
+        }
+    }
     var songsForYou by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var isLoadingSongsForYou by remember { mutableStateOf(true) }
     var trendingSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
@@ -292,12 +300,13 @@ fun QuickPicks(
     // Use the existing Song Search + Related Songs roots; keep every valid result.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         discoverySongs = withContext(Dispatchers.IO) { fetchQuickPickDiscoveryCategories(refreshToken + discoveryDailyToken) }
-        isRefreshing = false
+        markRefreshTaskComplete("discovery")
     }
 
     // Calm category cards stay in a fixed order; only their song lists rotate daily.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         calmCategorySongs = withContext(Dispatchers.IO) { fetchCalmMusicCategories(refreshToken + discoveryDailyToken) }
+        markRefreshTaskComplete("calm")
     }
 
     // Load the first podcast batch on refresh; more batches are fetched on scroll.
@@ -320,6 +329,7 @@ fun QuickPicks(
         podcastSongs = loadedPodcasts
         podcastBatchIndex = lastPodcastBatch
         isLoadingPodcasts = false
+        markRefreshTaskComplete("podcast")
     }
 
 
@@ -338,6 +348,7 @@ fun QuickPicks(
             longListenSongs = loadedLongListen
         } finally {
             isLoadingLongListen = false
+            markRefreshTaskComplete("long_listen")
         }
     }
 
@@ -364,7 +375,7 @@ fun QuickPicks(
         trendingSongs = prioritizeHindiSongs(personalizedShelves[0]).distinctBy(Innertube.SongItem::key)
         topSongs = prioritizeHindiSongs(personalizedShelves[1]).distinctBy(Innertube.SongItem::key)
         newReleases = prioritizeHindiSongs(personalizedShelves[2]).distinctBy(Innertube.SongItem::key)
-        isRefreshing = false
+        markRefreshTaskComplete("songs")
     }
 
     val songThumbnailSizeDp = Dimensions.thumbnails.song
@@ -564,6 +575,7 @@ fun QuickPicks(
         isRefreshing = isRefreshing,
         onRefresh = {
             if (!isRefreshing) {
+                completedRefreshTasks = emptySet()
                 isRefreshing = true
                 refreshToken += 1
             }
@@ -808,10 +820,7 @@ fun QuickPicks(
                 }
             }
 
-            if (isLoadingPodcasts && podcastSongs.isEmpty()) {
-                ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
-            } else {
-                QuickPicksPodcastShelf(
+            QuickPicksPodcastShelf(
                 songs = podcastSongs,
                 isLoading = isLoadingPodcasts,
                 onViewAll = {
@@ -836,8 +845,7 @@ fun QuickPicks(
                         NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
                     }
                 }
-                )
-            }
+            )
 
             QuickPicksSectionHeader(
                 title = "LONG LISTEN",
