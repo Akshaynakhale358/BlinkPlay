@@ -61,8 +61,8 @@ import it.vfsfitvnm.innertube.models.bodies.NextBody
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.requests.indiaChartSongs
 import it.vfsfitvnm.innertube.requests.searchPage
-import it.vfsfitvnm.innertube.requests.searchPlaylistPage
 import it.vfsfitvnm.innertube.requests.playlistPage
+import it.vfsfitvnm.innertube.requests.searchPodcastPage
 import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
@@ -104,86 +104,72 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
 
-private fun Innertube.VideoItem.toQuickPicksPodcastSong() = Innertube.SongItem(
-    info = info, authors = authors, album = null, durationText = durationText, thumbnail = thumbnail
-)
-
 private suspend fun fetchQuickPicksPodcastSongs(
-    batchIndex: Int,
-    includePlaylistDiscovery: Boolean = false
+    batchIndex: Int
 ): List<Innertube.SongItem> = coroutineScope {
-    // YouTube Music models a podcast show as a playlist and its episodes as videos.
-    // Discover official-style podcast playlists first, then widen with video search.
-    val baseQueries = listOf(
-        "Hindi podcast full episode latest interview",
-        "Marathi podcast मुलाखत पूर्ण भाग full episode",
-        "Indian podcast full episode conversation",
-        "Hindi motivational podcast complete interview",
-        "Marathi podcast गप्पा चर्चा पूर्ण भाग",
-        "Indian creator podcast full conversation",
-        "Hindi podcast long form interview",
-        "Marathi podcast full episode मुलाखत",
-        "Indian business podcast full episode",
-        "Hindi comedy podcast full episode",
-        "Indian news podcast complete episode",
-        "Indian celebrity podcast full interview",
-        "Hindi podcast latest full episode conversation",
-        "Marathi podcast नवीन पूर्ण भाग मुलाखत",
-        "Indian startup founder podcast full episode",
-        "Hindi actor podcast full interview",
-        "Indian sports podcast full episode",
-        "Marathi creator podcast full conversation",
-        "Hindi history podcast full episode",
-        "Indian technology podcast full interview",
-        "Hindi true crime podcast complete episode",
-        "Marathi interview podcast full episode",
-        "Indian finance podcast full conversation",
-        "Hindi guest podcast long interview",
-        "Indian education podcast full episode",
-        "Hindi science podcast complete conversation",
-        "Indian career podcast full interview",
-        "Marathi storytelling podcast full episode",
-        "Indian travel podcast full conversation",
-        "Hindi health podcast full episode",
-        "English India podcast full interview",
-        "Indian cricket podcast complete episode"
+    // Mirror YouTube Music's actual Podcasts and Episodes search filters.
+    // Discover podcast shows (MPSP browse IDs), then browse their episode feeds.
+    // In parallel, query the dedicated Episodes result type; never treat generic videos as podcasts.
+    val podcastQueries = listOf(
+        "Hindi podcasts", "Marathi podcasts", "Indian podcasts",
+        "Hindi interview podcast", "Marathi मुलाखत podcast",
+        "Indian comedy podcast", "Indian business podcast",
+        "Hindi news podcast", "Indian creator podcast",
+        "Indian sports podcast", "Indian technology podcast",
+        "Hindi storytelling podcast", "Marathi गप्पा podcast",
+        "Indian history podcast", "Indian education podcast",
+        "Indian finance podcast", "Hindi motivation podcast",
+        "Indian cinema podcast", "Indian travel podcast",
+        "Indian science podcast", "English India podcast",
+        "Indian cricket podcast", "Hindi celebrity podcast",
+        "Marathi podcast interview"
     )
-    val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN"))
+    val context = Context.DefaultWeb.copy(
+        client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
+    )
     val batchSize = 4
-    val startIndex = Math.floorMod(batchIndex * batchSize, baseQueries.size)
-    val queries = (0 until batchSize).map { baseQueries[(startIndex + it) % baseQueries.size] }
+    val startIndex = Math.floorMod(batchIndex * batchSize, podcastQueries.size)
+    val queries = (0 until batchSize).map { podcastQueries[(startIndex + it) % podcastQueries.size] }
 
-    val playlistSongs = if (includePlaylistDiscovery) {
-        val playlists = runCatching {
-            Innertube.searchPlaylistPage(
-                SearchBody(
-                    context = context,
-                    query = "Indian Hindi Marathi podcasts full episodes",
-                    params = Innertube.SearchFilter.FeaturedPlaylist.value
-                )
-            )?.getOrNull().orEmpty()
-        }.getOrDefault(emptyList())
+    val podcastShows = queries.map { query ->
+        async(Dispatchers.IO) {
+            runCatching {
+                Innertube.searchPodcastPage(
+                    SearchBody(
+                        context = context,
+                        query = query,
+                        params = Innertube.SearchFilter.Podcast.value
+                    )
+                )?.getOrNull().orEmpty()
+            }.getOrDefault(emptyList())
+        }
+    }.awaitAll().flatten()
+        .distinctBy(Innertube.PlaylistItem::key)
+        .take(8)
 
-        playlists.take(4).map { playlist ->
-            async(Dispatchers.IO) {
-                runCatching {
-                    Innertube.playlistPage(
-                        BrowseBody(context = context, browseId = playlist.key)
-                    )?.getOrNull()?.songsPage?.items.orEmpty()
-                }.getOrDefault(emptyList())
-            }
-        }.awaitAll().flatten()
-    } else {
-        emptyList()
-    }
+    val showEpisodes = podcastShows.map { show ->
+        async(Dispatchers.IO) {
+            runCatching {
+                Innertube.playlistPage(
+                    BrowseBody(context = context, browseId = show.key)
+                )?.getOrNull()?.songsPage?.items.orEmpty()
+            }.getOrDefault(emptyList())
+        }
+    }.awaitAll().flatten()
 
-    val videoSongs = queries.map { searchQuery ->
+    val searchedEpisodes = queries.map { query ->
         async(Dispatchers.IO) {
             runCatching {
                 Innertube.searchPage(
-                    body = SearchBody(context = context, query = searchQuery, params = Innertube.SearchFilter.Video.value),
+                    body = SearchBody(
+                        context = context,
+                        query = query,
+                        params = Innertube.SearchFilter.Episode.value
+                    ),
                     fromMusicShelfRendererContent = { content ->
-                        Innertube.VideoItem.from(content)?.toQuickPicksPodcastSong()
+                        Innertube.SongItem.from(content)?.takeIf { song ->
+                            song.info?.endpoint?.type == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                        }
                     }
                 )?.getOrNull()?.items.orEmpty()
             }.getOrDefault(emptyList())
@@ -198,41 +184,29 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }.sum()
     }
 
-    val musicOrPromoTerms = listOf(
+    val excludedTerms = listOf(
         "official audio", "official video", "music video", "lyrics", "lyric video",
         "full song", "audio song", "remix", "slowed", "lofi", "jukebox", "karaoke",
         "cover song", "video song", "song status", "status video", "teaser",
         "trailer", "promo", "shorts", "#shorts", "short clip", "highlights",
-        "best moments", "snippet", "reaction", "review"
+        "best moments", "snippet"
     )
-    val strongPodcastTitleTerms = listOf(
-        "podcast", "pod cast", "full episode", "episode", "ep.", "interview",
-        "conversation", "talk show", "talkshow", "roundtable", "q&a",
-        "मुलाखत", "गप्पा", "चर्चा", "संवाद", "पूर्ण भाग"
-    )
-    val podcastChannelTerms = listOf("podcast", "pod cast", "talk show", "interview")
 
-    val playlistKeys = playlistSongs.map(Innertube.SongItem::key).toSet()
-    val candidates = (playlistSongs + videoSongs).distinctBy(Innertube.SongItem::key)
-    val relevant = candidates.filter { song ->
-        val title = song.info?.name.orEmpty().lowercase()
-        val channel = song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }.lowercase()
-        val metadata = "$title $channel"
-        val duration = durationSeconds(song.durationText) ?: 0L
-        val fromPodcastPlaylist = song.key in playlistKeys
-        val hasTitleSignal = strongPodcastTitleTerms.any(title::contains)
-        val hasChannelSignal = podcastChannelTerms.any(channel::contains)
-        val isLongEnough = duration >= 8 * 60
-        val isNotMusicOrPromo = musicOrPromoTerms.none(title::contains)
-        isLongEnough && isNotMusicOrPromo &&
-            (fromPodcastPlaylist || hasTitleSignal || hasChannelSignal) &&
-            metadata.isNotBlank()
-    }
+    // Show-browse results and typed Episode results are trusted sources.
+    // Keep duration and anti-music checks as a final quality gate.
+    val candidates = (showEpisodes + searchedEpisodes)
+        .distinctBy(Innertube.SongItem::key)
+        .filter { song ->
+            val title = song.info?.name.orEmpty().lowercase()
+            val duration = durationSeconds(song.durationText) ?: 0L
+            val typedEpisode = song.info?.endpoint?.type == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+            duration >= 4 * 60 && excludedTerms.none(title::contains) &&
+                (typedEpisode || showEpisodes.any { it.key == song.key })
+        }
 
-    // Personalization only reorders verified podcast candidates; it cannot add songs
-    // from music shelves or another discovery category.
-    personalizeAndDiversify(relevant)
+    personalizeAndDiversify(candidates)
 }
+
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
@@ -321,7 +295,7 @@ fun QuickPicks(
         withContext(Dispatchers.IO) {
             for (batch in 0 until 8) {
                 lastPodcastBatch = batch
-                val next = runCatching { fetchQuickPicksPodcastSongs(batch + refreshToken + discoveryDailyToken, includePlaylistDiscovery = batch == 0) }.getOrDefault(emptyList())
+                val next = runCatching { fetchQuickPicksPodcastSongs(batch + refreshToken + discoveryDailyToken) }.getOrDefault(emptyList())
                 loadedPodcasts = (loadedPodcasts + next).distinctBy(Innertube.SongItem::key)
                 if (loadedPodcasts.size >= 15) break
             }
@@ -414,7 +388,7 @@ fun QuickPicks(
                     try {
                         val nextBatch = podcastBatchIndex + 1
                         val moreSongs = withContext(Dispatchers.IO) {
-                            runCatching { fetchQuickPicksPodcastSongs(nextBatch + refreshToken + discoveryDailyToken, includePlaylistDiscovery = nextBatch % 8 == 0) }
+                            runCatching { fetchQuickPicksPodcastSongs(nextBatch + refreshToken + discoveryDailyToken) }
                                 .getOrDefault(emptyList())
                         }
                         val existingKeys = podcastSongs.map(Innertube.SongItem::key).toHashSet()
