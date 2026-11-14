@@ -170,7 +170,7 @@ private suspend fun fetchHomeSongCategory(
     } else {
         "Hindi Bollywood songs ${category.query} ${songRefreshTerms[Math.floorMod(refreshToken, songRefreshTerms.size)]}"
     }
-    val filter = if (category.podcast) Innertube.SearchFilter.Video.value else Innertube.SearchFilter.Song.value
+    val filter = if (category.podcast) Innertube.SearchFilter.Podcast.value else Innertube.SearchFilter.Song.value
     val result = if (continuation == null) {
         Innertube.searchPage(
             body = SearchBody(context = context, query = query, params = filter),
