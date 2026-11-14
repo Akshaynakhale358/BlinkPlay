@@ -233,3 +233,29 @@ suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancel
         .filter { it.key.startsWith("MPSP", ignoreCase = true) }
         .distinctBy(Innertube.PlaylistItem::key)
 }
+
+
+/**
+ * Podcast episode root: search the single word "podcast" without a restrictive
+ * result tab, then extract only playable video rows from the full response.
+ * This avoids the Episodes tab returning an empty result set on some clients.
+ */
+suspend fun Innertube.searchPodcastEpisodesPage(body: SearchBody) = runCatchingNonCancellable {
+    val raw = client.post(search) {
+        setBody(body)
+        mask("*")
+    }.body<String>()
+    val root = podcastSearchJson.parseToJsonElement(raw)
+
+    root.podcastSearchDescendants()
+        .mapNotNull { node ->
+            val rendererJson = (node as? JsonObject)
+                ?.get("musicResponsiveListItemRenderer")
+                ?: return@mapNotNull null
+            runCatching {
+                podcastSearchJson.decodeFromJsonElement<MusicResponsiveListItemRenderer>(rendererJson)
+            }.getOrNull()?.let(Innertube.SongItem::from)
+        }
+        .distinctBy(Innertube.SongItem::key)
+        .toList()
+}
