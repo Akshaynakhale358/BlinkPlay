@@ -138,6 +138,9 @@ object Innertube {
             val Artist = SearchFilter("EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D")
             val CommunityPlaylist = SearchFilter("EgeKAQQoAEABagoQAxAEEAoQCRAF")
             val FeaturedPlaylist = SearchFilter("EgeKAQQoADgBagwQDhAKEAMQBRAJEAQ%3D")
+            // Same dedicated Podcast and Episodes filters used by YouTube Music search.
+            val Podcast = SearchFilter("EgWKAQJQAWoMEA4QChADEAQQCRAF")
+            val Episode = SearchFilter("EgWKAQJIAWoMEA4QChADEAQQCRAF")
         }
     }
 
