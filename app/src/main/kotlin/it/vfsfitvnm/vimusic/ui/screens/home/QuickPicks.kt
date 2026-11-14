@@ -259,17 +259,6 @@ fun QuickPicks(
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
 
-    // Re-selecting Quick Picks in the navigation rail always returns to its home.
-    LaunchedEffect(homeResetKey) {
-        if (homeResetKey > 0) {
-            selectedQuickPicksShelf = null
-            selectedDiscoveryCategory = null
-            savedHomeScrollOffset = 0
-            restoreHomeScroll = false
-            scrollState.scrollTo(0)
-        }
-    }
-
     fun requestCategoryLoad(category: DiscoverySubcategory, cycle: Int) {
         if (requestedCategoryCycles[category.key] == cycle) return
         requestedCategoryCycles = requestedCategoryCycles + (category.key to cycle)
@@ -392,6 +381,17 @@ fun QuickPicks(
 
     var savedHomeScrollOffset by remember { mutableStateOf(0) }
     var restoreHomeScroll by remember { mutableStateOf(false) }
+
+    // Re-selecting Quick Picks in the navigation rail always returns to its home.
+    LaunchedEffect(homeResetKey) {
+        if (homeResetKey > 0) {
+            selectedQuickPicksShelf = null
+            selectedDiscoveryCategory = null
+            savedHomeScrollOffset = 0
+            restoreHomeScroll = false
+            scrollState.scrollTo(0)
+        }
+    }
 
     // Keep the opened category at the top, then restore the exact Home scroll
     // position when Back returns from that category.
