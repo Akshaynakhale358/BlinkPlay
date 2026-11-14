@@ -226,11 +226,10 @@ suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancel
             .toList()
     } else emptyList()
 
-    // The dedicated Podcast search may include other browseable rows in
-    // experimental response layouts. Keep only YouTube Music Podcast show
-    // roots; their MPSP browse IDs are then expanded into episode feeds.
+    // This is already the dedicated Podcast search root. Avoid an extra
+    // browse-ID prefix restriction; keep every browseable result and let
+    // episode-feed loading determine which roots contain playable episodes.
     (tabResults + recursiveFallback)
-        .filter { it.key.startsWith("MPSP", ignoreCase = true) }
         .distinctBy(Innertube.PlaylistItem::key)
 }
 
