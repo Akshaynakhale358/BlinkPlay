@@ -123,10 +123,11 @@ private suspend fun fetchQuickPicksPodcastSongs(
         "Hindi storytelling podcast", "Marathi गप्पा podcast",
         "Indian history podcast", "Indian education podcast",
         "Indian finance podcast", "Hindi motivation podcast",
-        "Indian cinema podcast", "Indian travel podcast",
-        "Indian science podcast", "English India podcast",
+        "Indian cinema podcast", "Osho Hindi pravachan",
+        "Osho Marathi pravachan", "Osho Hindi discourse",
+        "Osho talks meditation", "Osho full lecture Hindi",
         "Indian cricket podcast", "Hindi celebrity podcast",
-        "Marathi podcast interview", "Indian startup podcast"
+        "Marathi podcast interview", "Osho English discourse"
     )
     val context = Context.DefaultWeb.copy(
         client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
@@ -179,8 +180,36 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
     }.awaitAll().flatten()
 
-    // Path 2: dedicated Episodes filter. Do not rely on one exact musicVideoType
-    // string: YouTube changes this metadata between renderer versions.
+    // A dedicated endpoint can still contain unrelated long tracks. Use both
+    // title and channel/artist metadata so Osho discourses are retained even
+    // when the title does not literally say "podcast".
+    fun isPodcastContent(song: Innertube.SongItem): Boolean {
+        val title = song.info?.name.orEmpty().lowercase()
+        val creators = song.authors.orEmpty().mapNotNull { it.name }
+            .joinToString(" ").lowercase()
+        val metadata = "$title $creators"
+        val podcastClues = listOf(
+            "podcast", "episode", "ep.", "full interview", "interview",
+            "conversation", "talk show", "talks", "discussion", "discourse",
+            "प्रवचन", "विचार", "मुलाखत", "चर्चा", "संवाद", "ध्यान",
+            "osho", "sadhguru", "j krishnamurti", "krishnamurti",
+            "spiritual", "lecture", "full talk", "the ranveer show",
+            "beerbiceps", "josh talks", "the seen and the unseen"
+        )
+        val musicClues = listOf(
+            "official audio", "official music video", "music video", "lyrics",
+            "lyric video", "full song", "audio song", "remix", "slowed",
+            "karaoke", "cover song", "status video", "whatsapp status",
+            "jukebox", "teaser", "trailer", "shorts", "#shorts"
+        )
+        val duration = song.durationText.toDurationSeconds()
+        return duration >= 8 * 60 &&
+            musicClues.none(title::contains) &&
+            podcastClues.any(metadata::contains)
+    }
+
+    // Path 2: dedicated Episodes filter. The filter is useful, but its results
+    // are still checked against title + creator to prevent ordinary songs.
     val searchedEpisodes = queries.map { query ->
         async(Dispatchers.IO) {
             runCatching {
@@ -191,9 +220,7 @@ private suspend fun fetchQuickPicksPodcastSongs(
                         params = Innertube.SearchFilter.Episode.value
                     ),
                     fromMusicShelfRendererContent = { content ->
-                        Innertube.SongItem.from(content)?.takeIf { song ->
-                            song.durationText.toDurationSeconds() >= 8 * 60
-                        }
+                        Innertube.SongItem.from(content)?.takeIf(::isPodcastContent)
                     }
                 )?.getOrNull()?.items.orEmpty()
             }.getOrDefault(emptyList())
@@ -295,12 +322,14 @@ private suspend fun fetchQuickPicksPodcastSongs(
     // results unless YouTube supplied one exact endpoint type string.
     // The search filters themselves identify the source; apply shared quality
     // checks here without requiring unstable endpoint metadata.
-    val candidates = (showEpisodes + searchedEpisodes + fallbackVideoEpisodes)
+    val candidates = (showEpisodes.filter(::isPodcastContent) + searchedEpisodes + fallbackVideoEpisodes)
         .distinctBy(Innertube.SongItem::key)
         .filter { song ->
             val title = song.info?.name.orEmpty().lowercase()
             val duration = durationSeconds(song.durationText) ?: 0L
-            duration >= 8 * 60 && excludedTerms.none(title::contains)
+            duration >= 8 * 60 &&
+                excludedTerms.none(title::contains) &&
+                isPodcastContent(song)
         }
 
     personalizeAndDiversify(candidates)
