@@ -175,7 +175,8 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
         val title = song.info?.name.orEmpty()
         val authors = song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }
         val metadata = "$title $authors".lowercase()
-        podcastTerms.any(metadata::contains) || durationSeconds(song.durationText) >= 300L
+        // Do not treat every long music track as a podcast episode.
+        podcastTerms.any(metadata::contains)
     }
     personalizeAndDiversify(relevant)
 }
@@ -1429,7 +1430,6 @@ private suspend fun fetchSongsByCategoryWithFallback(query: String): List<Innert
     val collected = mutableListOf<Innertube.SongItem>()
     for (attempt in attempts) {
         collected += runCatching { fetchSongsByCategory(attempt) }.getOrDefault(emptyList())
-        if (collected.distinctBy(Innertube.SongItem::key).size >= 8) break
     }
     return collected.distinctBy(Innertube.SongItem::key)
 }
@@ -1497,7 +1497,10 @@ private suspend fun fetchPersonalizedSongsForYou(): List<Innertube.SongItem> = c
         song.authors?.firstOrNull()?.name?.trim()?.lowercase()?.takeIf { it.isNotBlank() } ?: song.key
     }.values.toList()
     val diversified = mutableListOf<Innertube.SongItem>()
-    for (round in 0 until 3) artistBuckets.forEach { bucket -> bucket.getOrNull(round)?.let(diversified::add) }
+    val maximumArtistBucketSize = artistBuckets.maxOfOrNull { it.size } ?: 0
+    for (round in 0 until maximumArtistBucketSize) {
+        artistBuckets.forEach { bucket -> bucket.getOrNull(round)?.let(diversified::add) }
+    }
     diversified.distinctBy(Innertube.SongItem::key)
 }
 private val IndiaExploreContext = Context.DefaultWeb.copy(
