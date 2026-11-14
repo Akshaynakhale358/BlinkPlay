@@ -220,7 +220,10 @@ private suspend fun fetchQuickPicksPodcastSongs(
                         params = Innertube.SearchFilter.Episode.value
                     ),
                     fromMusicShelfRendererContent = { content ->
-                        Innertube.SongItem.from(content)?.takeIf(::isPodcastContent)
+                        // The dedicated Episodes search root already classifies these
+                        // as podcast episodes. Fetch its returned content directly;
+                        // only apply the shared long-form/music exclusion below.
+                        Innertube.SongItem.from(content)
                     }
                 )?.getOrNull()?.items.orEmpty()
             }.getOrDefault(emptyList())
