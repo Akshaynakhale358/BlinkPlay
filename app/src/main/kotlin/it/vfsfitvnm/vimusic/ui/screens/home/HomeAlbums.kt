@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -181,11 +182,22 @@ fun HomeAlbums(
             refreshOnEnter = true,
             headerContent = {
                 Column {
-                    Header(title = shelf.title) {}
+                    Header(title = "Albums") {}
                     BasicText(
-                        text = "VIEW ALL ALBUMS",
-                        style = typography.s.semiBold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        text = shelf.title.replaceFirstChar { it.uppercase() },
+                        style = typography.m.semiBold.copy(
+                            fontSize = typography.xxl.fontSize * 0.78f,
+                            textAlign = TextAlign.End
+                        ),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                    BasicText(
+                        text = "All Albums",
+                        style = typography.s.semiBold.copy(
+                            fontSize = typography.xxl.fontSize * 0.468f,
+                            textAlign = TextAlign.End
+                        ),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }
             },
