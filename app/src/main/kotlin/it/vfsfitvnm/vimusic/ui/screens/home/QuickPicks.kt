@@ -115,6 +115,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 @ExperimentalAnimationApi
 @Composable
 fun QuickPicks(
+    homeResetKey: Int = 0,
     onAlbumClick: (String) -> Unit,
     onArtistClick: (String) -> Unit,
     onPlaylistClick: (String) -> Unit,
@@ -257,6 +258,17 @@ fun QuickPicks(
 
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
+
+    // Re-selecting Quick Picks in the navigation rail always returns to its home.
+    LaunchedEffect(homeResetKey) {
+        if (homeResetKey > 0) {
+            selectedQuickPicksShelf = null
+            selectedDiscoveryCategory = null
+            savedHomeScrollOffset = 0
+            restoreHomeScroll = false
+            scrollState.scrollTo(0)
+        }
+    }
 
     fun requestCategoryLoad(category: DiscoverySubcategory, cycle: Int) {
         if (requestedCategoryCycles[category.key] == cycle) return
