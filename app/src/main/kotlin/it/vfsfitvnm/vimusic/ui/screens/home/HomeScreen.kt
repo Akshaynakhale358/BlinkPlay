@@ -3,6 +3,8 @@ package it.vfsfitvnm.vimusic.ui.screens.home
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
@@ -121,7 +123,8 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
         }
 
         host {
-            val (tabIndex, onTabChanged) = rememberPreference(
+            val quickPicksHomeResetKey = remember { mutableStateOf(0) }
+            val (tabIndex, saveTabChanged) = rememberPreference(
                 homeScreenTabIndexKey,
                 defaultValue = 0
             )
@@ -130,7 +133,13 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                 topIconButtonId = R.drawable.equalizer,
                 onTopIconButtonClick = { settingsRoute() },
                 tabIndex = tabIndex,
-                onTabChanged = onTabChanged,
+                onTabChanged = { newIndex ->
+                    if (newIndex == tabIndex) {
+                        if (newIndex == 0) quickPicksHomeResetKey.value += 1
+                    } else {
+                        saveTabChanged(newIndex)
+                    }
+                },
                 tabColumnContent = { Item ->
                     Item(0, "Quick Picks", R.drawable.sparkles)
                     Item(1, "Songs", R.drawable.musical_notes)
@@ -160,6 +169,7 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
                     when (currentTabIndex) {
                         0 -> QuickPicks(
+                            homeResetKey = quickPicksHomeResetKey.value,
                             onAlbumClick = { albumRoute(it) },
                             onArtistClick = { artistRoute(it) },
                             onPlaylistClick = { playlistRoute(it) },
