@@ -1460,17 +1460,15 @@ private fun filterDiscoverySongs(
             "calm_beta" -> listOf("beta", "focus", "concentration")
             "calm_gamma" -> listOf("gamma", "meditation", "focus")
             "calm_meditation" -> listOf("meditation", "mindfulness", "peaceful", "ध्यान")
-            "mix_marathi", "trend_marathi" -> listOf("marathi", "मराठी").filter { metadata.contains(it) }.ifEmpty {
-                if (hasDevanagari) listOf("__devanagari_script_match__") else emptyList()
-            }
-            "mix_punjabi" -> listOf("punjabi", "ਪੰਜਾਬੀ").filter { metadata.contains(it) }.ifEmpty {
-                if (hasGurmukhi) listOf("__gurmukhi_script_match__") else emptyList()
-            }
+            "mix_marathi", "trend_marathi" -> listOf("marathi", "मराठी")
+            "mix_punjabi" -> listOf("punjabi", "ਪੰਜਾਬੀ")
             "mix_regional", "trend_regional" -> listOf("tamil", "telugu", "kannada", "malayalam", "தமிழ்", "తెలుగు", "ಕನ್ನಡ", "മലയാളം")
             else -> emptyList()
         }
         val categoryMatches = (if (positiveTerms.isNotEmpty()) {
-            positiveTerms.any(metadata::contains)
+            positiveTerms.any(metadata::contains) ||
+                (category.key in setOf("mix_marathi", "trend_marathi") && hasDevanagari) ||
+                (category.key == "mix_punjabi" && hasGurmukhi)
         } else true) && when (category.key) {
             "mix_romantic", "together_romance" ->
                 listOf("party", "remix", "dj mix", "devotional", "qawwali").none(metadata::contains)
