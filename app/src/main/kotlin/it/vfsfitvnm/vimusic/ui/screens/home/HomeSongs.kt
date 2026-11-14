@@ -62,7 +62,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-private data class HomeSongCategory(val name: String, val query: String, val podcast: Boolean = false)
+private data class HomeSongCategory(val name: String, val query: String)
 
 private val homeSongCategories = listOf(
     HomeSongCategory("Workout", "gym workout running fitness motivation high energy songs"),
@@ -74,8 +74,7 @@ private val homeSongCategories = listOf(
     HomeSongCategory("Sad", "sad heartbreak emotional melancholy songs"),
     HomeSongCategory("Focus", "study focus concentration instrumental background music"),
     HomeSongCategory("Sleep", "sleep peaceful soft ambient lullaby music"),
-    HomeSongCategory("Party", "party dance celebration upbeat hit songs"),
-    HomeSongCategory("Podcast", "podcast", podcast = true)
+    HomeSongCategory("Party", "party dance celebration upbeat hit songs")
 )
 
 private fun homeSongsDailySeed(): Int {
@@ -106,10 +105,6 @@ private fun prioritizeHomeCategorySongs(
     ).map { it.value }
 }
 
-
-private fun Innertube.VideoItem.toHomePodcastSong() = Innertube.SongItem(
-    info = info, authors = authors, album = null, durationText = durationText, thumbnail = thumbnail
-)
 
 private fun String?.toHomeDurationSeconds(): Int {
     if (this.isNullOrBlank()) return 0
@@ -145,13 +140,9 @@ private fun filterHomeSongCategory(
         val metadata = (song.info?.name.orEmpty() + " " +
             song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
         val validDuration = song.durationText.toHomeDurationSeconds() > 0
-        val formatValid = if (category.podcast) {
-            commonBlocked.none(metadata::contains)
-        } else {
-            commonBlocked.none(metadata::contains) &&
-                listOf("podcast", "episode").none(metadata::contains)
-        }
-        validDuration && formatValid && categoryBlocked.none(metadata::contains)
+        validDuration && commonBlocked.none(metadata::contains) &&
+            listOf("podcast", "episode").none(metadata::contains) &&
+            categoryBlocked.none(metadata::contains)
     }
 }
 
@@ -162,39 +153,23 @@ private suspend fun fetchHomeSongCategory(
     refreshToken: Int = 0
 ): Result<Innertube.ItemsPage<Innertube.SongItem>?>? {
     val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN"))
-    // Podcast uses only the YouTube Music search keyword "podcast".
-    // Keep the existing video search filter and its continuation flow.
     val songRefreshTerms = listOf("latest", "new songs", "popular hits", "trending songs")
-    val query = if (category.podcast) {
-        "podcast"
-    } else {
-        "Hindi Bollywood songs ${category.query} ${songRefreshTerms[Math.floorMod(refreshToken, songRefreshTerms.size)]}"
-    }
-    val filter = if (category.podcast) Innertube.SearchFilter.Podcast.value else Innertube.SearchFilter.Song.value
+    val query = "Hindi Bollywood songs ${category.query} ${songRefreshTerms[Math.floorMod(refreshToken, songRefreshTerms.size)]}"
+    val filter = Innertube.SearchFilter.Song.value
     val result = if (continuation == null) {
         Innertube.searchPage(
             body = SearchBody(context = context, query = query, params = filter),
-            fromMusicShelfRendererContent = { content ->
-                if (category.podcast) Innertube.VideoItem.from(content)?.toHomePodcastSong()
-                else Innertube.SongItem.from(content)
-            }
+            fromMusicShelfRendererContent = Innertube.SongItem::from
         )
     } else {
         Innertube.searchPage(
             body = ContinuationBody(context = context, continuation = continuation),
-            fromMusicShelfRendererContent = { content ->
-                if (category.podcast) Innertube.VideoItem.from(content)?.toHomePodcastSong()
-                else Innertube.SongItem.from(content)
-            }
+            fromMusicShelfRendererContent = Innertube.SongItem::from
         )
     }
     return result?.map { page ->
         if (page != null) {
             val uniqueSongs = filterHomeSongCategory(category, page.items.orEmpty())
-                .let { items ->
-                    if (category.podcast) items.filter { it.durationText.toHomeDurationSeconds() > 15 * 60 }
-                    else items
-                }
             val categoryRanked = prioritizeHomeCategorySongs(category, uniqueSongs)
             val personalized = personalizeSongItems(categoryRanked)
             page.copy(
@@ -345,11 +320,8 @@ private fun HomeSongCategoryCard(
     LaunchedEffect(category, dailySeed, refreshToken, retryKey) {
         failed = false
         val collected = mutableListOf<Innertube.SongItem>()
-        // Podcast makes one exact YouTube Music search for "podcast".
-        // Other categories keep their existing four-query rotation unchanged.
-        val attempts = if (category.podcast) 1 else 4
-        for (attempt in 0 until attempts) {
-            val cycle = if (category.podcast) refreshToken else refreshToken + attempt
+        for (attempt in 0 until 4) {
+            val cycle = refreshToken + attempt
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     fetchHomeSongCategory(category, null, dailySeed, cycle)
