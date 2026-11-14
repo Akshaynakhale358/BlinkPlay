@@ -194,6 +194,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var bassBoost: BassBoost? = null
     private var speakerVirtualizer: Virtualizer? = null
+    private var audioEffectsSessionId: Int? = null
 
     private val binder = Binder()
 
@@ -435,6 +436,11 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         }
     }
 
+    override fun onAudioSessionIdChanged(audioSessionId: Int) {
+        applyAudioEnhancements()
+        maybeNormalizeVolume()
+    }
+
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
         if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
             updateMediaSessionQueue(timeline)
@@ -555,29 +561,37 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     }
 
     private fun maybeNormalizeVolume() {
-        if (!preferences.getBoolean(volumeNormalizationKey, false)) {
-            loudnessEnhancer?.enabled = false
-            loudnessEnhancer?.release()
+        volumeNormalizationJob?.cancel()
+
+        if (!preferences.getBoolean(volumeNormalizationKey, false) || player.currentMediaItem == null) {
+            runCatching {
+                loudnessEnhancer?.enabled = false
+                loudnessEnhancer?.release()
+            }
             loudnessEnhancer = null
-            volumeNormalizationJob?.cancel()
-            player.volume = 1f
             return
         }
 
-        if (loudnessEnhancer == null) {
-            loudnessEnhancer = LoudnessEnhancer(player.audioSessionId)
-        }
+        try {
+            if (loudnessEnhancer == null) {
+                loudnessEnhancer = LoudnessEnhancer(player.audioSessionId)
+            }
 
-        player.currentMediaItem?.mediaId?.let { songId ->
-            volumeNormalizationJob?.cancel()
+            val songId = player.currentMediaItem?.mediaId ?: return
             volumeNormalizationJob = coroutineScope.launch(Dispatchers.Main) {
                 Database.loudnessDb(songId).cancellable().collectLatest { loudnessDb ->
-                    try {
-                        loudnessEnhancer?.setTargetGain((-((loudnessDb ?: 0f) * 100).toInt() + 500).coerceIn(0, 6000))
+                    runCatching {
+                        // Only apply a modest boost to quieter tracks. Do not reduce the
+                        // user's output level or add an arbitrary boost when loudness is unknown.
+                        val gainMb = (-(loudnessDb ?: 0f) * 100f).toInt().coerceIn(0, 600)
+                        loudnessEnhancer?.setTargetGain(gainMb)
                         loudnessEnhancer?.enabled = true
-                    } catch (_: Exception) { }
+                    }
                 }
             }
+        } catch (_: Exception) {
+            runCatching { loudnessEnhancer?.release() }
+            loudnessEnhancer = null
         }
     }
 
@@ -588,11 +602,26 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
      */
     private fun applyAudioEnhancements() {
         val sessionId = player.audioSessionId
+
+        // Audio effects are attached to an audio session. Recreate them if ExoPlayer
+        // changes that session so toggles continue to affect the active output.
+        if (audioEffectsSessionId != sessionId) {
+            runCatching { loudnessEnhancer?.release() }
+            runCatching { bassBoost?.release() }
+            runCatching { speakerVirtualizer?.release() }
+            loudnessEnhancer = null
+            bassBoost = null
+            speakerVirtualizer = null
+            audioEffectsSessionId = sessionId
+        }
+
         runCatching {
             if (preferences.getBoolean(deepBassKey, false)) {
                 if (bassBoost == null) bassBoost = BassBoost(0, sessionId)
-                bassBoost?.setStrength(700)
-                bassBoost?.enabled = true
+                bassBoost?.let { effect ->
+                    if (effect.strengthSupported) effect.setStrength(450)
+                    effect.enabled = true
+                }
             } else {
                 bassBoost?.enabled = false
                 bassBoost?.release()
@@ -602,8 +631,10 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         runCatching {
             if (preferences.getBoolean(speakerSurroundKey, false)) {
                 if (speakerVirtualizer == null) speakerVirtualizer = Virtualizer(0, sessionId)
-                speakerVirtualizer?.setStrength(650)
-                speakerVirtualizer?.enabled = true
+                speakerVirtualizer?.let { effect ->
+                    if (effect.strengthSupported) effect.setStrength(400)
+                    effect.enabled = true
+                }
             } else {
                 speakerVirtualizer?.enabled = false
                 speakerVirtualizer?.release()
