@@ -111,18 +111,21 @@ private suspend fun fetchQuickPicksPodcastSongs(
     // Discover podcast shows (MPSP browse IDs), then browse their episode feeds.
     // In parallel, query the dedicated Episodes result type; never treat generic videos as podcasts.
     val podcastQueries = listOf(
-        "Hindi podcasts", "Marathi podcasts", "Indian podcasts",
+        "Hindi podcasts", "Marathi podcasts", "Indian podcasts", "English podcasts",
         "Hindi interview podcast", "Marathi मुलाखत podcast",
-        "Indian comedy podcast", "Indian business podcast",
-        "Hindi news podcast", "Indian creator podcast",
-        "Indian sports podcast", "Indian technology podcast",
+        "Indian comedy podcast", "Marathi comedy podcast",
+        "Indian business podcast", "English business podcast",
+        "Hindi news podcast", "Marathi news podcast",
+        "Indian creator podcast", "Indian sports podcast",
+        "Hindi sports podcast", "English sports podcast",
+        "Indian technology podcast", "English technology podcast",
         "Hindi storytelling podcast", "Marathi गप्पा podcast",
         "Indian history podcast", "Indian education podcast",
         "Indian finance podcast", "Hindi motivation podcast",
         "Indian cinema podcast", "Indian travel podcast",
         "Indian science podcast", "English India podcast",
         "Indian cricket podcast", "Hindi celebrity podcast",
-        "Marathi podcast interview"
+        "Marathi podcast interview", "Indian startup podcast"
     )
     val context = Context.DefaultWeb.copy(
         client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
@@ -145,7 +148,7 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
     }.awaitAll().flatten()
         .distinctBy(Innertube.PlaylistItem::key)
-        .take(8)
+
 
     val showEpisodes = podcastShows.map { show ->
         async(Dispatchers.IO) {
@@ -200,7 +203,7 @@ private suspend fun fetchQuickPicksPodcastSongs(
             val title = song.info?.name.orEmpty().lowercase()
             val duration = durationSeconds(song.durationText) ?: 0L
             val typedEpisode = song.info?.endpoint?.type == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
-            duration >= 4 * 60 && excludedTerms.none(title::contains) &&
+            duration >= 8 * 60 && excludedTerms.none(title::contains) &&
                 (typedEpisode || showEpisodes.any { it.key == song.key })
         }
 
