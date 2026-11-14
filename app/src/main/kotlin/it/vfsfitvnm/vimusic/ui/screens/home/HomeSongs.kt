@@ -4,6 +4,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -219,11 +223,27 @@ private fun HomeSongCategoryCard(
             .background(palette.background1, RoundedCornerShape(18.dp))
             .padding(12.dp)
     ) {
+        val categoryArtwork = songs.orEmpty().takeIf { it.isNotEmpty() }?.let { available ->
+            // Daily category-matched artwork; deliberately not tied to the first visible song.
+            val artworkIndex = Math.floorMod(dailySeed + category.name.hashCode(), available.size)
+            available[artworkIndex].thumbnail?.size(256)
+        }
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            BasicText(text = category.name.uppercase(), style = typography.s.semiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                AsyncImage(
+                    model = categoryArtwork,
+                    contentDescription = category.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp))
+                )
+                Column {
+                    BasicText(text = category.name.uppercase(), style = typography.s.semiBold)
+                    BasicText(text = "Updated daily", style = typography.xs.secondary)
+                }
+            }
             BasicText(
                 text = "View All",
                 style = typography.xs.secondary,
