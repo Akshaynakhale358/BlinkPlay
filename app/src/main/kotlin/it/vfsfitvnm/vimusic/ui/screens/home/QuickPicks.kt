@@ -212,19 +212,21 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
 
         val unitPattern = Regex(
-            """(\\d+)\\s*(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)""",
+            """(\d+)\s*(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)""",
             RegexOption.IGNORE_CASE
         )
         val matches = unitPattern.findAll(text).toList()
         if (matches.isEmpty()) return null
-        return matches.sumOf { match ->
+        var totalSeconds = 0L
+        for (match in matches) {
             val amount = match.groupValues[1].toLongOrNull() ?: return null
-            when (match.groupValues[2].lowercase().first()) {
+            totalSeconds += when (match.groupValues[2].lowercase().first()) {
                 'h' -> amount * 3600L
                 'm' -> amount * 60L
                 else -> amount
             }
         }
+        return totalSeconds
     }
 
     val excludedTerms = listOf(
