@@ -179,6 +179,8 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
     }.awaitAll().flatten()
 
+    // Path 2: dedicated Episodes filter. Do not rely on one exact musicVideoType
+    // string: YouTube changes this metadata between renderer versions.
     val searchedEpisodes = queries.map { query ->
         async(Dispatchers.IO) {
             runCatching {
@@ -190,7 +192,54 @@ private suspend fun fetchQuickPicksPodcastSongs(
                     ),
                     fromMusicShelfRendererContent = { content ->
                         Innertube.SongItem.from(content)?.takeIf { song ->
-                            song.info?.endpoint?.type == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                            song.durationText.toDurationSeconds() >= 8 * 60
+                        }
+                    }
+                )?.getOrNull()?.items.orEmpty()
+            }.getOrDefault(emptyList())
+        }
+    }.awaitAll().flatten()
+
+    // Path 3 safety net: the dedicated Podcast/Episodes tabs can be empty for
+    // some Indian-language queries. Search YouTube Music's Video tab with
+    // podcast-specific queries, then keep only long-form podcast-like results.
+    val fallbackVideoEpisodes = queries.map { query ->
+        async(Dispatchers.IO) {
+            runCatching {
+                Innertube.searchPage(
+                    body = SearchBody(
+                        context = context,
+                        query = "$query full episode",
+                        params = Innertube.SearchFilter.Video.value
+                    ),
+                    fromMusicShelfRendererContent = { content ->
+                        Innertube.VideoItem.from(content)?.let { video ->
+                            val title = video.info?.name.orEmpty().lowercase()
+                            val musicType = video.info?.endpoint
+                                ?.watchEndpointMusicSupportedConfigs
+                                ?.watchEndpointMusicConfig
+                                ?.musicVideoType.orEmpty()
+                            val excluded = listOf(
+                                "shorts", "#shorts", "status video", "whatsapp status",
+                                "song", "official music video", "lyric video", "karaoke",
+                                "trailer", "teaser", "promo", "reaction", "review"
+                            ).any(title::contains)
+                            val podcastClue = listOf(
+                                "podcast", "episode", "full interview", " बातचीत ",
+                                " मुलाखत ", "चर्चा", "with "
+                            ).any(title::contains)
+                            val longEnough = video.durationText.toDurationSeconds() >= 8 * 60
+                            val isMusicVideo = musicType == "MUSIC_VIDEO_TYPE_OMV"
+                            if (excluded || !longEnough || isMusicVideo) null
+                            else if (podcastClue || query.contains("podcast", ignoreCase = true)) {
+                                Innertube.SongItem(
+                                    info = video.info,
+                                    authors = video.authors,
+                                    album = null,
+                                    durationText = video.durationText,
+                                    thumbnail = video.thumbnail
+                                )
+                            } else null
                         }
                     }
                 )?.getOrNull()?.items.orEmpty()
