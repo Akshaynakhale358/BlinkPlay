@@ -245,18 +245,18 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
                     BasicText(
                         text = category.name,
                         style = typography.m.semiBold.copy(
-                            fontSize = typography.xxl.fontSize * 0.78f,
+                            fontSize = typography.xxl.fontSize * 0.936f,
                             textAlign = TextAlign.End
                         ),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp)
                     )
                     BasicText(
                         text = "All Songs",
                         style = typography.s.semiBold.copy(
-                            fontSize = typography.xxl.fontSize * 0.468f,
+                            fontSize = typography.xxl.fontSize * 0.5616f,
                             textAlign = TextAlign.End
                         ),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp)
                     )
                 }
             },
