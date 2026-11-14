@@ -124,6 +124,9 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
 
         host {
             val quickPicksHomeResetKey = remember { mutableStateOf(0) }
+            val songsHomeResetKey = remember { mutableStateOf(0) }
+            val albumsHomeResetKey = remember { mutableStateOf(0) }
+            val artistsHomeResetKey = remember { mutableStateOf(0) }
             val (tabIndex, saveTabChanged) = rememberPreference(
                 homeScreenTabIndexKey,
                 defaultValue = 0
@@ -135,7 +138,12 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                 tabIndex = tabIndex,
                 onTabChanged = { newIndex ->
                     if (newIndex == tabIndex) {
-                        if (newIndex == 0) quickPicksHomeResetKey.value += 1
+                        when (newIndex) {
+                            0 -> quickPicksHomeResetKey.value += 1
+                            1 -> songsHomeResetKey.value += 1
+                            2 -> albumsHomeResetKey.value += 1
+                            3 -> artistsHomeResetKey.value += 1
+                        }
                     } else {
                         saveTabChanged(newIndex)
                     }
@@ -177,16 +185,19 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                         )
 
                         1 -> HomeSongs(
+                            homeResetKey = songsHomeResetKey.value,
                             onSearchClick = { searchRoute("") },
                             onPlaylistClick = { playlistRoute(it) }
                         )
 
                         2 -> HomeAlbums(
+                            homeResetKey = albumsHomeResetKey.value,
                             onAlbumClick = { albumRoute(it) },
                             onSearchClick = { searchRoute("") }
                         )
 
                         3 -> HomeArtistList(
+                            homeResetKey = artistsHomeResetKey.value,
                             onArtistClick = { artistRoute(it) },
                             onSearchClick = { searchRoute("") }
                         )
