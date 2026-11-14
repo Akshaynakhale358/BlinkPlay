@@ -209,6 +209,10 @@ fun QuickPicks(
     var hasMorePodcastResults by remember { mutableStateOf(true) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
+    var isLoadingMoreDiscovery by remember { mutableStateOf(false) }
+    var discoveryBatchIndex by remember { mutableStateOf(0) }
+    var emptyDiscoveryBatches by remember { mutableStateOf(0) }
+    var hasMoreDiscoveryResults by remember { mutableStateOf(true) }
     var selectedPodcastPage by remember { mutableStateOf(false) }
 
     var discoveryDailyToken by remember { mutableStateOf(0) }
@@ -331,6 +335,61 @@ fun QuickPicks(
             }
         }
     }
+    // Category detail pages also need continuous pagination, not a fixed first batch.
+    // Keep this collector stable while the page is open so scroll events never cancel fetches.
+    LaunchedEffect(selectedDiscoveryCategory) {
+        val category = selectedDiscoveryCategory ?: return@LaunchedEffect
+        discoveryBatchIndex = 0
+        emptyDiscoveryBatches = 0
+        hasMoreDiscoveryResults = true
+        isLoadingMoreDiscovery = false
+
+        snapshotFlow {
+            scrollState.value >= (scrollState.maxValue - 500).coerceAtLeast(0)
+        }.distinctUntilChanged().collect { nearBottom ->
+            if (nearBottom) {
+                while (
+                    selectedDiscoveryCategory?.key == category.key &&
+                    hasMoreDiscoveryResults &&
+                    !isLoadingMoreDiscovery &&
+                    scrollState.value >= (scrollState.maxValue - 500).coerceAtLeast(0)
+                ) {
+                    isLoadingMoreDiscovery = true
+                    try {
+                        val currentSongs = discoverySongs[category.key]
+                            ?: calmCategorySongs[category.key].orEmpty()
+                        val nextBatch = discoveryBatchIndex + 1
+                        val moreSongs = withContext(Dispatchers.IO) {
+                            runCatching {
+                                fetchDiscoveryCategoryMore(category, currentSongs, nextBatch)
+                            }.getOrDefault(emptyList())
+                        }
+                        val existingKeys = currentSongs.map(Innertube.SongItem::key).toHashSet()
+                        val uniqueMore = moreSongs.filter { it.key !in existingKeys }
+                        if (uniqueMore.isNotEmpty()) {
+                            if (category.key.startsWith("calm_")) {
+                                calmCategorySongs = calmCategorySongs +
+                                    (category.key to (currentSongs + uniqueMore))
+                            } else {
+                                discoverySongs = discoverySongs +
+                                    (category.key to (currentSongs + uniqueMore))
+                            }
+                            emptyDiscoveryBatches = 0
+                        } else {
+                            emptyDiscoveryBatches += 1
+                            // This is an exhaustion guard, not a song-count cap.
+                            // Different seed groups and rotated category searches are tried first.
+                            if (emptyDiscoveryBatches >= 8) hasMoreDiscoveryResults = false
+                        }
+                        discoveryBatchIndex = nextBatch
+                    } finally {
+                        isLoadingMoreDiscovery = false
+                    }
+                }
+            }
+        }
+    }
+
     var savedHomeScrollOffset by remember { mutableStateOf(0) }
     var restoreHomeScroll by remember { mutableStateOf(false) }
 
@@ -743,6 +802,9 @@ fun QuickPicks(
                         }
                     }
                 )
+                if (isLoadingMoreDiscovery) {
+                    ShimmerHost { repeat(2) { SongItemPlaceholder(thumbnailSizeDp = songThumbnailSizeDp) } }
+                }
             }
         }
     }
@@ -1255,6 +1317,38 @@ private fun filterDiscoverySongs(
         }
         languageMatches && categoryMatches
     }
+}
+
+private suspend fun fetchDiscoveryCategoryMore(
+    category: DiscoverySubcategory,
+    currentSongs: List<Innertube.SongItem>,
+    batchIndex: Int
+): List<Innertube.SongItem> = coroutineScope {
+    val queries = discoverySearchQueries(category)
+    if (queries.isEmpty()) return@coroutineScope emptyList()
+
+    // Rotate the category's original Song Search queries on each batch. Then expand
+    // from a fresh group of songs using the same Related Songs root as the first load.
+    val query = queries[Math.floorMod(batchIndex - 1, queries.size)]
+    val searchSeeds = fetchSongsByCategoryWithFallback(query)
+    val seedPool = (currentSongs + searchSeeds).distinctBy(Innertube.SongItem::key)
+    val seedOffset = (batchIndex - 1) * 5
+    val freshSeeds = seedPool.drop(seedOffset).take(5)
+
+    val related = freshSeeds.map { seed ->
+        async {
+            runCatching {
+                Innertube.relatedPage(
+                    NextBody(context = IndiaExploreContext, videoId = seed.key)
+                )?.getOrNull()?.songs.orEmpty()
+            }.getOrDefault(emptyList())
+        }
+    }.awaitAll().flatten()
+
+    val candidates = (searchSeeds + related).distinctBy(Innertube.SongItem::key)
+    val relevant = filterDiscoverySongs(category, candidates)
+    val prioritized = prioritizeHindiSongs(relevant, category.key)
+    personalizeAndDiversify(prioritized)
 }
 
 private suspend fun fetchSearchAndRelatedBundle(queries: List<String>): List<Innertube.SongItem> = coroutineScope {
