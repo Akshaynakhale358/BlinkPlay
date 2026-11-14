@@ -1448,18 +1448,19 @@ private suspend fun fetchIndiaDirectSongShelvesProgressive(
 private suspend fun fetchQuickPicksPodcastSongs(
     batchIndex: Int = 0
 ): List<Innertube.SongItem> = coroutineScope {
-    // Both dedicated roots search only the exact keyword requested.
+    // Search both existing Podcast roots with only the exact keyword.
+    // Use the returned playable episode rows directly; no show/playlist expansion.
     val context = Context.DefaultWeb.copy(
         client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
     )
-    val showRootsJob = async(Dispatchers.IO) {
+    val firstRoot = async(Dispatchers.IO) {
         runCatching {
             Innertube.searchPodcastPage(
                 SearchBody(context = context, query = "podcast", params = "")
             )?.getOrNull().orEmpty()
         }.getOrDefault(emptyList())
     }
-    val directEpisodesJob = async(Dispatchers.IO) {
+    val secondRoot = async(Dispatchers.IO) {
         runCatching {
             Innertube.searchPodcastEpisodesPage(
                 SearchBody(context = context, query = "podcast", params = "")
@@ -1467,39 +1468,7 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }.getOrDefault(emptyList())
     }
 
-    val shows = showRootsJob.await().distinctBy(Innertube.PlaylistItem::key)
-    val directEpisodes = directEpisodesJob.await()
-
-    // Expand Podcast show results into their playable episode feeds.
-    val episodeFeeds = shows.map { show ->
-        async(Dispatchers.IO) {
-            runCatching {
-                val episodes = mutableListOf<Innertube.SongItem>()
-                var page = Innertube.playlistPage(
-                    BrowseBody(context = context, browseId = show.key)
-                )?.getOrNull()?.songsPage
-                val seenContinuations = mutableSetOf<String>()
-                var pagesRead = 0
-                while (page != null && pagesRead < 2) {
-                    pagesRead += 1
-                    episodes += page.items.orEmpty()
-                    val token = page.continuation?.takeIf { it.isNotBlank() } ?: break
-                    if (!seenContinuations.add(token)) break
-                    page = Innertube.playlistPage(
-                        ContinuationBody(context = context, continuation = token)
-                    )?.getOrNull()?.let { nextPage ->
-                        Innertube.ItemsPage(
-                            items = nextPage.items,
-                            continuation = nextPage.continuation
-                        )
-                    }
-                }
-                episodes
-            }.getOrDefault(emptyList())
-        }
-    }.awaitAll().flatten()
-
-    (directEpisodes + episodeFeeds)
+    (firstRoot.await() + secondRoot.await())
         .distinctBy(Innertube.SongItem::key)
         .filter { it.durationText.toDurationSeconds() > 15 * 60 }
 }
