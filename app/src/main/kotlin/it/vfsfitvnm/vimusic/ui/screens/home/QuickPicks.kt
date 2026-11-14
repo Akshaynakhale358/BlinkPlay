@@ -697,11 +697,11 @@ fun QuickPicks(
             } else if (selectedQuickPicksShelf != null) {
                 val shelfKey = selectedQuickPicksShelf!!
                 val shelfTitle = when (shelfKey) {
-                    "for_you" -> "SONGS FOR YOU"
-                    "trending" -> "TRENDING SONGS"
-                    "top" -> "TOP SONGS"
-                    "new" -> "NEW RELEASES"
-                    else -> "LONG LISTEN"
+                    "for_you" -> "Songs for You"
+                    "trending" -> "Trending Songs"
+                    "top" -> "Top Songs"
+                    "new" -> "New Releases"
+                    else -> "Long Listen"
                 }
                 val shelfSongs = when (shelfKey) {
                     "for_you" -> songsForYou
@@ -717,18 +717,14 @@ fun QuickPicks(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                         .clickable { selectedQuickPicksShelf = null; restoreHomeScroll = true }
                 )
-                if (shelfKey == "for_you") {
-                    Header(title = "Quick Picks")
-                    BasicText(
-                        text = "Songs for You",
-                        style = typography.m.semiBold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                } else {
-                    Header(title = shelfTitle)
-                }
+                Header(title = "Quick Picks")
+                BasicText(
+                    text = shelfTitle,
+                    style = typography.m.semiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
                 QuickPicksSongShelf(
-                    title = if (shelfKey == "for_you") "All Songs" else shelfTitle + " · ALL SONGS",
+                    title = "All Songs",
                     songs = shelfSongs,
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
@@ -758,9 +754,14 @@ fun QuickPicks(
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         .clickable { restoreHomeScroll = true; selectedDiscoveryCategory = null }
                 )
-                Header(title = category.parentTitle.uppercase() + " · " + category.title.uppercase())
+                Header(title = "Quick Picks")
+                BasicText(
+                    text = category.title.replaceFirstChar { it.uppercase() },
+                    style = typography.m.semiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
                 QuickPicksSongShelf(
-                    title = category.title.uppercase() + " SONGS",
+                    title = "All Songs",
                     songs = discoverySongs[category.key] ?: calmCategorySongs[category.key].orEmpty(),
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
