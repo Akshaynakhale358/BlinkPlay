@@ -83,7 +83,7 @@ private suspend fun fetchPodcastPage(
             body = SearchBody(
                 context = PodcastContext,
                 query = query,
-                params = Innertube.SearchFilter.Video.value
+                params = Innertube.SearchFilter.Episode.value
             ),
             fromMusicShelfRendererContent = { content ->
                 Innertube.VideoItem.from(content)?.toPodcastSong()
