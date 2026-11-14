@@ -108,37 +108,42 @@ import androidx.compose.runtime.rememberCoroutineScope
 private suspend fun fetchQuickPicksPodcastSongs(
     batchIndex: Int
 ): List<Innertube.SongItem> = coroutineScope {
-    // Mirror YouTube Music's actual Podcasts and Episodes search filters.
-    // Discover podcast shows (MPSP browse IDs), then browse their episode feeds.
-    // In parallel, query the dedicated Episodes result type; never treat generic videos as podcasts.
-    val podcastQueries = listOf(
+    // Podcast discovery stays inside the app's two existing roots:
+    // Root A discovers general/regional podcast shows.
+    // Root B discovers talk, pravachan, interview and long-form shows.
+    // Both use the same Podcast filter; no generic Video/Episode search.
+    val generalPodcastQueries = listOf(
         "Hindi podcasts", "Marathi podcasts", "Indian podcasts", "English podcasts",
         "Hindi interview podcast", "Marathi मुलाखत podcast",
         "Indian comedy podcast", "Marathi comedy podcast",
         "Indian business podcast", "English business podcast",
         "Hindi news podcast", "Marathi news podcast",
         "Indian creator podcast", "Indian sports podcast",
-        "Hindi sports podcast", "English sports podcast",
-        "Indian technology podcast", "English technology podcast",
+        "Hindi sports podcast", "English sports podcast"
+    )
+    val talkPodcastQueries = listOf(
+        "Osho Hindi pravachan", "Osho Marathi pravachan", "Osho Hindi discourse",
+        "Osho talks meditation", "Osho full lecture Hindi", "Osho English discourse",
         "Hindi storytelling podcast", "Marathi गप्पा podcast",
         "Indian history podcast", "Indian education podcast",
         "Indian finance podcast", "Hindi motivation podcast",
-        "Indian cinema podcast", "Osho Hindi pravachan",
-        "Osho Marathi pravachan", "Osho Hindi discourse",
-        "Osho talks meditation", "Osho full lecture Hindi",
-        "Indian cricket podcast", "Hindi celebrity podcast",
-        "Marathi podcast interview", "Osho English discourse"
+        "Indian cinema podcast", "Indian cricket podcast",
+        "Hindi celebrity podcast", "Marathi podcast interview",
+        "Indian technology podcast", "English technology podcast"
     )
     val context = Context.DefaultWeb.copy(
         client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
     )
     val batchSize = 4
-    val startIndex = Math.floorMod(batchIndex * batchSize, podcastQueries.size)
-    val queries = (0 until batchSize).map { podcastQueries[(startIndex + it) % podcastQueries.size] }
+    val startA = Math.floorMod(batchIndex * batchSize, generalPodcastQueries.size)
+    val startB = Math.floorMod(batchIndex * batchSize, talkPodcastQueries.size)
+    val rootAQueries = (0 until batchSize).map {
+        generalPodcastQueries[(startA + it) % generalPodcastQueries.size]
+    }
+    val rootBQueries = (0 until batchSize).map {
+        talkPodcastQueries[(startB + it) % talkPodcastQueries.size]
+    }
 
-    // Two independent discovery roots, both using YouTube Music's Podcast
-    // filter. Do not use generic YouTube Video/Episode search here: those
-    // result types were returning empty or irrelevant content in this app.
     suspend fun searchPodcastRoot(rootQueries: List<String>) = rootQueries.map { query ->
         async(Dispatchers.IO) {
             runCatching {
@@ -153,18 +158,16 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
     }.awaitAll().flatten()
 
-    val firstRootQueries = queries.take((queries.size + 1) / 2)
-    val secondRootQueries = queries.drop(firstRootQueries.size)
+    // Run both original roots together and merge every Podcast show they return.
     val podcastRoots = listOf(
-        async { searchPodcastRoot(firstRootQueries) },
-        async { searchPodcastRoot(secondRootQueries.ifEmpty { firstRootQueries }) }
+        async { searchPodcastRoot(rootAQueries) },
+        async { searchPodcastRoot(rootBQueries) }
     )
     val podcastShows = podcastRoots.awaitAll().flatten()
         .distinctBy(Innertube.PlaylistItem::key)
 
-    // Fetch episodes from every discovered podcast show. Continue through one
-    // additional page per show now; View All pagination discovers more shows
-    // and episodes in subsequent batches.
+    // Fetch the returned shows' episode feeds directly. Keep all feed items:
+    // a valid podcast episode may be short or may not expose duration metadata.
     val showEpisodes = podcastShows.map { show ->
         async(Dispatchers.IO) {
             runCatching {
@@ -191,58 +194,9 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
     }.awaitAll().flatten()
 
-    fun durationSeconds(value: String?): Long? {
-        val text = value.orEmpty().trim().lowercase()
-        if (text.isBlank()) return null
-
-        // YouTube Music may expose either clock-style durations (1:23:45)
-        // or human-readable values (1 hr 20 min) depending on the renderer.
-        val clock = text.substringBefore(" ").split(":")
-        if (clock.size in 2..3 && clock.all { it.toLongOrNull() != null }) {
-            return clock.map(String::toLong).reversed().mapIndexed { index, part ->
-                part * when (index) { 0 -> 1L; 1 -> 60L; else -> 3600L }
-            }.sum()
-        }
-
-        val unitPattern = Regex(
-            """(\d+)\s*(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)""",
-            RegexOption.IGNORE_CASE
-        )
-        val matches = unitPattern.findAll(text).toList()
-        if (matches.isEmpty()) return null
-        var totalSeconds = 0L
-        for (match in matches) {
-            val amount = match.groupValues[1].toLongOrNull() ?: return null
-            totalSeconds += when (match.groupValues[2].lowercase().first()) {
-                'h' -> amount * 3600L
-                'm' -> amount * 60L
-                else -> amount
-            }
-        }
-        return totalSeconds
-    }
-
-    val excludedTerms = listOf(
-        "official audio", "official video", "music video", "lyrics", "lyric video",
-        "full song", "audio song", "remix", "slowed", "lofi", "jukebox", "karaoke",
-        "cover song", "video song", "song status", "status video", "teaser",
-        "trailer", "promo", "shorts", "#shorts", "short clip", "highlights",
-        "best moments", "snippet"
-    )
-
-    // Trust content returned from the two Podcast-filter roots and their
-    // podcast-show episode feeds. Osho discourses and regional-language talks
-    // need not contain the literal word "podcast" in title/channel.
-    fun isCleanLongFormEpisode(song: Innertube.SongItem): Boolean {
-        val title = song.info?.name.orEmpty().lowercase()
-        val duration = durationSeconds(song.durationText) ?: 0L
-        return duration >= 5 * 60 && excludedTerms.none(title::contains)
-    }
-
-    val candidates = showEpisodes
-        .filter(::isCleanLongFormEpisode)
-        .distinctBy(Innertube.SongItem::key)
-
+    // Podcast show feeds are already classified by the Podcast root.
+    // Do not discard their episodes with song-oriented title/duration filters.
+    val candidates = showEpisodes.distinctBy(Innertube.SongItem::key)
     personalizeAndDiversify(candidates)
 }
 
