@@ -1464,6 +1464,8 @@ private fun filterDiscoverySongs(
     // This is ranking only: it does not impose a result-count limit.
     val affinityTerms = when (category.key) {
         "mix_hindi", "trend_hindi" -> listOf("hindi", "bollywood", "हिंदी", "हिन्दी")
+        "trend_india" -> listOf("india", "indian", "hindi", "bollywood", "marathi", "punjabi", "viral", "trending")
+        "trend_regional" -> listOf("tamil", "telugu", "kannada", "malayalam", "punjabi", "regional")
         "mix_marathi", "trend_marathi" -> listOf("marathi", "मराठी")
         "mix_punjabi" -> listOf("punjabi", "ਪੰਜਾਬੀ")
         "mix_regional", "trend_regional" -> listOf("tamil", "telugu", "kannada", "malayalam")
