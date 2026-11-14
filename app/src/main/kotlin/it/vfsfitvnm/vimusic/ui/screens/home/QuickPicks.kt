@@ -491,7 +491,11 @@ fun QuickPicks(
             BasicText(
                 text = "LONG LISTEN",
                 style = typography.s.semiBold,
-                modifier = sectionTextModifier
+                // Keep Long Listen close to Calm; remove only the extra top gap.
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 8.dp)
+                    .padding(endPaddingValues)
             )
             if (longListenSongs.isEmpty()) {
                 ShimmerHost {
