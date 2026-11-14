@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -283,7 +284,11 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
     ) {
       Column(modifier = Modifier.fillMaxSize().background(palette.background0)) {
         Header(title = "Songs")
-        LazyColumn(contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+        LazyColumn(
+            contentPadding = LocalPlayerAwareWindowInsets.current
+                .only(WindowInsetsSides.Bottom)
+                .asPaddingValues()
+        ) {
             items(homeSongCategories, key = { it.name }) { category ->
                 HomeSongCategoryCard(
                     category = category,
