@@ -1244,7 +1244,7 @@ private fun QuickPicksPodcastShelf(
                     .fillMaxWidth()
                     .height((64.dp + Dimensions.itemsVerticalPadding * 2) * 5)
             ) {
-                items(items = songs.distinctBy(Innertube.SongItem::key).take(15), key = Innertube.SongItem::key) { song ->
+                items(items = songs.distinctBy(Innertube.SongItem::key).take(3), key = Innertube.SongItem::key) { song ->
                     SongItem(
                         song = song,
                         thumbnailSizePx = 64.dp.px,
