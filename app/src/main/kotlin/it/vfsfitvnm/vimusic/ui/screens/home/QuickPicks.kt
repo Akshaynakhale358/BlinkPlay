@@ -663,16 +663,16 @@ fun QuickPicks(
             QuickPicksSectionHeader(
                 title = "PODCAST",
                 modifier = sectionTextModifier,
-                onPlay = { val items = longListenSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                onPlay = { val items = podcastSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "podcast" }
             )
-            if (longListenSongs.isEmpty() && isLoadingLongListen) {
+            if (podcastSongs.isEmpty() && isLoadingPodcasts) {
                 ShimmerHost {
                     repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
                 }
-            } else if (longListenSongs.isEmpty()) {
+            } else if (podcastSongs.isEmpty()) {
                 BasicText(
-                    text = "Finding long-form music. Pull down to retry.",
+                    text = "Finding podcast episodes. Pull down to retry.",
                     style = typography.xs.secondary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 )
@@ -684,7 +684,7 @@ fun QuickPicks(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     lazyRowItems(
-                        items = longListenSongs.take(15).chunked(5),
+                        items = podcastSongs.take(15).chunked(5),
                         key = { column -> column.firstOrNull()?.key.orEmpty() }
                     ) { songColumn ->
                         Column(
