@@ -385,7 +385,9 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
                         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED && mediaItem != null) {
                                 if (mediaItem.mediaMetadata.extras?.getBoolean("isFromPersistentQueue") != true) {
+                                    // A song explicitly selected by the user should open the full player.
                                     playerBottomSheetState.expand(tween(500))
+                                    return
                                 } else {
                                     if (preferences.getBoolean(miniPlayerAlwaysVisibleKey, true) || player.shouldBePlaying) {
                                         playerBottomSheetState.collapse(tween(700))
