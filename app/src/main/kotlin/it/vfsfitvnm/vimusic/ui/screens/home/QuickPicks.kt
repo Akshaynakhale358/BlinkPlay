@@ -871,7 +871,7 @@ private fun QuickPicksSectionHeader(
                     modifier = Modifier.size(15.dp)
                 )
             }
-            BasicText(text = "VIEW ALL", style = typography.xs.semiBold,
+            BasicText(text = "VIEW ALL", style = typography.xs.semiBold.copy(fontSize = typography.xs.fontSize * 1.2f),
                 modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
                     .clickable(onClick = onViewAll).padding(horizontal = 9.dp, vertical = 7.dp))
         }
@@ -934,7 +934,7 @@ private fun QuickPicksSongShelf(
                     }
                 }
                 onViewAll?.let { action ->
-                    BasicText(text = "VIEW ALL", style = typography.xs.semiBold,
+                    BasicText(text = "VIEW ALL", style = typography.xs.semiBold.copy(fontSize = typography.xs.fontSize * 1.2f),
                         modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
                             .clickable(onClick = action).padding(horizontal = 9.dp, vertical = 7.dp))
                 }
@@ -1090,7 +1090,7 @@ private fun QuickPicksDiscoveryShelf(
     Column(modifier = Modifier.width(276.dp)) {
         BasicText(
             text = category.title.uppercase(),
-            style = typography.s.semiBold,
+            style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 1.2f),
             modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
         )
         Column(
@@ -1169,7 +1169,7 @@ private fun QuickPicksDiscoveryShelf(
 
         BasicText(
             text = "VIEW ALL  ›",
-            style = typography.xs.semiBold,
+            style = typography.xs.semiBold.copy(fontSize = typography.xs.fontSize * 1.2f),
             modifier = Modifier
                 .align(Alignment.End)
                 .padding(top = 8.dp, end = 4.dp, bottom = 2.dp)
