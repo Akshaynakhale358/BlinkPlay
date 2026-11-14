@@ -69,6 +69,12 @@ suspend fun personalizeSongLists(
     return shelves.map { personalizeSongs(it, scores) }
 }
 
+/** Ranks a standalone online song page using listening history and favourites. */
+suspend fun personalizeSongItems(
+    songs: List<Innertube.SongItem>,
+): List<Innertube.SongItem> = personalizeSongs(songs, artistPreferenceScores())
+
+
 /** Applies listening-history personalization to every song-only shelf in a browse page. */
 suspend fun personalizeSongSections(
     sections: List<MusicBrowseSection>,
