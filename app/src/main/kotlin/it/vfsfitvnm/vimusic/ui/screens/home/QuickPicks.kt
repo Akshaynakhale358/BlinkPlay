@@ -1414,7 +1414,7 @@ private fun filterDiscoverySongs(
     fun containsScript(value: String, first: Int, last: Int): Boolean =
         value.any { it.code in first..last }
 
-    return candidates.distinctBy(Innertube.SongItem::key).filter { song ->
+    val filtered = candidates.distinctBy(Innertube.SongItem::key).filter { song ->
         val title = song.info?.name.orEmpty().lowercase()
         val metadata = (title + " " +
             song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
@@ -1458,6 +1458,34 @@ private fun filterDiscoverySongs(
             else -> true
         }
         languageMatches && categoryMatches
+    }
+
+    // Keep every valid fetched song, but put stronger category matches first.
+    // This is ranking only: it does not impose a result-count limit.
+    val affinityTerms = when (category.key) {
+        "mix_hindi", "trend_hindi" -> listOf("hindi", "bollywood", "हिंदी", "हिन्दी")
+        "mix_marathi", "trend_marathi" -> listOf("marathi", "मराठी")
+        "mix_punjabi" -> listOf("punjabi", "ਪੰਜਾਬੀ")
+        "mix_regional", "trend_regional" -> listOf("tamil", "telugu", "kannada", "malayalam")
+        "mix_romantic", "together_romance" -> listOf("romantic", "love", "ishq", "pyaar", "प्रेम", "प्यार", "लव")
+        "mix_chill", "together_chill" -> listOf("chill", "acoustic", "soft", "relax", "lofi", "lo-fi", "calm")
+        "trend_reels" -> listOf("reels", "viral", "instagram", "shorts", "trending")
+        "trend_pop" -> listOf("pop", "indie", "viral", "trending")
+        "trend_new" -> listOf("2026", "latest", "new", "new release")
+        "together_party", "together_dance" -> listOf("party", "dance", "club", "dj", "bhangra", "remix")
+        "together_duet" -> listOf("duet", "male female", "singer", "duo")
+        "together_classics" -> listOf("classic", "evergreen", "old", "retro", "90s", "80s")
+        "together_friends" -> listOf("friend", "friendship", "yaari", "dosti")
+        "calm_alpha" -> listOf("alpha", "8hz", "focus", "brain waves")
+        "calm_beta" -> listOf("beta", "focus", "concentration")
+        "calm_gamma" -> listOf("gamma", "focus", "ambient")
+        "calm_meditation" -> listOf("meditation", "mindfulness", "peaceful", "mantra")
+        else -> emptyList()
+    }
+    return filtered.sortedByDescending { song ->
+        val metadata = (song.info?.name.orEmpty() + " " +
+            song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
+        affinityTerms.count(metadata::contains)
     }
 }
 
