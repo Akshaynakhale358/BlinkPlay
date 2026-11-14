@@ -1158,7 +1158,7 @@ private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
     if (chartSongs.isEmpty()) return emptyList()
     val offset = ((indiaDay * 10L) % chartSongs.size).toInt()
     val dailyOrder = chartSongs.drop(offset) + chartSongs.take(offset)
-    return dailyOrder.take(10)
+    return dailyOrder
 }
 
 private suspend fun fetchLongListenSongs(): List<Innertube.SongItem> {
@@ -1177,7 +1177,7 @@ private suspend fun fetchLongListenSongs(): List<Innertube.SongItem> {
     val longTracks = nonDevotional
         .filter { it.durationText.toDurationSeconds() > 30 * 60 }
         .distinctBy(Innertube.SongItem::key)
-    return rotateDiscoverySongsDaily(personalizeAndDiversify(longTracks)).take(36)
+    return rotateDiscoverySongsDaily(personalizeAndDiversify(longTracks))
 }
 
 private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innertube.SongItem>> = coroutineScope {
@@ -1498,7 +1498,7 @@ private suspend fun fetchPersonalizedSongsForYou(): List<Innertube.SongItem> = c
     }.values.toList()
     val diversified = mutableListOf<Innertube.SongItem>()
     for (round in 0 until 3) artistBuckets.forEach { bucket -> bucket.getOrNull(round)?.let(diversified::add) }
-    diversified.distinctBy(Innertube.SongItem::key).take(50)
+    diversified.distinctBy(Innertube.SongItem::key)
 }
 private val IndiaExploreContext = Context.DefaultWeb.copy(
     client = Context.DefaultWeb.client.copy(hl = "en", gl = "IN")
