@@ -120,6 +120,41 @@ private fun String?.toHomeDurationSeconds(): Int {
     return values.fold(0) { total, part -> total * 60 + part }
 }
 
+private fun filterHomeSongCategory(
+    category: HomeSongCategory,
+    songs: List<Innertube.SongItem>
+): List<Innertube.SongItem> {
+    val commonBlocked = listOf(
+        "shorts", "#shorts", "status video", "whatsapp status", "teaser", "trailer",
+        "promo", "highlights", "karaoke", "reaction", "review"
+    )
+    val categoryBlocked = when (category.name) {
+        "Workout" -> listOf("sleep music", "lullaby", "meditation", "sad songs", "heartbreak")
+        "Feel Good" -> listOf("sad songs", "heartbreak", "sleep music", "lullaby")
+        "Romance" -> listOf("workout", "gym mix", "party mix", "devotional", "bhajan")
+        "Energetic" -> listOf("sleep music", "lullaby", "meditation", "sad songs")
+        "Relax" -> listOf("party mix", "workout mix", "hardstyle", "heavy metal")
+        "Commute" -> listOf("sleep music", "lullaby", "meditation")
+        "Sad" -> listOf("party mix", "dance mix", "workout", "celebration")
+        "Focus" -> listOf("party mix", "dance mix", "karaoke", "remix")
+        "Sleep" -> listOf("party mix", "dance mix", "workout", "energetic mix")
+        "Party" -> listOf("sleep music", "lullaby", "meditation", "sad songs", "heartbreak")
+        else -> emptyList()
+    }
+    return songs.distinctBy(Innertube.SongItem::key).filter { song ->
+        val metadata = (song.info?.name.orEmpty() + " " +
+            song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
+        val validDuration = song.durationText.toHomeDurationSeconds() > 0
+        val formatValid = if (category.podcast) {
+            commonBlocked.none(metadata::contains)
+        } else {
+            commonBlocked.none(metadata::contains) &&
+                listOf("podcast", "episode").none(metadata::contains)
+        }
+        validDuration && formatValid && categoryBlocked.none(metadata::contains)
+    }
+}
+
 private suspend fun fetchHomeSongCategory(
     category: HomeSongCategory,
     continuation: String?,
@@ -161,8 +196,7 @@ private suspend fun fetchHomeSongCategory(
     }
     return result?.map { page ->
         if (page != null) {
-            val uniqueSongs = page.items.orEmpty()
-                .distinctBy { it.key }
+            val uniqueSongs = filterHomeSongCategory(category, page.items.orEmpty())
                 .let { items ->
                     if (category.podcast) items.filter { it.durationText.toHomeDurationSeconds() > 15 * 60 }
                     else items
