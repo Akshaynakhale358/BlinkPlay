@@ -167,14 +167,18 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
         "full song", "audio song", "remix", " slowed", " lofi", "4k video",
         "official song", "video song", "jukebox"
     )
+    val podcastTerms = listOf(
+        "podcast", "pod cast", "episode", "ep.", "full interview", "interview",
+        "conversation", "talk show", "talkshow", "guest", "hosted by", "with ",
+        "मुलाखत", "गप्पा", "चर्चा", "संवाद", "भाग"
+    )
     val relevant = results.filter { song ->
         val title = song.info?.name.orEmpty().lowercase()
         val channel = song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }.lowercase()
         val metadata = "$title $channel"
         val duration = durationSeconds(song.durationText)
-        // Video-only search plus long duration prevents ordinary tracks; podcast
-        // wording may appear in either the episode title or its channel name.
-        duration >= 4 * 60 && musicTitleTerms.none(title::contains)
+        val hasPodcastSignal = podcastTerms.any(metadata::contains)
+        duration >= 8 * 60 && hasPodcastSignal && musicTitleTerms.none(title::contains)
     }
     personalizeAndDiversify(relevant)
 }
@@ -1223,26 +1227,19 @@ private fun QuickPicksPodcastShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    val artworkSong = songs.getOrNull(if (songs.isEmpty()) 0 else songs.size / 2)
     Column(
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 0.dp)
-            .clip(RoundedCornerShape(26.dp)).background(Color(0xFF29231B)).padding(12.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
     ) {
-        Box(
-            modifier = Modifier.fillMaxWidth().height(128.dp).clip(RoundedCornerShape(18.dp))
-                .background(Color(0xFF40372C)).clickable { artworkSong?.let(onSongClick) }
-        ) {
-            AsyncImage(model = artworkSong?.thumbnail?.size(320), contentDescription = "Podcast",
-                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            Column(
-                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.48f)).padding(14.dp),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Bottom
-            ) {
-                BasicText(text = "▶  PLAY BUNDLE", style = typography.xs.semiBold,
-                    modifier = Modifier.padding(top = 8.dp).clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.18f)).clickable(onClick = onPlayBundle)
-                        .padding(horizontal = 12.dp, vertical = 7.dp))
-            }
+        songs.take(3).forEach { song ->
+            SongItem(
+                song = song,
+                thumbnailSizePx = 64.dp.px,
+                thumbnailSizeDp = 64.dp,
+                modifier = Modifier.fillMaxWidth().combinedClickable(
+                    onClick = { onSongClick(song) },
+                    onLongClick = { onSongLongClick(song) }
+                )
+            )
         }
         if (songs.isEmpty() && isLoading) {
             ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
@@ -1250,14 +1247,8 @@ private fun QuickPicksPodcastShelf(
             BasicText(
                 text = "No podcast episodes found yet. Pull down to refresh.",
                 style = typography.xs.secondary,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 14.dp)
+                modifier = Modifier.padding(vertical = 14.dp)
             )
-        } else {
-            songs.take(15).forEach { song ->
-                SongItem(song = song, thumbnailSizePx = 64.dp.px, thumbnailSizeDp = 64.dp,
-                    modifier = Modifier.fillMaxWidth().combinedClickable(
-                        onClick = { onSongClick(song) }, onLongClick = { onSongLongClick(song) }))
-            }
         }
         BasicText(
             text = "VIEW ALL  ›",
