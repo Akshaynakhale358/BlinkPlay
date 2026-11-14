@@ -1299,7 +1299,7 @@ private fun QuickPicksPodcastShelf(
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    lazyRowItems(items = 3) {
+                    lazyRowItems(items = listOf(0, 1, 2)) {
                         Column(
                             modifier = Modifier.width(itemWidth),
                             verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
