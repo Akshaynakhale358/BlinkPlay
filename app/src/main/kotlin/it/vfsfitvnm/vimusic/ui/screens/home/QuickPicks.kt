@@ -102,6 +102,29 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 
+
+private fun Innertube.VideoItem.toQuickPicksPodcastSong() = Innertube.SongItem(
+    info = info, authors = authors, album = null, durationText = durationText, thumbnail = thumbnail
+)
+
+private suspend fun fetchQuickPicksPodcastSongs(refreshToken: Int): List<Innertube.SongItem> {
+    val refreshTerms = listOf(
+        "latest Hindi podcast episodes",
+        "new Marathi podcast episodes",
+        "popular Indian podcast full episodes",
+        "trending interview podcast episodes"
+    )
+    val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN"))
+    val query = "Hindi podcasts interviews conversations full episodes " +
+        refreshTerms[Math.floorMod(refreshToken, refreshTerms.size)]
+    return Innertube.searchPage(
+        body = SearchBody(context = context, query = query, params = Innertube.SearchFilter.Video.value),
+        fromMusicShelfRendererContent = { content ->
+            Innertube.VideoItem.from(content)?.toQuickPicksPodcastSong()
+        }
+    )?.getOrNull()?.items.orEmpty().distinctBy(Innertube.SongItem::key).take(20)
+}
+
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
@@ -125,6 +148,7 @@ fun QuickPicks(
     var newReleases by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var discoverySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
     var calmCategorySongs by remember { mutableStateOf<Map<String, List<Innertube.SongItem>>>(emptyMap()) }
+    var podcastSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
 
@@ -160,6 +184,11 @@ fun QuickPicks(
     // Calm category cards stay in a fixed order; only their song lists rotate daily.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
         calmCategorySongs = withContext(Dispatchers.IO) { fetchCalmMusicCategories() }
+    }
+
+    // Podcast uses its own video-only feed and refresh rotation.
+    LaunchedEffect(refreshToken, discoveryDailyToken) {
+        podcastSongs = withContext(Dispatchers.IO) { fetchQuickPicksPodcastSongs(refreshToken + discoveryDailyToken) }
     }
 
     // Long Listen refreshes on pull-to-refresh and automatically at Indian midnight.
@@ -435,6 +464,7 @@ fun QuickPicks(
                     QuickPicksDiscoveryShelf(
                         category = category,
                         songs = calmCategorySongs[category.key].orEmpty(),
+                        refreshToken = refreshToken + discoveryDailyToken,
                         onSongClick = { song ->
                             val mediaItem = song.asMediaItem
                             binder?.stopRadio()
@@ -458,6 +488,28 @@ fun QuickPicks(
                     )
                 }
             }
+
+            QuickPicksPodcastShelf(
+                songs = podcastSongs,
+                onSongClick = { song ->
+                    val mediaItem = song.asMediaItem
+                    binder?.stopRadio()
+                    binder?.player?.forcePlay(mediaItem)
+                    binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                },
+                onPlayBundle = {
+                    val mediaItems = podcastSongs.map(Innertube.SongItem::asMediaItem)
+                    if (mediaItems.isNotEmpty()) {
+                        binder?.stopRadio()
+                        binder?.player?.forcePlayFromBeginning(mediaItems)
+                    }
+                },
+                onSongLongClick = { song ->
+                    menuState.display {
+                        NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                    }
+                }
+            )
 
         when {
             serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
@@ -767,17 +819,61 @@ private fun discoveryBundles(): List<DiscoveryBundle> {
     )
 }
 
+
+@Composable
+private fun QuickPicksPodcastShelf(
+    songs: List<Innertube.SongItem>,
+    onSongClick: (Innertube.SongItem) -> Unit,
+    onPlayBundle: () -> Unit,
+    onSongLongClick: (Innertube.SongItem) -> Unit
+) {
+    val (_, typography) = LocalAppearance.current
+    val artworkSong = songs.getOrNull(if (songs.isEmpty()) 0 else songs.size / 2)
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(26.dp)).background(Color(0xFF29231B)).padding(12.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth().height(128.dp).clip(RoundedCornerShape(18.dp))
+                .background(Color(0xFF40372C)).clickable { artworkSong?.let(onSongClick) }
+        ) {
+            AsyncImage(model = artworkSong?.thumbnail?.size(320), contentDescription = "Podcast",
+                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            Column(
+                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.48f)).padding(14.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Bottom
+            ) {
+                BasicText(text = "PODCAST", style = typography.s.semiBold)
+                BasicText(text = "▶  PLAY BUNDLE", style = typography.xs.semiBold,
+                    modifier = Modifier.padding(top = 8.dp).clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.18f)).clickable(onClick = onPlayBundle)
+                        .padding(horizontal = 12.dp, vertical = 7.dp))
+            }
+        }
+        if (songs.isEmpty()) {
+            ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
+        } else {
+            songs.take(3).forEach { song ->
+                SongItem(song = song, thumbnailSizePx = 64.dp.px, thumbnailSizeDp = 64.dp,
+                    modifier = Modifier.fillMaxWidth().combinedClickable(
+                        onClick = { onSongClick(song) }, onLongClick = { onSongLongClick(song) }))
+            }
+        }
+    }
+}
+
 @Composable
 private fun QuickPicksDiscoveryShelf(
     category: DiscoverySubcategory,
     songs: List<Innertube.SongItem>,
+    refreshToken: Int,
     onSongClick: (Innertube.SongItem) -> Unit,
     onViewAll: () -> Unit,
     onPlayBundle: () -> Unit,
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    val firstSong = songs.firstOrNull()
+    val artworkSong = songs.getOrNull(if (songs.isEmpty()) 0 else Math.floorMod(category.title.hashCode() + refreshToken + songs.size / 2, songs.size))
 
     Column(
         modifier = Modifier
@@ -792,10 +888,10 @@ private fun QuickPicksDiscoveryShelf(
                 .height(128.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Color(0xFF40372C))
-                .clickable { firstSong?.let(onSongClick) }
+                .clickable { artworkSong?.let(onSongClick) }
         ) {
             AsyncImage(
-                model = firstSong?.thumbnail?.size(320),
+                model = artworkSong?.thumbnail?.size(320),
                 contentDescription = category.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
