@@ -5,6 +5,11 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.SearchResponse
+import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
@@ -100,22 +105,40 @@ suspend fun Innertube.searchPlaylistPage(body: SearchBody) = runCatchingNonCance
 }
 
 
+private val podcastSearchJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
+private fun JsonElement.podcastSearchDescendants(): Sequence<JsonElement> = sequence {
+    yield(this@podcastSearchDescendants)
+    when (val node = this@podcastSearchDescendants) {
+        is JsonObject -> node.values.forEach { yieldAll(it.podcastSearchDescendants()) }
+        is kotlinx.serialization.json.JsonArray -> node.forEach { yieldAll(it.podcastSearchDescendants()) }
+        else -> Unit
+    }
+}
+
 /**
  * Search the dedicated YouTube Music Podcasts result type.
  * Podcast shows use MPSP browse IDs; they are not ordinary featured playlists.
  */
 suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancellable {
-    val response = client.post(search) {
+    // Keep the dedicated Podcast filter, but inspect the complete response tree.
+    // YouTube Music has returned podcast rows outside the usual tabbed-search
+    // wrapper in some client experiments; parsing only tabs silently drops them.
+    val raw = client.post(search) {
         setBody(body)
         mask("*")
-    }.body<SearchResponse>()
+    }.body<String>()
+    val root = podcastSearchJson.parseToJsonElement(raw)
+    val response = runCatching {
+        podcastSearchJson.decodeFromJsonElement<SearchResponse>(root)
+    }.getOrNull()
 
-    val tabs = response.contents
+    val tabs = response?.contents
         ?.tabbedSearchResultsRenderer
         ?.tabs
         .orEmpty()
 
-    tabs.flatMap { tab ->
+    val tabResults = tabs.flatMap { tab ->
         tab.tabRenderer
             ?.content
             ?.sectionListRenderer
@@ -139,10 +162,7 @@ suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancel
                             if (browseId.isNullOrBlank()) return@mapNotNull null
 
                             Innertube.PlaylistItem(
-                                info = Innertube.Info(
-                                    name = titleRun?.text,
-                                    endpoint = endpoint
-                                ),
+                                info = Innertube.Info(name = titleRun?.text, endpoint = endpoint),
                                 channel = renderer.flexColumns
                                     .getOrNull(1)
                                     ?.musicResponsiveListItemFlexColumnRenderer
@@ -162,12 +182,49 @@ suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancel
                     section.gridRenderer
                         ?.items
                         ?.mapNotNull { it.musicTwoRowItemRenderer }
-                        ?.mapNotNull { renderer ->
-                            Innertube.PlaylistItem.from(renderer)
-                                ?.takeIf { it.key.isNotBlank() }
-                        }
+                        ?.mapNotNull { Innertube.PlaylistItem.from(it) }
                         ?.forEach { add(it) }
                 }
             }
-    }.distinctBy(Innertube.PlaylistItem::key)
+    }
+
+    val recursiveFallback = if (tabResults.isEmpty()) {
+        root.podcastSearchDescendants()
+            .mapNotNull { node ->
+                val rendererJson = (node as? JsonObject)
+                    ?.get("musicResponsiveListItemRenderer") ?: return@mapNotNull null
+                runCatching {
+                    podcastSearchJson.decodeFromJsonElement<MusicResponsiveListItemRenderer>(rendererJson)
+                }.getOrNull()?.let { renderer ->
+                    val titleRun = renderer.flexColumns
+                        .firstOrNull()
+                        ?.musicResponsiveListItemFlexColumnRenderer
+                        ?.text
+                        ?.runs
+                        ?.firstOrNull()
+                    val endpoint = renderer.navigationEndpoint?.browseEndpoint
+                        ?: titleRun?.navigationEndpoint?.browseEndpoint
+                    val browseId = endpoint?.browseId
+                    if (browseId.isNullOrBlank()) null else Innertube.PlaylistItem(
+                        info = Innertube.Info(name = titleRun?.text, endpoint = endpoint),
+                        channel = renderer.flexColumns
+                            .getOrNull(1)
+                            ?.musicResponsiveListItemFlexColumnRenderer
+                            ?.text
+                            ?.runs
+                            ?.firstOrNull()
+                            ?.let(Innertube::Info),
+                        songCount = null,
+                        thumbnail = renderer.thumbnail
+                            ?.musicThumbnailRenderer
+                            ?.thumbnail
+                            ?.thumbnails
+                            ?.firstOrNull()
+                    )
+                }
+            }
+            .toList()
+    } else emptyList()
+
+    (tabResults + recursiveFallback).distinctBy(Innertube.PlaylistItem::key)
 }
