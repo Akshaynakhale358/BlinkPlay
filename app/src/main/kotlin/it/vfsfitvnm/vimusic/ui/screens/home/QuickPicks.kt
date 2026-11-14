@@ -1827,9 +1827,11 @@ private suspend fun fetchPersonalizedSongsForYou(): List<Innertube.SongItem> = c
         }.awaitAll().flatten()
         val personalizedCandidates = (related + seedSearches).filter { it.key !in listenedIds }
             .distinctBy(Innertube.SongItem::key)
-        if (personalizedCandidates.isNotEmpty()) personalizedCandidates else {
-            fetchSearchAndRelatedBundle(listOf("popular Hindi songs India", "popular Marathi songs India"))
-                .filter { it.key !in listenedIds }
+        if (personalizedCandidates.size >= 15) personalizedCandidates else {
+            val broadFallback = fetchSearchAndRelatedBundle(
+                listOf("popular Hindi songs India", "popular Marathi songs India")
+            ).filter { it.key !in listenedIds }
+            (personalizedCandidates + broadFallback).distinctBy(Innertube.SongItem::key)
         }
     }
 
