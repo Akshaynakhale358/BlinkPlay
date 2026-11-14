@@ -1068,7 +1068,7 @@ private fun QuickPicksDiscoveryShelf(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    LaunchedEffect(category.key, refreshToken) { requestCategoryLoad(category, refreshToken + discoveryDailyToken) }
+    LaunchedEffect(category.key, refreshToken) { onLoadCategory() }
     val displaySongs = filterRegularSongDuration(songs)
     val artworkSong = displaySongs.getOrNull(if (displaySongs.isEmpty()) 0 else Math.floorMod(category.title.hashCode() + refreshToken + displaySongs.size / 2, displaySongs.size))
 
