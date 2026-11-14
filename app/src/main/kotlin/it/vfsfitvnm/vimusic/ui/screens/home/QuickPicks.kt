@@ -149,14 +149,9 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
                 )?.getOrNull()?.items.orEmpty()
             }.getOrDefault(emptyList())
 
-            val songItems = if (videoItems.size >= 4) emptyList() else runCatching {
-                Innertube.searchPage(
-                    body = SearchBody(context = context, query = searchQuery, params = Innertube.SearchFilter.Song.value),
-                    fromMusicShelfRendererContent = Innertube.SongItem::from
-                )?.getOrNull()?.items.orEmpty()
-            }.getOrDefault(emptyList())
-
-            (videoItems + songItems).distinctBy(Innertube.SongItem::key)
+            // Keep podcast results on the Video search root only. Song-filter fallback
+            // was allowing ordinary long music tracks to enter this episode shelf.
+            videoItems.distinctBy(Innertube.SongItem::key)
         }
     }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
 
@@ -935,7 +930,7 @@ private fun QuickPicksSongShelf(
             val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
             info.totalItemsCount > 0 && last >= info.totalItemsCount - 6
         }.distinctUntilChanged().collect { nearEnd ->
-            if (nearEnd) onLoadMore?.invoke()
+            if (nearEnd && songs.isNotEmpty()) onLoadMore?.invoke()
         }
     }
 
