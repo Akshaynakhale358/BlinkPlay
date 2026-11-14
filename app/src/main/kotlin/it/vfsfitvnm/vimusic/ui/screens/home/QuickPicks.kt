@@ -169,7 +169,7 @@ private suspend fun fetchQuickPicksPodcastSongs(batchIndex: Int): List<Innertube
     val musicTitleTerms = listOf(
         "official audio", "official video", "music video", "lyrics", "lyric video",
         "full song", "audio song", "remix", " slowed", " lofi", "4k video",
-        "official song", "video song", "jukebox", "song"
+        "official song", "video song", "jukebox"
     )
     val relevant = results.filter { song ->
         val title = song.info?.name.orEmpty().lowercase()
@@ -1460,8 +1460,12 @@ private fun filterDiscoverySongs(
             "calm_beta" -> listOf("beta", "focus", "concentration")
             "calm_gamma" -> listOf("gamma", "meditation", "focus")
             "calm_meditation" -> listOf("meditation", "mindfulness", "peaceful", "ध्यान")
-            "mix_marathi", "trend_marathi" -> listOf("marathi", "मराठी")
-            "mix_punjabi" -> listOf("punjabi", "ਪੰਜਾਬੀ")
+            "mix_marathi", "trend_marathi" -> listOf("marathi", "मराठी").filter { metadata.contains(it) }.ifEmpty {
+                if (hasDevanagari) listOf("__devanagari_script_match__") else emptyList()
+            }
+            "mix_punjabi" -> listOf("punjabi", "ਪੰਜਾਬੀ").filter { metadata.contains(it) }.ifEmpty {
+                if (hasGurmukhi) listOf("__gurmukhi_script_match__") else emptyList()
+            }
             "mix_regional", "trend_regional" -> listOf("tamil", "telugu", "kannada", "malayalam", "தமிழ்", "తెలుగు", "ಕನ್ನಡ", "മലയാളം")
             else -> emptyList()
         }
