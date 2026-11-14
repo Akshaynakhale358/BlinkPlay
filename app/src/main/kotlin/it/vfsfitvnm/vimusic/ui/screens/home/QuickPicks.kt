@@ -186,7 +186,7 @@ fun QuickPicks(
     var podcastSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
-    var showAllPodcastSongs by remember { mutableStateOf(false) }
+    var selectedPodcastPage by remember { mutableStateOf(false) }
 
     var discoveryDailyToken by remember { mutableStateOf(0) }
 
@@ -271,12 +271,17 @@ fun QuickPicks(
 
     // Keep the opened category at the top, then restore the exact Home scroll
     // position when Back returns from that category.
-    BackHandler(enabled = selectedDiscoveryCategory != null) {
-        restoreHomeScroll = true
-        selectedDiscoveryCategory = null
+    BackHandler(enabled = selectedDiscoveryCategory != null || selectedPodcastPage) {
+        if (selectedPodcastPage) {
+            selectedPodcastPage = false
+            restoreHomeScroll = true
+        } else {
+            restoreHomeScroll = true
+            selectedDiscoveryCategory = null
+        }
     }
-    LaunchedEffect(selectedDiscoveryCategory) {
-        if (selectedDiscoveryCategory != null) {
+    LaunchedEffect(selectedDiscoveryCategory, selectedPodcastPage) {
+        if (selectedDiscoveryCategory != null || selectedPodcastPage) {
             scrollState.scrollTo(0)
         } else if (restoreHomeScroll) {
             scrollState.scrollTo(savedHomeScrollOffset)
@@ -291,6 +296,11 @@ fun QuickPicks(
     val sectionTextModifier = Modifier
         .padding(horizontal = 16.dp)
         .padding(top = 24.dp, bottom = 8.dp)
+        .padding(endPaddingValues)
+
+    val sectionTextModifierAfterPodcast = Modifier
+        .padding(horizontal = 16.dp)
+        .padding(top = 0.dp, bottom = 8.dp)
         .padding(endPaddingValues)
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -324,7 +334,7 @@ fun QuickPicks(
                         .asPaddingValues()
                 )
         ) {
-            if (selectedDiscoveryCategory == null) {
+            if (selectedDiscoveryCategory == null && !selectedPodcastPage) {
             Header(
                 title = "QUICK PICKS",
                 modifier = Modifier
@@ -528,8 +538,10 @@ fun QuickPicks(
 
             QuickPicksPodcastShelf(
                 songs = podcastSongs,
-                showAll = showAllPodcastSongs,
-                onViewAll = { showAllPodcastSongs = !showAllPodcastSongs },
+                onViewAll = {
+                    savedHomeScrollOffset = scrollState.value
+                    selectedPodcastPage = true
+                },
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -553,7 +565,7 @@ fun QuickPicks(
         when {
             serverDiscovery?.sections?.isNotEmpty() == true -> MusicBrowseShelves(
                 sections = serverDiscovery!!.sections,
-                sectionTextModifier = sectionTextModifier.padding(top = 0.dp),
+                sectionTextModifier = sectionTextModifierAfterPodcast,
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
                     binder?.stopRadio()
@@ -635,6 +647,34 @@ fun QuickPicks(
                     }
                 }
             }
+            } else if (selectedPodcastPage) {
+                BasicText(
+                    text = "‹  BACK TO QUICK PICKS",
+                    style = typography.s.semiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        .clickable { selectedPodcastPage = false; restoreHomeScroll = true }
+                )
+                Header(title = "PODCASTS")
+                QuickPicksSongShelf(
+                    title = "ALL PODCAST EPISODES",
+                    songs = podcastSongs,
+                    thumbnailSizePx = songThumbnailSizePx,
+                    thumbnailSizeDp = songThumbnailSizeDp,
+                    itemWidth = itemInHorizontalGridWidth,
+                    endPaddingValues = endPaddingValues,
+                    verticalList = true,
+                    onSongClick = { song ->
+                        val mediaItem = song.asMediaItem
+                        binder?.stopRadio()
+                        binder?.player?.forcePlay(mediaItem)
+                        binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                    },
+                    onSongLongClick = { song ->
+                        menuState.display {
+                            NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                        }
+                    }
+                )
             } else {
                 val category = selectedDiscoveryCategory!!
                 BasicText(
@@ -862,7 +902,6 @@ private fun discoveryBundles(): List<DiscoveryBundle> {
 @Composable
 private fun QuickPicksPodcastShelf(
     songs: List<Innertube.SongItem>,
-    showAll: Boolean,
     onViewAll: () -> Unit,
     onSongClick: (Innertube.SongItem) -> Unit,
     onPlayBundle: () -> Unit,
@@ -894,14 +933,14 @@ private fun QuickPicksPodcastShelf(
         if (songs.isEmpty()) {
             ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
         } else {
-            (if (showAll) songs else songs.take(3)).forEach { song ->
+            songs.take(3).forEach { song ->
                 SongItem(song = song, thumbnailSizePx = 64.dp.px, thumbnailSizeDp = 64.dp,
                     modifier = Modifier.fillMaxWidth().combinedClickable(
                         onClick = { onSongClick(song) }, onLongClick = { onSongLongClick(song) }))
             }
             if (songs.size > 3) {
                 BasicText(
-                    text = if (showAll) "SHOW LESS" else "VIEW ALL",
+                    text = "VIEW ALL",
                     style = typography.xs.semiBold,
                     modifier = Modifier.fillMaxWidth().clickable(onClick = onViewAll)
                         .padding(top = 8.dp, bottom = 0.dp)
