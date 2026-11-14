@@ -55,6 +55,7 @@ import kotlinx.coroutines.flow.collect
 @ExperimentalAnimationApi
 @Composable
 fun HomeArtistList(
+    homeResetKey: Int = 0,
     onArtistClick: (String) -> Unit,
     onSearchClick: () -> Unit,
 ) {
@@ -74,6 +75,12 @@ fun HomeArtistList(
     var refreshToken by remember { mutableStateOf(0) }
     val queries = categories.first { it.first == selectedCategory }.second
     val gridState = rememberLazyGridState()
+    LaunchedEffect(homeResetKey) {
+        if (homeResetKey > 0) {
+            selectedCategory = "All"
+            gridState.scrollToItem(0)
+        }
+    }
     val scope = rememberCoroutineScope()
     val thumbnailSizeDp = (Dimensions.thumbnails.song * 1.35f).coerceAtLeast(64.dp)
     val thumbnailSizePx = thumbnailSizeDp.px
