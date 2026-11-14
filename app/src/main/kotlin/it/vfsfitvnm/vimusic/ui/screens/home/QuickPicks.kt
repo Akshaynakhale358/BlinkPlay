@@ -1506,12 +1506,16 @@ private suspend fun fetchQuickPickDiscoveryCategory(
 ): List<Innertube.SongItem> {
     val categorySongs = when {
         category.kind == "personal" -> {
-            var personal = filterRegularSongDuration(fetchPersonalizedSongsForYou(refreshCycle))
+            var personal = filterRegularSongDuration(
+                filterDiscoverySongs(category, fetchPersonalizedSongsForYou(refreshCycle))
+            )
             if (personal.size < 3) {
                 val fallback = fetchSearchAndRelatedBundle(
                     listOf("popular Indian hit songs", "popular Hindi Marathi songs", "popular Indian pop music")
                 )
-                personal = filterRegularSongDuration((personal + fallback).distinctBy(Innertube.SongItem::key))
+                personal = filterRegularSongDuration(
+                    filterDiscoverySongs(category, (personal + fallback).distinctBy(Innertube.SongItem::key))
+                )
             }
             personal
         }
