@@ -64,6 +64,7 @@ import it.vfsfitvnm.innertube.requests.indiaChartSongs
 import it.vfsfitvnm.innertube.requests.searchPage
 import it.vfsfitvnm.innertube.requests.playlistPage
 import it.vfsfitvnm.innertube.requests.searchPodcastPage
+import it.vfsfitvnm.innertube.requests.searchPodcastEpisodesPage
 import it.vfsfitvnm.innertube.requests.relatedPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.Database
@@ -93,6 +94,7 @@ import it.vfsfitvnm.vimusic.utils.isLandscape
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
 import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeSongLists
+import it.vfsfitvnm.vimusic.ui.screens.browse.personalizeSongItems
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -105,7 +107,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
 
-private suspend fun fetchQuickPicksPodcastSongs(
+suspend fun fetchQuickPicksPodcastSongs(
     batchIndex: Int
 ): List<Innertube.SongItem> = coroutineScope {
     // Keep the two existing podcast discovery roots, but search only the
@@ -129,26 +131,13 @@ private suspend fun fetchQuickPicksPodcastSongs(
     }
     val directEpisodesJob = async(Dispatchers.IO) {
         runCatching {
-            Innertube.searchPage(
-                body = SearchBody(
+            Innertube.searchPodcastEpisodesPage(
+                SearchBody(
                     context = context,
                     query = "podcast",
-                    // No restrictive Episode filter: YouTube Music often returns an empty tab for it.
-                    // The single "podcast" query itself ranks podcast episodes; parse its video rows.
                     params = ""
-                ),
-                fromMusicShelfRendererContent = { content ->
-                    Innertube.VideoItem.from(content)?.let { video ->
-                        Innertube.SongItem(
-                            info = video.info,
-                            authors = video.authors,
-                            album = null,
-                            durationText = video.durationText,
-                            thumbnail = video.thumbnail
-                        )
-                    }
-                }
-            )?.getOrNull()?.items.orEmpty()
+                )
+            )?.getOrNull().orEmpty()
         }.getOrDefault(emptyList())
     }
     val showRoots = showRootsJob.await()
@@ -164,7 +153,9 @@ private suspend fun fetchQuickPicksPodcastSongs(
                     BrowseBody(context = context, browseId = show.key)
                 )?.getOrNull()?.songsPage
                 val seenContinuations = mutableSetOf<String>()
-                while (page != null) {
+                var pagesRead = 0
+                while (page != null && pagesRead < 2) {
+                    pagesRead += 1
                     episodes += page.items.orEmpty()
                     val token = page.continuation?.takeIf { it.isNotBlank() } ?: break
                     if (!seenContinuations.add(token)) break
@@ -182,7 +173,7 @@ private suspend fun fetchQuickPicksPodcastSongs(
         }
     }.awaitAll().flatten()
 
-    (directEpisodes + episodeFeeds).distinctBy(Innertube.SongItem::key)
+    personalizeSongItems((directEpisodes + episodeFeeds).distinctBy(Innertube.SongItem::key))
 }
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
