@@ -882,6 +882,7 @@ private fun QuickPicksSongShelf(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.size(32.dp).clip(CircleShape)
+                            .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
                             .background(Color.White.copy(alpha = 0.14f))
                             .clickable(onClick = action)
                     ) {
