@@ -107,22 +107,57 @@ private fun Innertube.VideoItem.toQuickPicksPodcastSong() = Innertube.SongItem(
     info = info, authors = authors, album = null, durationText = durationText, thumbnail = thumbnail
 )
 
-private suspend fun fetchQuickPicksPodcastSongs(refreshToken: Int): List<Innertube.SongItem> {
-    val refreshTerms = listOf(
-        "latest Hindi podcast episodes",
-        "new Marathi podcast episodes",
-        "popular Indian podcast full episodes",
-        "trending interview podcast episodes"
+private suspend fun fetchQuickPicksPodcastSongs(refreshToken: Int): List<Innertube.SongItem> = coroutineScope {
+    // Search separate Hindi, Marathi and India-wide podcast phrases in parallel.
+    // Video filter avoids ordinary music-search results; metadata filtering removes music clips.
+    val baseQueries = listOf(
+        "Hindi podcast full episodes interviews conversations",
+        "Marathi podcast मुलाखत पूर्ण भाग",
+        "Indian podcasts latest full episode",
+        "Hindi motivational podcast long interview",
+        "Marathi podcast गप्पा चर्चा full episode",
+        "Indian creator podcast conversation full video"
     )
     val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN"))
-    val query = "Hindi podcasts interviews conversations full episodes " +
-        refreshTerms[Math.floorMod(refreshToken, refreshTerms.size)]
-    return Innertube.searchPage(
-        body = SearchBody(context = context, query = query, params = Innertube.SearchFilter.Video.value),
-        fromMusicShelfRendererContent = { content ->
-            Innertube.VideoItem.from(content)?.toQuickPicksPodcastSong()
+    val shift = Math.floorMod(refreshToken, baseQueries.size)
+    val queries = baseQueries.indices.map { baseQueries[(it + shift) % baseQueries.size] }
+
+    val results = queries.map { query ->
+        async(Dispatchers.IO) {
+            runCatching {
+                Innertube.searchPage(
+                    body = SearchBody(context = context, query = query, params = Innertube.SearchFilter.Video.value),
+                    fromMusicShelfRendererContent = { content ->
+                        Innertube.VideoItem.from(content)?.toQuickPicksPodcastSong()
+                    }
+                )?.getOrNull()?.items.orEmpty()
+            }.getOrDefault(emptyList())
         }
-    )?.getOrNull()?.items.orEmpty().distinctBy(Innertube.SongItem::key).take(20)
+    }.awaitAll().flatten().distinctBy(Innertube.SongItem::key)
+
+    val podcastTerms = listOf(
+        "podcast", "podcasts", "episode", "full episode", "interview", "conversation",
+        "talk show", "talkshow", "मुलाखत", "पॉडकास्ट", "चर्चा", "गप्पा", "संवाद"
+    )
+    fun durationSeconds(value: String?): Long {
+        val parts = value.orEmpty().substringBefore(" ").split(":").mapNotNull(String::toLongOrNull)
+        return if (parts.isEmpty()) 0L else parts.reversed().mapIndexed { index, part ->
+            part * when (index) { 0 -> 1L; 1 -> 60L; else -> 3600L }
+        }.sum()
+    }
+
+    val relevant = results.filter { song ->
+        val title = song.info?.name.orEmpty()
+        val authors = song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }
+        val metadata = "$title $authors".lowercase()
+        val hasPodcastSignal = podcastTerms.any(metadata::contains)
+        val longFormTalk = durationSeconds(song.durationText) >= 600L
+        !song.isOfficialMusicVideo && (hasPodcastSignal || longFormTalk)
+    }
+
+    // Existing listening history/favourites personalize ranking, while artist diversification
+    // prevents one podcast channel from filling the whole shelf.
+    personalizeAndDiversify(relevant).take(20)
 }
 
 @ExperimentalFoundationApi
