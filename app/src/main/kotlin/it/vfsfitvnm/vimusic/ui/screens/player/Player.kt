@@ -166,24 +166,6 @@ fun Player(
                     .background(colorPalette.background1)
                     .fillMaxSize()
                     .padding(horizontalBottomPaddingValues)
-                    .pointerInput(mediaItem.mediaId) {
-                        var horizontalDrag = 0f
-                        val swipeThreshold = 48.dp.toPx()
-                        detectHorizontalDragGestures(
-                            onHorizontalDrag = { change, dragAmount ->
-                                horizontalDrag += dragAmount
-                                change.consume()
-                            },
-                            onDragEnd = {
-                                when {
-                                    horizontalDrag <= -swipeThreshold -> binder.player.forceSeekToNext()
-                                    horizontalDrag >= swipeThreshold -> binder.player.forceSeekToPrevious()
-                                }
-                                horizontalDrag = 0f
-                            },
-                            onDragCancel = { horizontalDrag = 0f }
-                        )
-                    }
                     .drawBehind {
                         val progress =
                             positionAndDuration.first.toFloat() / positionAndDuration.second.absoluteValue
@@ -213,6 +195,24 @@ fun Player(
                         modifier = Modifier
                             .clip(thumbnailShape)
                             .size(48.dp)
+                            .pointerInput(mediaItem.mediaId) {
+                                var horizontalDrag = 0f
+                                val swipeThreshold = 32.dp.toPx()
+                                detectHorizontalDragGestures(
+                                    onHorizontalDrag = { change, dragAmount ->
+                                        horizontalDrag += dragAmount
+                                        change.consume()
+                                    },
+                                    onDragEnd = {
+                                        when {
+                                            horizontalDrag <= -swipeThreshold -> binder.player.forceSeekToNext()
+                                            horizontalDrag >= swipeThreshold -> binder.player.forceSeekToPrevious()
+                                        }
+                                        horizontalDrag = 0f
+                                    },
+                                    onDragCancel = { horizontalDrag = 0f }
+                                )
+                            }
                     )
                 }
 
