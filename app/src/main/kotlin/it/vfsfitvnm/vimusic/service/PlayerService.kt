@@ -182,6 +182,8 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     private var isShowingThumbnailInLockscreen = true
     override var isInvincibilityEnabled = false
 
+    private var playbackRecoveryAttempts = 0
+
     private var audioManager: AudioManager? = null
     private var audioDeviceCallback: AudioDeviceCallback? = null
 
@@ -379,7 +381,36 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         }
     }
 
+    override fun onPlayerError(error: PlaybackException) {
+        val mediaId = player.currentMediaItem?.mediaId
+        Log.e(
+            TAG,
+            "playback failed: code=${error.errorCode} message=${error.message}",
+            error
+        )
+
+        // ExoPlayer already retries individual loads. If the final failure is a
+        // transient HTTP/network I/O error, retry preparing the same item twice.
+        if (mediaId == null || error.errorCode !in 2000..2999 || playbackRecoveryAttempts >= 2) {
+            return
+        }
+
+        playbackRecoveryAttempts += 1
+        val attempt = playbackRecoveryAttempts
+        Handler(mainLooper).postDelayed({
+            if (
+                player.currentMediaItem?.mediaId == mediaId &&
+                player.playbackState == Player.STATE_IDLE
+            ) {
+                Log.w(TAG, "retrying playback after I/O error (attempt $attempt)")
+                player.prepare()
+                player.play()
+            }
+        }, 1200L * attempt)
+    }
+
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        playbackRecoveryAttempts = 0
         maybeRecoverPlaybackError()
         maybeNormalizeVolume()
         maybeProcessRadio()
@@ -929,8 +960,8 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         return CacheDataSource.Factory().setCache(cache).apply {
             setUpstreamDataSourceFactory(
                 DefaultHttpDataSource.Factory()
-                    .setConnectTimeoutMs(16000)
-                    .setReadTimeoutMs(8000)
+                    .setConnectTimeoutMs(20000)
+                    .setReadTimeoutMs(30000)
                     .setUserAgent("Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0")
             )
         }
