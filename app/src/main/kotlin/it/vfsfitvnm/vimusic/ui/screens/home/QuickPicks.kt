@@ -328,29 +328,37 @@ fun QuickPicks(
         }
     }
 
-    // Songs For You and New Releases use the same YouTube Music song-search
-    // endpoint. Only the category query changes, so both shelves share one parser.
+    // Each top-level shelf paints independently from its own first search/chart
+    // response. Related-song enrichment runs afterward without blocking first paint.
     LaunchedEffect(refreshToken) {
         isLoadingSongsForYou = true
-        val (recommendations, fetchedShelves) = withContext(Dispatchers.IO) {
-            coroutineScope {
-                val forYou = async { fetchPersonalizedSongsForYou(refreshToken) }
-                val shelvesDeferred = async { fetchIndiaDirectSongShelves(refreshToken) }
-                val (forYouSongs, shelves) = forYou.await() to shelvesDeferred.await()
-                forYouSongs to listOf(shelves.first, shelves.second, shelves.third)
+        trendingSongs = emptyList()
+        topSongs = emptyList()
+        newReleases = emptyList()
+        coroutineScope {
+            val forYouJob = launch {
+                val recommendations = withContext(Dispatchers.IO) {
+                    fetchPersonalizedSongsForYou(refreshToken)
+                }
+                songsForYou = recommendations.distinctBy(Innertube.SongItem::key)
+                isLoadingSongsForYou = false
             }
+            val chartShelvesJob = launch {
+                withContext(Dispatchers.IO) {
+                    fetchIndiaDirectSongShelvesProgressive(refreshToken) { shelfKey, songs ->
+                        withContext(Dispatchers.Main.immediate) {
+                            when (shelfKey) {
+                                "trending" -> trendingSongs = songs
+                                "top" -> topSongs = songs
+                                "new" -> newReleases = songs
+                            }
+                        }
+                    }
+                }
+            }
+            forYouJob.join()
+            chartShelvesJob.join()
         }
-        songsForYou = recommendations.distinctBy(Innertube.SongItem::key)
-        isLoadingSongsForYou = false
-        // Personalize each shelf independently so its original category stays intact:
-        // trending remains trending, top songs remain chart-ranked candidates, and
-        // new releases remain sourced only from the new-release search.
-        val personalizedShelves = withContext(Dispatchers.IO) {
-            personalizeSongLists(fetchedShelves)
-        }
-        trendingSongs = prioritizeHindiSongs(personalizedShelves[0]).distinctBy(Innertube.SongItem::key)
-        topSongs = prioritizeHindiSongs(personalizedShelves[1]).distinctBy(Innertube.SongItem::key)
-        newReleases = prioritizeHindiSongs(personalizedShelves[2]).distinctBy(Innertube.SongItem::key)
         markRefreshTaskComplete("songs")
     }
 
@@ -1434,6 +1442,83 @@ private suspend fun fetchTopTenSongs(): List<Innertube.SongItem> {
     val dailyOrder = chartSongs.drop(offset) + chartSongs.take(offset)
     return dailyOrder
 }
+
+private suspend fun fetchIndiaDirectSongShelvesProgressive(
+    refreshCycle: Int,
+    onShelfLoaded: suspend (String, List<Innertube.SongItem>) -> Unit
+) = coroutineScope {
+    val chartQuery =
+        "chart_params_type=WEEK&perspective=CHART&flags=viral_video_chart&selected_chart=TRACKS&chart_params_id=weekly:0:0:IN"
+    val trendingQueries = cycleCategoryQueries(
+        listOf("India trending viral songs this week Hindi Marathi", "latest trending Indian hit songs chart", "viral Hindi Marathi songs India this week", "trending Indian music videos songs"),
+        refreshCycle, 1
+    )
+    val topQueries = cycleCategoryQueries(
+        listOf("India top chart songs Hindi Marathi", "most popular Indian songs chart", "top Hindi Bollywood songs India chart", "India top Punjabi Tamil Telugu songs"),
+        refreshCycle, 2
+    )
+    val releaseQueries = cycleCategoryQueries(
+        listOf("latest new release songs India 2026 Hindi Marathi", "new Bollywood songs official release this week", "latest Punjabi Tamil Telugu Kannada Malayalam songs", "new Hindi Marathi music releases official audio", "fresh Indian songs released recently"),
+        refreshCycle, 2
+    )
+
+    suspend fun loadShelf(
+        key: String,
+        category: DiscoverySubcategory,
+        queries: List<String>,
+        chart: suspend () -> List<Innertube.SongItem>
+    ) {
+        val chartSongs = chart()
+        val searchSongs = fetchSearchOnlyBundle(queries)
+        val firstPage = (chartSongs + searchSongs).distinctBy(Innertube.SongItem::key)
+        val firstFiltered = filterDiscoverySongs(category, firstPage)
+        onShelfLoaded(
+            key,
+            prioritizeHindiSongs(personalizeAndDiversify(firstFiltered), category.key)
+        )
+
+        val related = searchSongs.take(10).map { seed ->
+            async(Dispatchers.IO) {
+                runCatching {
+                    Innertube.relatedPage(
+                        NextBody(context = IndiaExploreContext, videoId = seed.key)
+                    )?.getOrNull()?.songs.orEmpty()
+                }.getOrDefault(emptyList())
+            }
+        }.awaitAll().flatten()
+        val complete = (firstPage + related).distinctBy(Innertube.SongItem::key)
+        val filtered = filterDiscoverySongs(category, complete)
+        onShelfLoaded(
+            key,
+            prioritizeHindiSongs(personalizeAndDiversify(filtered), category.key)
+        )
+    }
+
+    awaitAll(
+        async {
+            loadShelf(
+                "trending",
+                DiscoverySubcategory("trend_india", "Trending", "Trending India", "trending", ""),
+                trendingQueries
+            ) { Innertube.indiaChartSongs(chartQuery, "videos", 1, "videoViews") }
+        },
+        async {
+            loadShelf(
+                "top",
+                DiscoverySubcategory("top_india", "Top Songs", "Top Songs", "top", ""),
+                topQueries
+            ) { Innertube.indiaChartSongs(chartQuery, "trackTypes", 0, "trackViews") }
+        },
+        async {
+            loadShelf(
+                "new",
+                DiscoverySubcategory("trend_new", "New Releases", "New Releases", "trending", ""),
+                releaseQueries
+            ) { emptyList() }
+        }
+    )
+}
+
 
 private suspend fun fetchLongListenSongs(batchIndex: Int = 0): List<Innertube.SongItem> = coroutineScope {
     // Long Listen uses long-form video search, not the regular Song Search shelf.
