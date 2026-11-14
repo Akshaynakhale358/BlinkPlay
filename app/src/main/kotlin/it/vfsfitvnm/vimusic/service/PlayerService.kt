@@ -619,7 +619,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             if (preferences.getBoolean(deepBassKey, false)) {
                 if (bassBoost == null) bassBoost = BassBoost(0, sessionId)
                 bassBoost?.let { effect ->
-                    if (effect.strengthSupported) effect.setStrength(450)
+                    if (effect.strengthSupported) effect.setStrength(600)
                     effect.enabled = true
                 }
             } else {
@@ -632,7 +632,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             if (preferences.getBoolean(speakerSurroundKey, false)) {
                 if (speakerVirtualizer == null) speakerVirtualizer = Virtualizer(0, sessionId)
                 speakerVirtualizer?.let { effect ->
-                    if (effect.strengthSupported) effect.setStrength(400)
+                    if (effect.strengthSupported) effect.setStrength(500)
                     effect.enabled = true
                 }
             } else {
