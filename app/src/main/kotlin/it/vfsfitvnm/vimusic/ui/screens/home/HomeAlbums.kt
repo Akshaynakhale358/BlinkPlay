@@ -62,6 +62,9 @@ import it.vfsfitvnm.vimusic.utils.asMediaItem
 import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -112,21 +115,27 @@ fun HomeAlbums(
             "English international music albums"
         )
         val loaded = withContext(Dispatchers.IO) {
-            shelves.map { shelf ->
-                val results = languageQueries.map { languageQuery ->
-                    runCatching {
-                        Innertube.searchPage(
-                            body = SearchBody(
-                                context = context,
-                                query = "$languageQuery ${shelf.query}",
-                                params = Innertube.SearchFilter.Album.value
-                            ),
-                            fromMusicShelfRendererContent = Innertube.AlbumItem::from
-                        )?.getOrNull()?.items.orEmpty()
-                    }.getOrDefault(emptyList())
-                }.flatten().distinctBy { it.key }.take(15)
-                shelf.key to results
-            }.toMap()
+            coroutineScope {
+                shelves.map { shelf ->
+                    async {
+                        val results = languageQueries.map { languageQuery ->
+                            async {
+                                runCatching {
+                                    Innertube.searchPage(
+                                        body = SearchBody(
+                                            context = context,
+                                            query = "$languageQuery ${shelf.query}",
+                                            params = Innertube.SearchFilter.Album.value
+                                        ),
+                                        fromMusicShelfRendererContent = Innertube.AlbumItem::from
+                                    )?.getOrNull()?.items.orEmpty()
+                                }.getOrDefault(emptyList())
+                            }
+                        }.awaitAll().flatten().distinctBy { it.key }.take(15)
+                        shelf.key to results
+                    }
+                }.awaitAll().toMap()
+            }
         }
         shelfAlbums = loaded
         loading = false
@@ -151,27 +160,31 @@ fun HomeAlbums(
                 val previousTokens = continuation?.split("\\u001F")
                 val nextTokens = mutableListOf<String?>()
                 val combined = mutableListOf<Innertube.AlbumItem>()
-                languageQueries.forEachIndexed { index, languageQuery ->
-                    val token = previousTokens?.getOrNull(index)?.takeIf { it.isNotBlank() }
-                    if (continuation != null && token == null) {
-                        nextTokens += null
-                        return@forEachIndexed
-                    }
-                    val page = if (token == null) {
-                        Innertube.searchPage(
-                            body = SearchBody(
-                                context = context,
-                                query = "$languageQuery ${shelf.query}",
-                                params = Innertube.SearchFilter.Album.value
-                            ),
-                            fromMusicShelfRendererContent = Innertube.AlbumItem::from
-                        )
-                    } else {
-                        Innertube.searchPage(
-                            body = ContinuationBody(context = context, continuation = token),
-                            fromMusicShelfRendererContent = Innertube.AlbumItem::from
-                        )
-                    }?.getOrNull()
+                val pages = coroutineScope {
+                    languageQueries.mapIndexed { index, languageQuery ->
+                        async {
+                            val token = previousTokens?.getOrNull(index)?.takeIf { it.isNotBlank() }
+                            if (continuation != null && token == null) {
+                                null
+                            } else if (token == null) {
+                                Innertube.searchPage(
+                                    body = SearchBody(
+                                        context = context,
+                                        query = "$languageQuery ${shelf.query}",
+                                        params = Innertube.SearchFilter.Album.value
+                                    ),
+                                    fromMusicShelfRendererContent = Innertube.AlbumItem::from
+                                )?.getOrNull()
+                            } else {
+                                Innertube.searchPage(
+                                    body = ContinuationBody(context = context, continuation = token),
+                                    fromMusicShelfRendererContent = Innertube.AlbumItem::from
+                                )?.getOrNull()
+                            }
+                        }
+                    }.awaitAll()
+                }
+                pages.forEach { page ->
                     combined += page?.items.orEmpty()
                     nextTokens += page?.continuation
                 }
