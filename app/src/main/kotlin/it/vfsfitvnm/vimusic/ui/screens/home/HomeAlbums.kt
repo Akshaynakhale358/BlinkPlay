@@ -190,12 +190,49 @@ fun HomeAlbums(
                 }
             },
             itemContent = { album ->
-                AlbumItem(
-                    album = album,
-                    thumbnailSizePx = 108.dp.px,
-                    thumbnailSizeDp = 108.dp,
-                    modifier = Modifier.clickable { album.info?.endpoint?.browseId?.let(onAlbumClick) }
-                )
+                androidx.compose.foundation.layout.Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AlbumItem(
+                        album = album,
+                        thumbnailSizePx = 108.dp.px,
+                        thumbnailSizeDp = 108.dp,
+                        modifier = Modifier.weight(1f).clickable {
+                            album.info?.endpoint?.browseId?.let(onAlbumClick)
+                        }
+                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.padding(end = 16.dp).size(38.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
+                            .background(Color.White.copy(alpha = 0.14f))
+                            .clickable {
+                                val albumId = album.info?.endpoint?.browseId
+                                if (albumId != null) {
+                                    scope.launch {
+                                        val songs = withContext(Dispatchers.IO) {
+                                            Innertube.albumPage(BrowseBody(browseId = albumId))
+                                                ?.getOrNull()?.songsPage?.items.orEmpty()
+                                        }
+                                        val mediaItems = songs.map(Innertube.SongItem::asMediaItem)
+                                        if (mediaItems.isNotEmpty()) {
+                                            binder?.stopRadio()
+                                            binder?.player?.forcePlayFromBeginning(mediaItems)
+                                        }
+                                    }
+                                }
+                            }
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.play),
+                            contentDescription = "Play album",
+                            colorFilter = ColorFilter.tint(Color.White),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                }
             },
             itemPlaceholderContent = { AlbumItemPlaceholder(thumbnailSizeDp = 108.dp) }
         )
