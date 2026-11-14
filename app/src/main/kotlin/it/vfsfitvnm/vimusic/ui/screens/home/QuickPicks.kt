@@ -212,6 +212,7 @@ fun QuickPicks(
     var emptyPodcastBatches by remember { mutableStateOf(0) }
     var hasMorePodcastResults by remember { mutableStateOf(true) }
     var longListenSongs by remember { mutableStateOf<List<Innertube.SongItem>>(emptyList()) }
+    var isLoadingLongListen by remember { mutableStateOf(true) }
     var selectedDiscoveryCategory by remember { mutableStateOf<DiscoverySubcategory?>(null) }
     var isLoadingMoreDiscovery by remember { mutableStateOf(false) }
     var discoveryBatchIndex by remember { mutableStateOf(0) }
@@ -272,15 +273,20 @@ fun QuickPicks(
 
     // Long Listen refreshes on pull-to-refresh and automatically at Indian midnight.
     LaunchedEffect(refreshToken, discoveryDailyToken) {
+        isLoadingLongListen = true
         var loadedLongListen = emptyList<Innertube.SongItem>()
-        withContext(Dispatchers.IO) {
-            for (batch in 0 until 4) {
-                val next = runCatching { fetchLongListenSongs(batch) }.getOrDefault(emptyList())
-                loadedLongListen = (loadedLongListen + next).distinctBy(Innertube.SongItem::key)
-                if (loadedLongListen.size >= 9) break
+        try {
+            withContext(Dispatchers.IO) {
+                for (batch in 0 until 4) {
+                    val next = runCatching { fetchLongListenSongs(batch) }.getOrDefault(emptyList())
+                    loadedLongListen = (loadedLongListen + next).distinctBy(Innertube.SongItem::key)
+                    if (loadedLongListen.size >= 9) break
+                }
             }
+            longListenSongs = loadedLongListen
+        } finally {
+            isLoadingLongListen = false
         }
-        longListenSongs = loadedLongListen
     }
 
     // Songs For You and New Releases use the same YouTube Music song-search
@@ -746,6 +752,7 @@ fun QuickPicks(
             } else {
                 QuickPicksPodcastShelf(
                 songs = podcastSongs,
+                isLoading = isLoadingPodcasts,
                 onViewAll = {
                     savedHomeScrollOffset = scrollState.value
                     selectedPodcastPage = true
@@ -785,10 +792,16 @@ fun QuickPicks(
                     if (nearEnd && pendingShelfLoad == null && "long_listen" !in loadingShelfKeys) pendingShelfLoad = "long_listen"
                 }
             }
-            if (longListenSongs.isEmpty()) {
+            if (longListenSongs.isEmpty() && isLoadingLongListen) {
                 ShimmerHost {
                     repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) }
                 }
+            } else if (longListenSongs.isEmpty()) {
+                BasicText(
+                    text = "Finding long-form music. Pull down to retry.",
+                    style = typography.xs.secondary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
             } else {
                 LazyRow(
                     state = longListenLazyListState,
@@ -1105,6 +1118,7 @@ private fun discoveryBundles(): List<DiscoveryBundle> {
 @Composable
 private fun QuickPicksPodcastShelf(
     songs: List<Innertube.SongItem>,
+    isLoading: Boolean,
     onViewAll: () -> Unit,
     onSongClick: (Innertube.SongItem) -> Unit,
     onPlayBundle: () -> Unit,
@@ -1132,8 +1146,14 @@ private fun QuickPicksPodcastShelf(
                         .padding(horizontal = 12.dp, vertical = 7.dp))
             }
         }
-        if (songs.isEmpty()) {
+        if (songs.isEmpty() && isLoading) {
             ShimmerHost { repeat(3) { SongItemPlaceholder(thumbnailSizeDp = 64.dp) } }
+        } else if (songs.isEmpty()) {
+            BasicText(
+                text = "No podcast episodes found yet. Pull down to refresh.",
+                style = typography.xs.secondary,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 14.dp)
+            )
         } else {
             songs.take(3).forEach { song ->
                 SongItem(song = song, thumbnailSizePx = 64.dp.px, thumbnailSizeDp = 64.dp,
