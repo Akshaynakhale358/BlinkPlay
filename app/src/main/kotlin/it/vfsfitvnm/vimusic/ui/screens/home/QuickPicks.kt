@@ -892,12 +892,16 @@ private fun filterDiscoverySongs(
     // actually listens to it. All named entertainment/mood shelves exclude it.
     val devotionalTerms = listOf(
         "hanuman chalisa", "hanuman", "chalisa", "bhajan", "bhakti", "aarti", "arti",
-        "abhang", "abhanga", "kirtan", "kirtana", "haripath", "haripath", "gondhal",
-        "bharud", "vitthal", "vithal", "pandurang", "ganpati", "ganesh aarti",
-        "shiv bhajan", "shankar", "mahadev", "krishna bhajan", "ram dhun",
-        "mata bhajan", "durga", "stotra", "mantra", "devotional", "sankirtan",
+        "abhang", "abhanga", "kirtan", "kirtana", "haripath", "gondhal", "bharud",
+        "vitthal", "vithal", "pandurang", "mauli", "wari", "pandharpur", "ganpati",
+        "ganesh aarti", "bappa", "sukhkarta", "dukhharta", "jogwa", "jagar",
+        "tulja bhavani", "sai baba", "sai ram", "ram dhun", "ram raksha",
+        "shiv bhajan", "shankar", "mahadev", "krishna bhajan", "mata bhajan",
+        "durga", "stotra", "mantra", "devotional", "sankirtan", "namdev",
+        "तुकाराम", "ज्ञानेश्वर", "माऊली", "वारी", "पंढरपूर", "साईबाबा",
         "भजन", "अभंग", "आरती", "कीर्तन", "हरिपाठ", "गोंधळ", "भारूड",
-        "विठ्ठल", "पांडुरंग", "गणपती", "गणेश", "चालीसा", "स्तोत्र", "मंत्र"
+        "विठ्ठल", "पांडुरंग", "गणपती", "गणेश", "चालीसा", "स्तोत्र", "मंत्र",
+        "सुखकर्ता", "दुःखहर्ता", "जोगवा", "जागर", "तुळजाभवानी", "रामरक्षा"
     )
     fun containsScript(value: String, first: Int, last: Int): Boolean =
         value.any { it.code in first..last }
