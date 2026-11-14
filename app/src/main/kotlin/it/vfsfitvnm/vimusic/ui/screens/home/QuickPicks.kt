@@ -184,9 +184,9 @@ fun QuickPicks(
         val personalizedShelves = withContext(Dispatchers.IO) {
             personalizeSongLists(fetchedShelves)
         }
-        trendingSongs = personalizedShelves[0].distinctBy(Innertube.SongItem::key)
-        topSongs = personalizedShelves[1].distinctBy(Innertube.SongItem::key)
-        newReleases = personalizedShelves[2].distinctBy(Innertube.SongItem::key)
+        trendingSongs = prioritizeHindiSongs(personalizedShelves[0]).distinctBy(Innertube.SongItem::key)
+        topSongs = prioritizeHindiSongs(personalizedShelves[1]).distinctBy(Innertube.SongItem::key)
+        newReleases = prioritizeHindiSongs(personalizedShelves[2]).distinctBy(Innertube.SongItem::key)
         isRefreshing = false
     }
 
@@ -715,7 +715,7 @@ private suspend fun fetchCalmMusicCategories(): Map<String, List<Innertube.SongI
         async {
             val categorySongs = fetchSearchAndRelatedBundle(listOf(category.query, "${category.title} instrumental relaxing music"))
             val filteredSongs = filterDiscoverySongs(category, categorySongs)
-            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(filteredSongs))
+            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(prioritizeHindiSongs(filteredSongs, category.key)))
         }
     }.awaitAll().toMap()
 }
@@ -901,7 +901,8 @@ private suspend fun fetchQuickPickDiscoveryCategories(): Map<String, List<Innert
             }
             // Filter category relevance first; personalization only reorders valid candidates.
             val categoryFiltered = filterDiscoverySongs(category, categoryFeed)
-            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(categoryFiltered))
+            val prioritized = prioritizeHindiSongs(categoryFiltered, category.key)
+            category.key to rotateDiscoverySongsDaily(personalizeAndDiversify(prioritized))
         }
     }.awaitAll().toMap()
 }
@@ -1045,6 +1046,18 @@ private suspend fun fetchSearchAndRelatedBundle(queries: List<String>): List<Inn
     (searchResults + relatedResults).distinctBy(Innertube.SongItem::key)
 }
 
+/** Hindi-first ordering for mixed shelves; language-specific shelves keep their own language. */
+private fun prioritizeHindiSongs(songs: List<Innertube.SongItem>, categoryKey: String? = null): List<Innertube.SongItem> {
+    val languageSpecific = categoryKey in setOf("mix_marathi", "trend_marathi", "mix_punjabi", "mix_regional", "trend_regional")
+    if (languageSpecific || songs.isEmpty()) return songs
+    fun isHindiCandidate(song: Innertube.SongItem): Boolean {
+        val metadata = (song.info?.name.orEmpty() + " " + song.authors.orEmpty().joinToString(" ") { it.name.orEmpty() }).lowercase()
+        val explicitHindi = listOf("hindi", "bollywood", "हिंदी", "हिन्दी", "बॉलीवुड").any(metadata::contains)
+        val hasDevanagari = metadata.any { it.code in 0x0900..0x097F }
+        return explicitHindi || hasDevanagari
+    }
+    return songs.withIndex().sortedWith(compareByDescending<IndexedValue<Innertube.SongItem>> { isHindiCandidate(it.value) }.thenBy { it.index }).map { it.value }
+}
 private suspend fun personalizeAndDiversify(
     candidates: List<Innertube.SongItem>
 ): List<Innertube.SongItem> {
