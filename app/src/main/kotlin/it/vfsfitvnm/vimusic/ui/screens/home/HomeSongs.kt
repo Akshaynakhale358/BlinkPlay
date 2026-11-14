@@ -162,17 +162,11 @@ private suspend fun fetchHomeSongCategory(
     refreshToken: Int = 0
 ): Result<Innertube.ItemsPage<Innertube.SongItem>?>? {
     val context = Context.DefaultWeb.copy(client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN"))
-    // Podcast has its own video-only search rotation. Never append generic song terms:
-    // that was causing the Podcast card to return ordinary songs and appear unchanged.
-    val podcastRefreshTerms = listOf(
-        "latest Hindi podcast episodes",
-        "new Marathi podcast episodes",
-        "popular Indian podcast full episodes",
-        "trending interview podcast episodes"
-    )
+    // Podcast uses only the YouTube Music search keyword "podcast".
+    // Keep the existing video search filter and its continuation flow.
     val songRefreshTerms = listOf("latest", "new songs", "popular hits", "trending songs")
     val query = if (category.podcast) {
-        "${category.query} ${podcastRefreshTerms[Math.floorMod(refreshToken, podcastRefreshTerms.size)]}"
+        "podcast"
     } else {
         "Hindi Bollywood songs ${category.query} ${songRefreshTerms[Math.floorMod(refreshToken, songRefreshTerms.size)]}"
     }
@@ -351,12 +345,14 @@ private fun HomeSongCategoryCard(
     LaunchedEffect(category, dailySeed, refreshToken, retryKey) {
         failed = false
         val collected = mutableListOf<Innertube.SongItem>()
-        // Retry with rotated, category-specific search terms until at least three
-        // distinct valid songs are available; Podcast keeps its 15-minute rule.
-        for (attempt in 0..3) {
+        // Podcast makes one exact YouTube Music search for "podcast".
+        // Other categories keep their existing four-query rotation unchanged.
+        val attempts = if (category.podcast) 1 else 4
+        for (attempt in 0 until attempts) {
+            val cycle = if (category.podcast) refreshToken else refreshToken + attempt
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    fetchHomeSongCategory(category, null, dailySeed, refreshToken + attempt)
+                    fetchHomeSongCategory(category, null, dailySeed, cycle)
                 }.getOrNull()
             }
             collected += result?.getOrNull()?.items.orEmpty()
