@@ -192,10 +192,10 @@ fun QuickPicks(
         var loadedLongListen = emptyList<Innertube.SongItem>()
         try {
             withContext(Dispatchers.IO) {
-                for (batch in 0 until 1) {
+                for (batch in 0 until 3) {
                     val next = runCatching { fetchLongListenSongs(batch + refreshToken * 2) }.getOrDefault(emptyList())
                     loadedLongListen = (loadedLongListen + next).distinctBy(Innertube.SongItem::key)
-                    if (loadedLongListen.size >= 15) break
+                    if (loadedLongListen.size >= 5) break
                 }
             }
             longListenSongs = loadedLongListen
