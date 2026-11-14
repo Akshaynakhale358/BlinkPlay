@@ -163,7 +163,7 @@ fun HomeArtistList(
                 fontSize = typography.xxl.fontSize * 0.936f,
                 textAlign = TextAlign.End
             ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
         )
         BasicText(
             text = "All Artists",
@@ -171,7 +171,7 @@ fun HomeArtistList(
                 fontSize = typography.xxl.fontSize * 0.5616f,
                 textAlign = TextAlign.End
             ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
         )
         LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
             rowItems(categories, key = { it.first }) { category ->
