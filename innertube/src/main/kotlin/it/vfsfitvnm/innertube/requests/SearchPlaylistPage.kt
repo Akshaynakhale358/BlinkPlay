@@ -136,7 +136,7 @@ suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancel
                             val endpoint = renderer.navigationEndpoint?.browseEndpoint
                                 ?: titleRun?.navigationEndpoint?.browseEndpoint
                             val browseId = endpoint?.browseId
-                            if (browseId?.startsWith("MPSP") != true) return@mapNotNull null
+                            if (browseId.isNullOrBlank()) return@mapNotNull null
 
                             Innertube.PlaylistItem(
                                 info = Innertube.Info(
@@ -164,7 +164,7 @@ suspend fun Innertube.searchPodcastPage(body: SearchBody) = runCatchingNonCancel
                         ?.mapNotNull { it.musicTwoRowItemRenderer }
                         ?.mapNotNull { renderer ->
                             Innertube.PlaylistItem.from(renderer)
-                                ?.takeIf { it.key.startsWith("MPSP") }
+                                ?.takeIf { it.key.isNotBlank() }
                         }
                         ?.forEach { add(it) }
                 }
