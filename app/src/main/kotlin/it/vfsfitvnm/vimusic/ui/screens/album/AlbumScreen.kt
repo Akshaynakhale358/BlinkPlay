@@ -62,17 +62,23 @@ fun AlbumScreen(browseId: String) {
     PersistMapCleanup(tagPrefix = "album/$browseId/")
 
     LaunchedEffect(browseId) {
+        // Retry an empty persisted album page once on each screen entry. Previously a cached
+        // empty response prevented every later attempt, leaving the album stuck on shimmer.
+        var fetchAttempted = false
+
         Database
             .album(browseId)
             .combine(snapshotFlow { tabIndex }) { album, tabIndex -> album to tabIndex }
-            .collect { (currentAlbum, tabIndex) ->
+            .collect { (currentAlbum, _) ->
                 album = currentAlbum
 
                 val hasCachedSongs = withContext(Dispatchers.IO) {
                     Database.albumSongs(browseId).first().isNotEmpty()
                 }
+                val pageHasSongs = albumPage?.songsPage?.items?.isNotEmpty() == true
 
-                if (albumPage == null && (currentAlbum?.timestamp == null || currentAlbum.title == null || tabIndex == 1 || !hasCachedSongs)) {
+                if (!fetchAttempted && (albumPage == null || !pageHasSongs || !hasCachedSongs)) {
+                    fetchAttempted = true
                     withContext(Dispatchers.IO) {
                         Innertube.albumPage(BrowseBody(browseId = browseId))
                             ?.onSuccess { currentAlbumPage ->
@@ -107,7 +113,6 @@ fun AlbumScreen(browseId: String) {
                                 )
                             }
                     }
-
                 }
             }
     }
