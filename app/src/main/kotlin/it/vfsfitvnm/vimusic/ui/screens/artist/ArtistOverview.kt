@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.innertube.Innertube
@@ -170,6 +171,7 @@ fun ArtistOverview(
                                 song = song,
                                 thumbnailSizeDp = songThumbnailSizeDp,
                                 thumbnailSizePx = songThumbnailSizePx,
+                                titleColor = Color.White,
                                 modifier = Modifier
                                     .combinedClickable(
                                         onLongClick = {
@@ -232,6 +234,7 @@ fun ArtistOverview(
                                     thumbnailSizePx = albumThumbnailSizePx,
                                     thumbnailSizeDp = albumThumbnailSizeDp,
                                     alternative = true,
+                                    titleColor = Color.White,
                                     modifier = Modifier
                                         .clickable(onClick = { onAlbumClick(album.key) })
                                 )
