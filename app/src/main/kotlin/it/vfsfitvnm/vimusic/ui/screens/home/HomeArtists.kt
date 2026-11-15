@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items as rowItems
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -42,6 +46,7 @@ import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
+import it.vfsfitvnm.vimusic.ui.components.themed.HeaderIconButton
 import it.vfsfitvnm.vimusic.ui.items.ArtistItem
 import it.vfsfitvnm.vimusic.ui.items.ArtistItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
@@ -49,6 +54,7 @@ import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.semiBold
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collect
@@ -62,24 +68,16 @@ fun HomeArtistList(
     onSearchClick: () -> Unit,
 ) {
     val (colorPalette, typography) = LocalAppearance.current
-    val categories = listOf(
-        "All" to listOf("Hindi singers", "Bollywood playback singers", "Marathi singers", "Punjabi singers", "Tamil singers", "Telugu singers", "Bengali singers", "Kannada singers", "Malayalam singers", "English pop artists", "international music artists"),
-        "Hindi" to listOf("Hindi singers", "Hindi music artists", "Indian playback singers"),
-        "Marathi" to listOf("Marathi singers", "Marathi music artists", "Marathi playback singers"),
-        "Bollywood" to listOf("Bollywood singers", "Hindi film playback singers", "Bollywood music artists"),
-        "Punjabi" to listOf("Punjabi singers", "Punjabi music artists", "Punjabi playback singers"),
-        "Tamil" to listOf("Tamil singers", "Tamil music artists", "Tamil playback singers"),
-        "Telugu" to listOf("Telugu singers", "Telugu music artists", "Telugu playback singers"),
-        "South Indian" to listOf("Tamil singers", "Telugu singers", "Malayalam singers", "Kannada singers", "South Indian music artists"),
-        "English" to listOf("English pop artists", "English rock artists", "international music artists")
-    )
-    var selectedCategory by remember { mutableStateOf("All") }
+    val queries = listOf("Hindi singers", "Bollywood playback singers", "Marathi singers", "Punjabi singers", "Tamil singers", "Telugu singers", "Bengali singers", "Kannada singers", "Malayalam singers", "English pop artists", "international music artists")
+    var artistSearchActive by remember { mutableStateOf(false) }
+    var artistSearchText by remember { mutableStateOf("") }
+    var artistSearchResults by remember { mutableStateOf<List<Innertube.ArtistItem>>(emptyList()) }
+    var artistSearchLoading by remember { mutableStateOf(false) }
     var refreshToken by remember { mutableStateOf(0) }
     val queries = categories.first { it.first == selectedCategory }.second
     val gridState = rememberLazyGridState()
     LaunchedEffect(homeResetKey) {
         if (homeResetKey > 0) {
-            selectedCategory = "All"
             gridState.scrollToItem(0)
         }
     }
@@ -90,13 +88,13 @@ fun HomeArtistList(
         client = Context.DefaultWeb.client.copy(hl = "hi", gl = "IN")
     )
 
-    var artists by remember(selectedCategory, refreshToken) { mutableStateOf<List<Innertube.ArtistItem>>(emptyList()) }
-    var continuation by remember(selectedCategory, refreshToken) { mutableStateOf<String?>(null) }
-    var queryIndex by remember(selectedCategory, refreshToken) { mutableStateOf(0) }
-    var loading by remember(selectedCategory, refreshToken) { mutableStateOf(false) }
-    var finished by remember(selectedCategory, refreshToken) { mutableStateOf(false) }
+    var artists by remember(refreshToken) { mutableStateOf<List<Innertube.ArtistItem>>(emptyList()) }
+    var continuation by remember(refreshToken) { mutableStateOf<String?>(null) }
+    var queryIndex by remember(refreshToken) { mutableStateOf(0) }
+    var loading by remember(refreshToken) { mutableStateOf(false) }
+    var finished by remember(refreshToken) { mutableStateOf(false) }
 
-    LaunchedEffect(selectedCategory, refreshToken, gridState) {
+    LaunchedEffect(refreshToken, gridState) {
         snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
             .collect { lastVisible ->
                 if (loading || finished || lastVisible < artists.size - 4) return@collect
@@ -158,48 +156,84 @@ fun HomeArtistList(
         Header(title = "Artists", titleScale = 1.404f) {
         }
 
-        BasicText(
-            text = selectedCategory,
-            style = typography.m.semiBold.copy(
-                fontSize = typography.s.fontSize,
-                textAlign = TextAlign.End
-            ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
-        )
-        BasicText(
-            text = "All Artists",
-            style = typography.s.semiBold.copy(
-                fontSize = typography.xxl.fontSize * 0.5616f,
-                textAlign = TextAlign.End
-            ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
-        )
-        LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-            rowItems(categories, key = { it.first }) { category ->
-                BasicText(
-                    text = category.first,
-                    style = typography.s.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp, vertical = 8.dp)
-                        .clickable {
-                            if (selectedCategory != category.first) {
-                                selectedCategory = category.first
-                                scope.launch { gridState.scrollToItem(0) }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.End,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            if (artistSearchActive) {
+                BasicTextField(
+                    value = artistSearchText,
+                    onValueChange = { artistSearchText = it },
+                    singleLine = true,
+                    textStyle = typography.s.copy(color = colorPalette.text),
+                    modifier = Modifier.weight(1f),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (artistSearchText.isEmpty()) {
+                                BasicText("Search artists", style = typography.s.copy(color = colorPalette.textDisabled))
                             }
+                            innerTextField()
                         }
-                        .padding(horizontal = 12.dp, vertical = 9.dp)
+                    }
+                )
+            } else {
+                BasicText(
+                    text = "All Artist",
+                    style = typography.s.semiBold.copy(
+                        fontSize = typography.xxl.fontSize * 0.5616f,
+                        textAlign = TextAlign.End
+                    )
                 )
             }
+            Spacer(modifier = Modifier.width(14.dp))
+            HeaderIconButton(
+                icon = R.drawable.search,
+                color = colorPalette.text,
+                onClick = {
+                    artistSearchActive = !artistSearchActive
+                    artistSearchText = ""
+                    artistSearchResults = emptyList()
+                }
+            )
         }
-        if (artists.isEmpty() && !finished) {
+
+        LaunchedEffect(artistSearchText, artistSearchActive) {
+            if (!artistSearchActive || artistSearchText.isBlank()) {
+                artistSearchResults = emptyList()
+                artistSearchLoading = false
+            } else {
+                delay(350)
+                artistSearchLoading = true
+                val result = withContext(Dispatchers.IO) {
+                    Innertube.searchPage(
+                        body = SearchBody(
+                            context = indiaContext,
+                            query = artistSearchText,
+                            params = Innertube.SearchFilter.Artist.value
+                        ),
+                        fromMusicShelfRendererContent = Innertube.ArtistItem::from
+                    )
+                }
+                artistSearchResults = result?.getOrNull()?.items.orEmpty().distinctBy(Innertube.ArtistItem::key)
+                artistSearchLoading = false
+            }
+        }
+
+        val displayedArtists = if (artistSearchActive && artistSearchText.isNotBlank()) artistSearchResults else artists
+        if (artistSearchActive && artistSearchText.isNotBlank() && artistSearchLoading && displayedArtists.isEmpty()) {
+            ShimmerHost(modifier = Modifier.fillMaxSize()) {
+                repeat(6) { ArtistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true) }
+            }
+        } else if (displayedArtists.isEmpty() && !(artistSearchActive && artistSearchText.isNotBlank()) && !finished) {
             ShimmerHost(modifier = Modifier.fillMaxSize()) {
                 repeat(9) {
                     ArtistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true)
                 }
             }
-        } else if (artists.isEmpty()) {
+        } else if (displayedArtists.isEmpty()) {
             BasicText(
-                text = "No artists found. Try another category or Search.",
+                text = if (artistSearchActive && artistSearchText.isNotBlank()) "No artists found." else "No artists available.",
                 style = typography.s,
                 modifier = Modifier.padding(24.dp)
             )
@@ -212,7 +246,7 @@ fun HomeArtistList(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(artists, key = Innertube.ArtistItem::key) { artist ->
+                items(displayedArtists, key = Innertube.ArtistItem::key) { artist ->
                     ArtistItem(
                         artist = artist,
                         thumbnailSizePx = thumbnailSizePx,
@@ -225,7 +259,7 @@ fun HomeArtistList(
                             }
                     )
                 }
-                if (loading || !finished) {
+                if (!artistSearchActive && (loading || !finished)) {
                     item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                         BasicText(
                             text = if (loading) "Loading more artists..." else "Scroll to load more artists",
