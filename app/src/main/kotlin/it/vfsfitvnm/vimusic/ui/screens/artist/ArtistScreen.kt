@@ -211,9 +211,9 @@ fun ArtistScreen(browseId: String) {
                                     )
                                 }
                             },
-                            onViewAllSongsClick = { tabIndex = 1 },
-                            onViewAllAlbumsClick = { tabIndex = 2 },
-                            onViewAllSinglesClick = { tabIndex = 3 },
+                            onViewAllSongsClick = { tabIndex = 3 },
+                            onViewAllAlbumsClick = { tabIndex = 4 },
+                            onViewAllSinglesClick = { tabIndex = 5 },
                         )
 
                         3 -> {
