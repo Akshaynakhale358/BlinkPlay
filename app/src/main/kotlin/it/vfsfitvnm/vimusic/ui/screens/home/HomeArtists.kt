@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -236,7 +238,7 @@ fun HomeArtistList(
 
         val displayedArtists = if (artistSearchActive && artistSearchText.isNotBlank()) artistSearchResults else artists
         if (artistSearchActive && artistSearchText.isNotBlank() && artistSearchLoading && displayedArtists.isEmpty()) {
-            ShimmerHost(modifier = Modifier.fillMaxSize()) {
+            ShimmerHost(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 repeat(6) { ArtistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true) }
             }
         } else if (displayedArtists.isEmpty() && !(artistSearchActive && artistSearchText.isNotBlank()) && !finished) {
@@ -258,7 +260,7 @@ fun HomeArtistList(
                 contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 96.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.weight(1f).fillMaxWidth()
             ) {
                 items(displayedArtists, key = Innertube.ArtistItem::key) { artist ->
                     ArtistItem(
@@ -275,11 +277,28 @@ fun HomeArtistList(
                 }
                 if (!artistSearchActive && (loading || !finished)) {
                     item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                        BasicText(
-                            text = if (loading) "Loading more artists..." else "Scroll to load more artists",
-                            style = typography.xs,
-                            modifier = Modifier.padding(16.dp)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.width(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                BasicText(
+                                    text = "Loading more artists...",
+                                    style = typography.xs
+                                )
+                            } else {
+                                BasicText(
+                                    text = "Scroll to load more artists",
+                                    style = typography.xs
+                                )
+                            }
+                        }
                     }
                 }
             }
