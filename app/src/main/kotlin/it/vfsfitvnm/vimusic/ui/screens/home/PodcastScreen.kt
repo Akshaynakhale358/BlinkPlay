@@ -33,6 +33,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -238,6 +239,7 @@ fun PodcastScreen(homeResetKey: Int) {
                         AlbumItem(
                             thumbnailUrl = podcast.artwork,
                             title = podcast.title,
+                            titleColor = Color.White,
                             authors = podcast.author,
                             year = "${podcast.episodeCount} Podcast",
                             thumbnailSizePx = 72.dp.px,
@@ -252,6 +254,7 @@ fun PodcastScreen(homeResetKey: Int) {
             BasicText(
                 text = selectedPodcast!!.title,
                 style = typography.m.semiBold.copy(
+                    color = Color.White,
                     fontSize = typography.s.fontSize,
                     textAlign = TextAlign.End
                 ),
