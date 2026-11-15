@@ -15,7 +15,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ViMusic"
+rootProject.name = "BlinkPlayPodcast"
 
 include(":app")
 include(":compose-routing")
