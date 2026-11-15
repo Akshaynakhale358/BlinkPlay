@@ -88,9 +88,12 @@ fun HomeArtistList(
     var finished by remember(refreshToken) { mutableStateOf(false) }
 
     LaunchedEffect(refreshToken, gridState) {
-        snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
-            .collect { lastVisible ->
-                if (loading || finished || lastVisible < artists.size - 4) return@collect
+        // Observe both scroll position and list size: appending a page must
+        // re-check the near-end condition even when the user has not scrolled.
+        snapshotFlow {
+            (gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) to artists.size
+        }.collect { (lastVisible, artistCount) ->
+                if (loading || finished || lastVisible < artistCount - 4) return@collect
                 loading = true
                 withContext(Dispatchers.IO) {
                     var attempts = 0
