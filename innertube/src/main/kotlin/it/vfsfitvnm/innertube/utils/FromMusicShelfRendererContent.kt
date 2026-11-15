@@ -89,25 +89,29 @@ fun Innertube.AlbumItem.Companion.from(content: MusicShelfRenderer.Content): Inn
 }
 
 fun Innertube.ArtistItem.Companion.from(content: MusicShelfRenderer.Content): Innertube.ArtistItem? {
+    val renderer = content.musicResponsiveListItemRenderer ?: return null
     val (mainRuns, otherRuns) = content.runs
+    val endpoint = renderer.navigationEndpoint?.browseEndpoint
+        ?: mainRuns.firstNotNullOfOrNull { it.navigationEndpoint?.browseEndpoint }
+    val browseId = endpoint?.browseId ?: return null
+    val pageType = endpoint.type
+    // Match Metrolist's Artist detection: only artist/library-artist/user-channel
+    // browse endpoints are accepted, rather than treating every browse card as an artist.
+    val isArtist = pageType == "MUSIC_PAGE_TYPE_ARTIST" ||
+        pageType == "MUSIC_PAGE_TYPE_LIBRARY_ARTIST" ||
+        pageType == "MUSIC_PAGE_TYPE_USER_CHANNEL" ||
+        browseId.startsWith("UC")
+    if (!isArtist) return null
+
+    val title = mainRuns.firstOrNull()?.text?.takeIf { it.isNotBlank() }
+        ?: return null
+    val thumbnail = content.thumbnail ?: return null
 
     return Innertube.ArtistItem(
-        info = Innertube.Info(
-            name = mainRuns
-                .firstOrNull()
-                ?.text,
-            endpoint = content
-                .musicResponsiveListItemRenderer
-                ?.navigationEndpoint
-                ?.browseEndpoint
-        ),
-        subscribersCountText = otherRuns
-            .lastOrNull()
-            ?.last()
-            ?.text,
-        thumbnail = content
-            .thumbnail
-    ).takeIf { it.info?.endpoint?.browseId != null }
+        info = Innertube.Info(name = title, endpoint = endpoint),
+        subscribersCountText = otherRuns.lastOrNull()?.lastOrNull()?.text,
+        thumbnail = thumbnail
+    )
 }
 
 fun Innertube.PlaylistItem.Companion.from(content: MusicShelfRenderer.Content): Innertube.PlaylistItem? {
