@@ -237,6 +237,9 @@ object Innertube {
         val playlists: List<PlaylistItem>? = null,
         val featuredOn: List<PlaylistItem>? = null,
         val singlesEndpoint: NavigationEndpoint.Endpoint.Browse?,
+        // Videos are fetched from the artist's live YouTube Music page.
+        val videos: List<VideoItem>? = null,
+        val videosEndpoint: NavigationEndpoint.Endpoint.Browse? = null,
     )
 
     data class PlaylistOrAlbumPage(
