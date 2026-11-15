@@ -544,7 +544,6 @@ fun ArtistOverview(
                             )
                         }
                     }
-                }
                 if (isLoadingMore) {
                     BasicText(
                         text = "Loading more...",
@@ -563,8 +562,7 @@ fun ArtistOverview(
                             .padding(16.dp)
                     )
                 }
-
-                else {
+                } else {
                     ShimmerHost {
                         TextPlaceholder(modifier = sectionTextModifier)
 
