@@ -427,7 +427,7 @@ private fun ArtistShelfPage(
                     } else {
                         section?.browseEndpoint?.let { endpoint ->
                             endpoint.browseId?.let { browseId ->
-                                Innertube.itemsPage<Innertube.Item>(
+                                Innertube.metrolistArtistItemsPage<Innertube.Item>(
                                     body = BrowseBody(browseId = browseId, params = endpoint.params),
                                     fromMusicResponsiveListItemRenderer = fromMusicResponsive,
                                     fromMusicTwoRowItemRenderer = fromMusicTwoRow

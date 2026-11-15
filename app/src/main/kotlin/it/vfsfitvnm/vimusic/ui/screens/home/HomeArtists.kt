@@ -39,7 +39,6 @@ import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
 import it.vfsfitvnm.innertube.requests.metrolistArtistSearchPage
-import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
@@ -114,9 +113,7 @@ fun HomeArtistList(
                     val result = withContext(Dispatchers.IO) {
                         if (token != null) {
                             Innertube.metrolistArtistSearchPage(
-                                body = ContinuationBody(context = indiaContext, continuation = token),
-                                fromMusicShelfRendererContent = Innertube.ArtistItem::from,
-                                fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
+                                body = ContinuationBody(context = indiaContext, continuation = token)
                             )
                         } else {
                             suspend fun searchArtists(params: String) =
@@ -125,14 +122,12 @@ fun HomeArtistList(
                                         context = indiaContext,
                                         query = query,
                                         params = params
-                                    ),
-                                    fromMusicShelfRendererContent = Innertube.ArtistItem::from,
-                                    fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
+                                    )
                                 )
 
                             // YouTube Music's dedicated Artist filter sometimes returns an
                             // empty/partial layout for broad regional queries. Retry the same
-                            // query without the filter; SearchPage still parses only ArtistItems.
+                            // query without the filter; Metrolist's artist parser returns only ArtistItems.
                             val filtered = searchArtists(Innertube.SearchFilter.Artist.value)
                             if (filtered?.getOrNull()?.items.isNullOrEmpty()) {
                                 searchArtists("")
@@ -251,9 +246,7 @@ fun HomeArtistList(
                             context = indiaContext,
                             query = artistSearchText,
                             params = Innertube.SearchFilter.Artist.value
-                        ),
-                        fromMusicShelfRendererContent = Innertube.ArtistItem::from,
-                        fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
+                        )
                     )
                 }
                 artistSearchResults = result?.getOrNull()?.items.orEmpty().distinctBy(Innertube.ArtistItem::key)
