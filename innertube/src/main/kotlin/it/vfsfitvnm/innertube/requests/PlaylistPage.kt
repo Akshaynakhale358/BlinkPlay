@@ -21,8 +21,10 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
         setBody(body)
         mask(
             "contents(twoColumnBrowseResultsRenderer(" +
-                "tabs.tabRenderer.content.sectionListRenderer.contents.musicResponsiveHeaderRenderer" +
-                "(title,subtitle,secondSubtitle,straplineTextOne,thumbnail)," +
+                "tabs.tabRenderer.content.sectionListRenderer.contents(" +
+                "musicResponsiveHeaderRenderer(title,subtitle,secondSubtitle,straplineTextOne,thumbnail)," +
+                "musicPlaylistShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask)," +
+                "musicShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask))," +
                 "secondaryContents.sectionListRenderer.contents(" +
                 "musicPlaylistShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask)," +
                 "musicShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask)," +
