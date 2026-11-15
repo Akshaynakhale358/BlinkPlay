@@ -8,6 +8,7 @@ import it.vfsfitvnm.innertube.models.MusicShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
 import it.vfsfitvnm.innertube.models.SectionListRenderer
+import it.vfsfitvnm.innertube.utils.from
 
 /**
  * Artist-specific parser adapted from MetrolistGroup/Metrolist's YouTubeArtistParser
