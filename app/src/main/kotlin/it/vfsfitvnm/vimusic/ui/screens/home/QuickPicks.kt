@@ -960,7 +960,7 @@ private fun QuickPicksSongShelf(
                         }
                     }
                     onViewAll?.let { action ->
-                        BasicText(text = "VIEW ALL", style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
+                        BasicText(text = "VIEW ALL", style = typography.s.semiBold,
                             modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
                                 .clickable(onClick = action).padding(horizontal = 9.dp, vertical = 7.dp))
                     }
