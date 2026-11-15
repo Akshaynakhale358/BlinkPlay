@@ -219,6 +219,16 @@ object Innertube {
         companion object
     }
 
+    /**
+     * A parsed artist shelf. The item list deliberately contains only audio songs and
+     * music entities (albums, artists and playlists); video renderers are never added.
+     */
+    data class ArtistSection(
+        val title: String,
+        val items: List<Item>,
+        val browseEndpoint: NavigationEndpoint.Endpoint.Browse? = null,
+    )
+
     data class ArtistPage(
         val name: String?,
         val description: String?,
@@ -237,6 +247,10 @@ object Innertube {
         val playlists: List<PlaylistItem>? = null,
         val featuredOn: List<PlaylistItem>? = null,
         val singlesEndpoint: NavigationEndpoint.Endpoint.Browse?,
+        /** Extra shelves retained for the next UI pass instead of discarding unknown sections. */
+        val sections: List<ArtistSection> = emptyList(),
+        val monthlyListenersText: String? = null,
+        val isSubscribed: Boolean? = null,
     )
 
     data class PlaylistOrAlbumPage(
