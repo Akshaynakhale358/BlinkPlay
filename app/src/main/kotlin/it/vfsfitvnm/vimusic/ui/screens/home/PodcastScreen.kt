@@ -64,7 +64,7 @@ private data class PodcastEpisode(
 )
 
 @Composable
-fun PodcastScreen() {
+fun PodcastScreen(homeResetKey: Int) {
     val binder = LocalPlayerServiceBinder.current
     var searchText by remember { mutableStateOf("") }
     var searchOpen by remember { mutableStateOf(false) }
@@ -89,6 +89,12 @@ fun PodcastScreen() {
 
     BackHandler(enabled = selectedPodcast != null) {
         showPodcastHome()
+    }
+
+    LaunchedEffect(homeResetKey) {
+        showPodcastHome()
+        searchOpen = false
+        searchText = ""
     }
 
     fun loadEpisodes(podcast: PodcastSearchResult) {
