@@ -53,7 +53,8 @@ private data class PodcastSearchResult(
     val title: String,
     val author: String,
     val artwork: String,
-    val feedUrl: String
+    val feedUrl: String,
+    val episodeCount: Int
 )
 
 private data class PodcastEpisode(
@@ -232,7 +233,7 @@ fun PodcastScreen(homeResetKey: Int) {
                             thumbnailUrl = podcast.artwork,
                             title = podcast.title,
                             authors = podcast.author,
-                            year = "Podcast",
+                            year = "${podcast.episodeCount} Podcast",
                             thumbnailSizePx = 72.dp.px,
                             thumbnailSizeDp = 72.dp,
                             modifier = Modifier.weight(1f).clickable { loadEpisodes(podcast) }
@@ -320,7 +321,8 @@ private fun fetchTopPodcasts(country: String): List<PodcastSearchResult> {
             title = item.optString("collectionName", "Untitled podcast"),
             author = item.optString("artistName", ""),
             artwork = item.optString("artworkUrl600", item.optString("artworkUrl100", "")),
-            feedUrl = feed
+            feedUrl = feed,
+            episodeCount = item.optInt("trackCount", 0).coerceAtLeast(0)
         )
     }
 }
@@ -341,7 +343,8 @@ private fun searchPodcasts(term: String): List<PodcastSearchResult> {
             title = title.ifBlank { "Untitled podcast" },
             author = author,
             artwork = item.optString("artworkUrl600", item.optString("artworkUrl100", "")),
-            feedUrl = feed
+            feedUrl = feed,
+            episodeCount = item.optInt("trackCount", 0).coerceAtLeast(0)
         )
     }
 }
