@@ -44,8 +44,6 @@ import it.vfsfitvnm.vimusic.ui.items.AlbumItem
 import it.vfsfitvnm.vimusic.ui.items.AlbumItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.items.SongItem
 import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
-import it.vfsfitvnm.vimusic.ui.items.VideoItem
-import it.vfsfitvnm.vimusic.ui.items.VideoItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.screens.albumRoute
 import it.vfsfitvnm.vimusic.ui.screens.artistRoute
 import it.vfsfitvnm.vimusic.ui.screens.playlistRoute
@@ -170,7 +168,6 @@ fun ArtistScreen(browseId: String) {
                     Item(2, "Albums", R.drawable.disc)
                     Item(3, "Singles", R.drawable.disc)
                     Item(4, "Library", R.drawable.library)
-                    Item(5, "Videos", R.drawable.film)
                 },
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
@@ -369,75 +366,6 @@ fun ArtistScreen(browseId: String) {
                                 },
                                 itemPlaceholderContent = {
                                     AlbumItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
-                                }
-                            )
-                        }
-
-                        5 -> {
-                            val thumbnailWidthDp = 160.dp
-                            val thumbnailHeightDp = 90.dp
-                            val binder = LocalPlayerServiceBinder.current
-                            val menuState = LocalMenuState.current
-
-                            ItemsPage(
-                                tag = "artist/$browseId/videos",
-                                headerContent = headerContent,
-                                emptyItemsText = "This artist has no videos",
-                                itemsPageProvider = artistPage?.let {
-                                    ({ continuation ->
-                                        continuation?.let {
-                                            Innertube.itemsPage(
-                                                body = ContinuationBody(continuation = continuation),
-                                                fromMusicTwoRowItemRenderer = Innertube.VideoItem::from,
-                                            )
-                                        } ?: artistPage
-                                            ?.videosEndpoint
-                                            ?.takeIf { it.browseId != null }
-                                            ?.let { endpoint ->
-                                                Innertube.itemsPage(
-                                                    body = BrowseBody(
-                                                        browseId = endpoint.browseId!!,
-                                                        params = endpoint.params,
-                                                    ),
-                                                    fromMusicTwoRowItemRenderer = Innertube.VideoItem::from,
-                                                )
-                                            }
-                                        ?: Result.success(
-                                            Innertube.ItemsPage(
-                                                items = artistPage?.videos,
-                                                continuation = null
-                                            )
-                                        )
-                                    })
-                                },
-                                itemContent = { video ->
-                                    VideoItem(
-                                        video = video,
-                                        thumbnailWidthDp = thumbnailWidthDp,
-                                        thumbnailHeightDp = thumbnailHeightDp,
-                                        modifier = Modifier
-                                            .combinedClickable(
-                                                onLongClick = {
-                                                    menuState.display {
-                                                        NonQueuedMediaItemMenu(
-                                                            onDismiss = menuState::hide,
-                                                            mediaItem = video.asMediaItem,
-                                                        )
-                                                    }
-                                                },
-                                                onClick = {
-                                                    binder?.stopRadio()
-                                                    binder?.player?.forcePlay(video.asMediaItem)
-                                                    binder?.setupRadio(video.info?.endpoint)
-                                                }
-                                            )
-                                    )
-                                },
-                                itemPlaceholderContent = {
-                                    VideoItemPlaceholder(
-                                        thumbnailWidthDp = thumbnailWidthDp,
-                                        thumbnailHeightDp = thumbnailHeightDp,
-                                    )
                                 }
                             )
                         }
