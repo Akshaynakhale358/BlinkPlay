@@ -218,7 +218,8 @@ fun HomeArtistList(
                             query = artistSearchText,
                             params = Innertube.SearchFilter.Artist.value
                         ),
-                        fromMusicShelfRendererContent = Innertube.ArtistItem::from
+                        fromMusicShelfRendererContent = Innertube.ArtistItem::from,
+                        fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
                     )
                 }
                 artistSearchResults = result?.getOrNull()?.items.orEmpty().distinctBy(Innertube.ArtistItem::key)
