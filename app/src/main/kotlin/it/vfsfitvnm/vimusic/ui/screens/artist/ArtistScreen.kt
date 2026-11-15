@@ -384,7 +384,7 @@ private fun ArtistShelfPage(
         item(key = "artist-shelf-title") {
             BasicText(
                 text = title,
-                style = typography.m.semiBold.copy(color = Color.White, color = Color.White),
+                style = typography.m.semiBold.copy(color = Color.White),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
             )
         }
@@ -393,7 +393,7 @@ private fun ArtistShelfPage(
             item(key = "artist-shelf-empty") {
                 BasicText(
                     text = "No $title available for this artist.",
-                    style = typography.s.copy(color = Color.White, color = Color.White),
+                    style = typography.s.copy(color = Color.White),
                     modifier = Modifier.padding(16.dp)
                 )
             }
