@@ -25,6 +25,7 @@ data class ContinuationResponse(
     @Serializable
     data class ContinuationItem(
         val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null,
+        val musicTwoRowItemRenderer: MusicTwoRowItemRenderer? = null,
         val continuationItemRenderer: ContinuationItemRenderer? = null,
     )
 
@@ -32,6 +33,8 @@ data class ContinuationResponse(
     data class ContinuationContents(
         val musicPlaylistShelfContinuation: MusicShelfRenderer? = null,
         val musicShelfContinuation: MusicShelfRenderer? = null,
+        val musicCarouselShelfContinuation: MusicCarouselShelfRenderer? = null,
+        val gridContinuation: GridRenderer? = null,
         val playlistPanelContinuation: NextResponse.MusicQueueRenderer.Content.PlaylistPanelRenderer? = null,
     )
 }
