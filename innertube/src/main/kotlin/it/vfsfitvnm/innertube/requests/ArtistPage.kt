@@ -6,6 +6,7 @@ import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.BrowseResponse
 import it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer
+import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
 import it.vfsfitvnm.innertube.models.MusicShelfRenderer
 import it.vfsfitvnm.innertube.models.SectionListRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
@@ -20,19 +21,19 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
             mask("contents,header")
         }.body<BrowseResponse>()
 
-        // Adapted from haturatu/ViMusic (GPL-3.0): tolerate YouTube's changing
-        // artist shelf names while keeping the page audio-only.
-        fun section(vararg titles: String): SectionListRenderer.Content? {
-            return response
-                .contents
-                ?.singleColumnBrowseResultsRenderer
-                ?.tabs
-                ?.get(0)
-                ?.tabRenderer
-                ?.content
-                ?.sectionListRenderer
-                ?.findSectionByTitleAny(*titles)
-        }
+        val sectionList = response
+            .contents
+            ?.singleColumnBrowseResultsRenderer
+            ?.tabs
+            ?.firstOrNull()
+            ?.tabRenderer
+            ?.content
+            ?.sectionListRenderer
+
+        // YouTube changes shelf names and header renderer variants. Keep the lookup tolerant,
+        // following the artist parser strategy used by Metrolist, while retaining BlinkPlay models.
+        fun section(vararg titles: String): SectionListRenderer.Content? =
+            sectionList?.findSectionByTitleAny(*titles)
 
         val songsSection = section("Songs", "Top songs", "Tracks")?.musicShelfRenderer
         val albumsSection = section("Albums", "Releases")?.musicCarouselShelfRenderer
@@ -41,46 +42,107 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
         val playlistsSection = section("Playlists")?.musicCarouselShelfRenderer
         val featuredOnSection = section("Featured on")?.musicCarouselShelfRenderer
 
-        Innertube.ArtistPage(
-            name = response
-                .header
-                ?.musicImmersiveHeaderRenderer
+        fun audioSong(renderer: MusicResponsiveListItemRenderer): Innertube.SongItem? {
+            val song = Innertube.SongItem.from(renderer) ?: return null
+            val videoType = song.info
+                ?.endpoint
+                ?.watchEndpointMusicSupportedConfigs
+                ?.watchEndpointMusicConfig
+                ?.musicVideoType
+            return song.takeUnless {
+                videoType == "MUSIC_VIDEO_TYPE_OMV" ||
+                    videoType == "MUSIC_VIDEO_TYPE_UGC"
+            }
+        }
+
+        fun shelfTitle(content: SectionListRenderer.Content): String? =
+            content.musicCarouselShelfRenderer
+                ?.header
+                ?.musicCarouselShelfBasicHeaderRenderer
                 ?.title
-                ?.text,
-            description = response
-                .header
-                ?.musicImmersiveHeaderRenderer
-                ?.description
-                ?.text,
-            subscriberCountText = response
-                .header
-                ?.musicImmersiveHeaderRenderer
+                ?.text
+                ?: content.musicShelfRenderer?.title?.text
+                ?: content.musicResponsiveHeaderRenderer?.title?.text
+
+        fun shelfItems(content: SectionListRenderer.Content): List<Innertube.Item> =
+            buildList {
+                content.musicShelfRenderer?.contents.orEmpty().forEach { shelfItem ->
+                    shelfItem.musicResponsiveListItemRenderer
+                        ?.let(::audioSong)
+                        ?.let(::add)
+                }
+                content.musicCarouselShelfRenderer?.contents.orEmpty().forEach { shelfItem ->
+                    shelfItem.musicResponsiveListItemRenderer
+                        ?.let(::audioSong)
+                        ?.let(::add)
+                    shelfItem.musicTwoRowItemRenderer?.let { renderer ->
+                        val item = Innertube.AlbumItem.from(renderer)
+                            ?: Innertube.ArtistItem.from(renderer)
+                            ?: Innertube.PlaylistItem.from(renderer)
+                        item?.let(::add)
+                    }
+                }
+            }.distinctBy(Innertube.Item::key)
+
+        // Preserve shelves the current screen does not render yet. This lets the next UI pass
+        // decide how to display the data without throwing away sections the API already returned.
+        val allSections = sectionList?.contents.orEmpty().mapNotNull { content ->
+            val title = shelfTitle(content)?.trim()?.takeIf(String::isNotEmpty) ?: return@mapNotNull null
+            val items = shelfItems(content)
+            if (items.isEmpty()) return@mapNotNull null
+
+            val browseEndpoint = content.musicShelfRenderer
+                ?.bottomEndpoint
+                ?.browseEndpoint
+                ?: content.musicCarouselShelfRenderer
+                    ?.header
+                    ?.musicCarouselShelfBasicHeaderRenderer
+                    ?.moreContentButton
+                    ?.buttonRenderer
+                    ?.navigationEndpoint
+                    ?.browseEndpoint
+
+            Innertube.ArtistSection(
+                title = title,
+                items = items,
+                browseEndpoint = browseEndpoint,
+            )
+        }
+
+        val immersiveHeader = response.header?.musicImmersiveHeaderRenderer
+        val detailHeader = response.header?.musicDetailHeaderRenderer
+        val description = immersiveHeader?.description?.text
+            ?: sectionList?.contents
+                ?.firstNotNullOfOrNull { it.musicDescriptionShelfRenderer?.description?.text }
+
+        Innertube.ArtistPage(
+            name = immersiveHeader?.title?.text ?: detailHeader?.title?.text,
+            description = description,
+            subscriberCountText = immersiveHeader
                 ?.subscriptionButton
                 ?.subscribeButtonRenderer
                 ?.subscriberCountText
-                ?.text,
-            thumbnail = (response
-                .header
-                ?.musicImmersiveHeaderRenderer
-                ?.foregroundThumbnail
-                ?: response
-                .header
-                ?.musicImmersiveHeaderRenderer
-                ?.thumbnail)
+                ?.text
+                ?: immersiveHeader
+                    ?.subscriptionButton
+                    ?.subscribeButtonRenderer
+                    ?.longSubscriberCountText
+                    ?.text,
+            thumbnail = (
+                immersiveHeader?.foregroundThumbnail
+                    ?: immersiveHeader?.thumbnail
+                    ?: detailHeader?.thumbnail
+                )
                 ?.musicThumbnailRenderer
                 ?.thumbnail
                 ?.thumbnails
-                ?.getOrNull(0),
-            shuffleEndpoint = response
-                .header
-                ?.musicImmersiveHeaderRenderer
+                ?.maxByOrNull { (it.width ?: 0) * (it.height ?: 0) },
+            shuffleEndpoint = immersiveHeader
                 ?.playButton
                 ?.buttonRenderer
                 ?.navigationEndpoint
                 ?.watchEndpoint,
-            radioEndpoint = response
-                .header
-                ?.musicImmersiveHeaderRenderer
+            radioEndpoint = immersiveHeader
                 ?.startRadioButton
                 ?.buttonRenderer
                 ?.navigationEndpoint
@@ -88,14 +150,16 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
             songs = songsSection
                 ?.contents
                 ?.mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
-                ?.mapNotNull(Innertube.SongItem::from),
+                ?.mapNotNull(::audioSong)
+                ?.distinctBy(Innertube.Item::key),
             songsEndpoint = songsSection
                 ?.bottomEndpoint
                 ?.browseEndpoint,
             albums = albumsSection
                 ?.contents
                 ?.mapNotNull(MusicCarouselShelfRenderer.Content::musicTwoRowItemRenderer)
-                ?.mapNotNull(Innertube.AlbumItem::from),
+                ?.mapNotNull(Innertube.AlbumItem::from)
+                ?.distinctBy(Innertube.Item::key),
             albumsEndpoint = albumsSection
                 ?.header
                 ?.musicCarouselShelfBasicHeaderRenderer
@@ -106,7 +170,8 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
             singles = singlesSection
                 ?.contents
                 ?.mapNotNull(MusicCarouselShelfRenderer.Content::musicTwoRowItemRenderer)
-                ?.mapNotNull(Innertube.AlbumItem::from),
+                ?.mapNotNull(Innertube.AlbumItem::from)
+                ?.distinctBy(Innertube.Item::key),
             singlesEndpoint = singlesSection
                 ?.header
                 ?.musicCarouselShelfBasicHeaderRenderer
@@ -114,18 +179,26 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                 ?.buttonRenderer
                 ?.navigationEndpoint
                 ?.browseEndpoint,
-            // Four shelves YouTube has always returned and nothing was reading.
             similarArtists = similarArtistsSection
                 ?.contents
                 ?.mapNotNull(MusicCarouselShelfRenderer.Content::musicTwoRowItemRenderer)
-                ?.mapNotNull(Innertube.ArtistItem::from),
+                ?.mapNotNull(Innertube.ArtistItem::from)
+                ?.distinctBy(Innertube.Item::key),
             playlists = playlistsSection
                 ?.contents
                 ?.mapNotNull(MusicCarouselShelfRenderer.Content::musicTwoRowItemRenderer)
-                ?.mapNotNull(Innertube.PlaylistItem::from),
+                ?.mapNotNull(Innertube.PlaylistItem::from)
+                ?.distinctBy(Innertube.Item::key),
             featuredOn = featuredOnSection
                 ?.contents
                 ?.mapNotNull(MusicCarouselShelfRenderer.Content::musicTwoRowItemRenderer)
-                ?.mapNotNull(Innertube.PlaylistItem::from),
+                ?.mapNotNull(Innertube.PlaylistItem::from)
+                ?.distinctBy(Innertube.Item::key),
+            sections = allSections,
+            monthlyListenersText = immersiveHeader?.monthlyListenerCount?.text,
+            isSubscribed = immersiveHeader
+                ?.subscriptionButton
+                ?.subscribeButtonRenderer
+                ?.subscribed,
         )
     }
