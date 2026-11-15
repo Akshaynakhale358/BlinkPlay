@@ -5,6 +5,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.BrowseResponse
+import it.vfsfitvnm.innertube.models.Continuation
 import it.vfsfitvnm.innertube.models.ContinuationResponse
 import it.vfsfitvnm.innertube.models.GridRenderer
 import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
@@ -51,23 +52,29 @@ suspend fun <T : Innertube.Item> Innertube.itemsPage(
 //        mask("contents.singleColumnBrowseResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents(musicPlaylistShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask),gridRenderer(continuations,items.$musicTwoRowItemRendererMask))")
     }.body<ContinuationResponse>()
 
+    val actionItems = response.onResponseReceivedActions
+        ?.plus(response.onResponseReceivedEndpoints.orEmpty())
+        ?.flatMap { action ->
+            (action.appendContinuationItemsAction ?: action.reloadContinuationItemsCommand)
+                ?.continuationItems.orEmpty()
+        }.orEmpty()
+    val actionShelf = actionItems
+        .mapNotNull { it.musicResponsiveListItemRenderer }
+        .takeIf { it.isNotEmpty() }
+        ?.let { renderers ->
+            val nextToken = actionItems
+                .firstNotNullOfOrNull { it.continuationItemRenderer?.continuationEndpoint?.token() }
+            MusicShelfRenderer(
+                contents = renderers.map { MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it) },
+                continuations = nextToken?.let { listOf(Continuation(Continuation.Data(it))) }
+            )
+        }
+
     itemsPageFromMusicShelRendererOrGridRenderer(
         musicShelfRenderer = response.continuationContents
             ?.musicPlaylistShelfContinuation
             ?: response.continuationContents?.musicShelfContinuation
-            ?: response.onResponseReceivedActions
-                ?.plus(response.onResponseReceivedEndpoints.orEmpty())
-                ?.flatMap { action ->
-                    (action.appendContinuationItemsAction ?: action.reloadContinuationItemsCommand)
-                        ?.continuationItems.orEmpty()
-                }
-                ?.mapNotNull { it.musicResponsiveListItemRenderer }
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { renderers ->
-                    MusicShelfRenderer(
-                        contents = renderers.map { MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it) }
-                    )
-                },
+            ?: actionShelf,
         gridRenderer = null,
         fromMusicResponsiveListItemRenderer = fromMusicResponsiveListItemRenderer,
         fromMusicTwoRowItemRenderer = fromMusicTwoRowItemRenderer,
