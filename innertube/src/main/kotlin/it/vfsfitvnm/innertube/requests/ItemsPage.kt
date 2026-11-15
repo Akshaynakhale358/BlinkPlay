@@ -9,6 +9,7 @@ import it.vfsfitvnm.innertube.models.Continuation
 import it.vfsfitvnm.innertube.models.ContinuationResponse
 import it.vfsfitvnm.innertube.models.GridRenderer
 import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
+import it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
@@ -73,9 +74,9 @@ suspend fun <T : Innertube.Item> Innertube.itemsPage(
         .filter { it.musicTwoRowItemRenderer != null || it.musicResponsiveListItemRenderer != null }
         .takeIf { it.isNotEmpty() }
         ?.let { items ->
-            it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer(
+            MusicCarouselShelfRenderer(
                 contents = items.map {
-                    it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer.Content(
+                    MusicCarouselShelfRenderer.Content(
                         musicTwoRowItemRenderer = it.musicTwoRowItemRenderer,
                         musicResponsiveListItemRenderer = it.musicResponsiveListItemRenderer,
                     )
@@ -98,7 +99,7 @@ suspend fun <T : Innertube.Item> Innertube.itemsPage(
 
 private fun <T : Innertube.Item> itemsPageFromMusicShelRendererOrGridRenderer(
     musicShelfRenderer: MusicShelfRenderer?,
-    carouselShelfRenderer: it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer? = null,
+    carouselShelfRenderer: MusicCarouselShelfRenderer? = null,
     gridRenderer: GridRenderer?,
     fromMusicResponsiveListItemRenderer: (MusicResponsiveListItemRenderer) -> T?,
     fromMusicTwoRowItemRenderer: (MusicTwoRowItemRenderer) -> T?,
