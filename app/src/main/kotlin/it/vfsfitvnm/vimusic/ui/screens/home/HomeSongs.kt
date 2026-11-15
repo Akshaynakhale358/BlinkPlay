@@ -246,7 +246,7 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
                     BasicText(
                         text = category.name,
                         style = typography.m.semiBold.copy(
-                            fontSize = typography.xxl.fontSize * 0.936f,
+                            fontSize = typography.s.fontSize,
                             textAlign = TextAlign.End
                         ),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
