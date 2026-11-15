@@ -47,19 +47,11 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
 
     // Two-column is what YouTube serves today; the single-column path is kept as a fallback so an
     // older or regional response shape still renders instead of showing an empty page.
-    val sectionListRendererContents = twoColumn
-        ?.secondaryContents
-        ?.sectionListRenderer
-        ?.contents
-        ?: response
-            .contents
-            ?.singleColumnBrowseResultsRenderer
-            ?.tabs
-            ?.firstOrNull()
-            ?.tabRenderer
-            ?.content
-            ?.sectionListRenderer
-            ?.contents
+    val sectionListRendererContents = buildList {
+        addAll(twoColumn?.secondaryContents?.sectionListRenderer?.contents.orEmpty())
+        addAll(twoColumn?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents.orEmpty())
+        addAll(response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents.orEmpty())
+    }
 
     val musicShelfRenderer = sectionListRendererContents
         ?.firstNotNullOfOrNull { it.musicPlaylistShelfRenderer ?: it.musicShelfRenderer }
@@ -117,7 +109,7 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
 suspend fun Innertube.playlistPage(body: ContinuationBody) = runCatchingNonCancellable {
     val response = client.post(browse) {
         setBody(body)
-        mask("continuationContents.musicPlaylistShelfContinuation(continuations,contents.$musicResponsiveListItemRendererMask)")
+        mask("continuationContents(musicPlaylistShelfContinuation(continuations,contents.$musicResponsiveListItemRendererMask),musicShelfContinuation(continuations,contents.$musicResponsiveListItemRendererMask))")
     }.body<ContinuationResponse>()
 
     val shelf = response.continuationContents
