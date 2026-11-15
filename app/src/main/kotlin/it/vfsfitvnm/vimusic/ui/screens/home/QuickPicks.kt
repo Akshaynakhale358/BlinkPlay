@@ -730,7 +730,7 @@ fun QuickPicks(
                     "top" -> uniqueQuickPicksSongs.top
                     "new" -> uniqueQuickPicksSongs.newReleases
                     "long_listen" -> uniqueQuickPicksSongs.longListen
-                    else -> longListenSongs
+                    else -> uniqueQuickPicksSongs.longListen
                 }
                 Header(title = "Quick Picks", titleScale = 1.404f)
                 BasicText(
@@ -792,7 +792,7 @@ fun QuickPicks(
                 )
                 QuickPicksSongShelf(
                     title = "All Songs",
-                    songs = discoverySongs[category.key] ?: uniqueQuickPicksSongs.calm[category.key].orEmpty(),
+                    songs = uniqueQuickPicksSongs.discovery[category.key] ?: uniqueQuickPicksSongs.calm[category.key].orEmpty(),
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
                     itemWidth = itemInHorizontalGridWidth,
