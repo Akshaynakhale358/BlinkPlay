@@ -6,6 +6,11 @@ import android.util.Xml
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -161,47 +166,49 @@ fun PodcastScreen() {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(results) { podcast ->
                     Card(modifier = Modifier.fillMaxWidth().clickable { loadEpisodes(podcast) }) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(podcast.title)
-                            if (podcast.author.isNotBlank()) Text(podcast.author)
-                            Text("Episodes पाहण्यासाठी टॅप करा")
+                        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AsyncImage(model = podcast.artwork, contentDescription = podcast.title, contentScale = ContentScale.Crop, modifier = Modifier.size(76.dp))
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(podcast.title)
+                                if (podcast.author.isNotBlank()) Text(podcast.author)
+                                Text("सर्व Episodes पाहा")
+                            }
                         }
                     }
                 }
             }
         } else {
-            Text(selectedPodcast!!.title)
-            if (selectedPodcast!!.author.isNotBlank()) Text(selectedPodcast!!.author)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AsyncImage(model = selectedPodcast!!.artwork, contentDescription = selectedPodcast!!.title, contentScale = ContentScale.Crop, modifier = Modifier.size(88.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(selectedPodcast!!.title)
+                    if (selectedPodcast!!.author.isNotBlank()) Text(selectedPodcast!!.author)
+                }
+            }
             if (isLoading) CircularProgressIndicator()
             error?.let { Text(it) }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(episodes) { episode ->
                     Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(episode.title)
-                            if (episode.published.isNotBlank()) Text(episode.published)
-                            if (episode.description.isNotBlank()) Text(episode.description)
+                        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AsyncImage(model = selectedPodcast?.artwork, contentDescription = episode.title, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp))
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Text(episode.title)
+                                if (episode.published.isNotBlank()) Text(episode.published)
+                                if (episode.description.isNotBlank()) Text(episode.description)
+                            }
                             if (episode.audioUrl.isNotBlank()) {
                                 Button(onClick = {
                                     val mediaItem = MediaItem.Builder()
                                         .setMediaId(episode.audioUrl)
                                         .setUri(episode.audioUrl)
-                                        .setMediaMetadata(
-                                            MediaMetadata.Builder()
-                                                .setTitle(episode.title)
-                                                .setArtist(selectedPodcast?.title ?: "Podcast")
-                                                .setArtworkUri(selectedPodcast?.artwork?.takeIf { it.isNotBlank() }?.let(Uri::parse))
-                                                .build()
-                                        )
+                                        .setCustomCacheKey("podcast:${episode.audioUrl}")
+                                        .setMediaMetadata(MediaMetadata.Builder().setTitle(episode.title).setArtist(selectedPodcast?.title ?: "Podcast").setArtworkUri(selectedPodcast?.artwork?.takeIf { it.isNotBlank() }?.let(Uri::parse)).build())
                                         .build()
-                                    binder?.player?.setMediaItem(mediaItem)
+                                    binder?.player?.setMediaItem(mediaItem, true)
+                                    binder?.player?.playWhenReady = true
                                     binder?.player?.prepare()
-                                    binder?.player?.play()
-                                }) {
-                                    Text("▶ Play in Mini Player")
-                                }
-                            } else {
-                                Text("या Episode साठी Audio उपलब्ध नाही.")
+                                }, enabled = binder != null) { Text("▶") }
                             }
                         }
                     }
