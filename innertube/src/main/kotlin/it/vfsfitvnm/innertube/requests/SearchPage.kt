@@ -48,8 +48,15 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
                 ?.mapNotNullTo(this, fromMusicShelfRendererContent)
             section.gridRenderer
                 ?.items
-                ?.mapNotNull { it.musicTwoRowItemRenderer }
-                ?.mapNotNullTo(this, fromMusicTwoRowItemRenderer)
+                ?.forEach { gridItem ->
+                    gridItem.musicTwoRowItemRenderer
+                        ?.let(fromMusicTwoRowItemRenderer)
+                        ?.let(::add)
+                    gridItem.musicResponsiveListItemRenderer
+                        ?.let { MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it) }
+                        ?.let(fromMusicShelfRendererContent)
+                        ?.let(::add)
+                }
         }
     }.distinctBy(Innertube.Item::key)
 
