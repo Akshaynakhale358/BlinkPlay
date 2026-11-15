@@ -230,9 +230,18 @@ fun PodcastScreen() {
                         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             AsyncImage(model = episode.artwork.ifBlank { selectedPodcast?.artwork.orEmpty() }, contentDescription = episode.title, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp))
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Text(episode.title)
-                                if (episode.published.isNotBlank()) Text(episode.published)
-                                if (episode.description.isNotBlank()) Text(episode.description)
+                                Text(
+                                    text = episode.title,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                                if (episode.published.isNotBlank()) {
+                                    Text(
+                                        text = episode.published,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                             if (episode.audioUrl.isNotBlank()) {
                                 Button(onClick = {
