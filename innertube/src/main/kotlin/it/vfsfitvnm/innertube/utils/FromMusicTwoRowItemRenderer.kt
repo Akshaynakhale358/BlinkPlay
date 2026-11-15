@@ -32,24 +32,27 @@ fun Innertube.ArtistItem.Companion.from(renderer: MusicTwoRowItemRenderer): Inne
     val titleRun = renderer.title?.runs?.firstOrNull()
     val browseEndpoint = renderer.navigationEndpoint?.browseEndpoint
         ?: titleRun?.navigationEndpoint?.browseEndpoint
+    val browseId = browseEndpoint?.browseId ?: return null
+    val pageType = browseEndpoint.type
+    val isArtist = pageType == "MUSIC_PAGE_TYPE_ARTIST" ||
+        pageType == "MUSIC_PAGE_TYPE_LIBRARY_ARTIST" ||
+        pageType == "MUSIC_PAGE_TYPE_USER_CHANNEL" ||
+        browseId.startsWith("UC")
+    if (!isArtist) return null
+
+    val title = titleRun?.text?.takeIf { it.isNotBlank() } ?: return null
+    val thumbnail = renderer.thumbnailRenderer
+        ?.musicThumbnailRenderer
+        ?.thumbnail
+        ?.thumbnails
+        ?.maxByOrNull { (it.width ?: 0) * (it.height ?: 0) }
+        ?: return null
 
     return Innertube.ArtistItem(
-        info = Innertube.Info(
-            name = titleRun?.text,
-            endpoint = browseEndpoint
-        ),
-        subscribersCountText = renderer
-            .subtitle
-            ?.runs
-            ?.firstOrNull()
-            ?.text,
-        thumbnail = renderer
-            .thumbnailRenderer
-            ?.musicThumbnailRenderer
-            ?.thumbnail
-            ?.thumbnails
-            ?.firstOrNull()
-    ).takeIf { it.info?.endpoint?.browseId != null }
+        info = Innertube.Info(name = title, endpoint = browseEndpoint),
+        subscribersCountText = renderer.subtitle?.runs?.firstOrNull()?.text,
+        thumbnail = thumbnail
+    )
 }
 
 fun Innertube.PlaylistItem.Companion.from(renderer: MusicTwoRowItemRenderer): Innertube.PlaylistItem? {
