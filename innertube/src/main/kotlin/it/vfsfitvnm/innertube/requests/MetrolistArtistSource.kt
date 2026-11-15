@@ -6,9 +6,6 @@ import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.BrowseResponse
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
-import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
-import it.vfsfitvnm.innertube.models.bodies.SearchBody
-import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
 
 /**
  * Artist-only source boundary adapted from MetrolistGroup/Metrolist's artist data flow
@@ -23,17 +20,3 @@ suspend fun Innertube.metrolistArtistPage(body: BrowseBody): Result<Innertube.Ar
         }.body<BrowseResponse>()
         MetrolistArtistParser.parseArtist(response, body.browseId)
     }
-
-suspend fun Innertube.metrolistArtistSearchPage(body: SearchBody) =
-    searchPage(
-        body = body,
-        fromMusicShelfRendererContent = MetrolistArtistParser::fromShelf,
-        fromMusicTwoRowItemRenderer = MetrolistArtistParser::fromTwoRow
-    )
-
-suspend fun Innertube.metrolistArtistSearchPage(body: ContinuationBody) =
-    searchPage(
-        body = body,
-        fromMusicShelfRendererContent = MetrolistArtistParser::fromShelf,
-        fromMusicTwoRowItemRenderer = MetrolistArtistParser::fromTwoRow
-    )
