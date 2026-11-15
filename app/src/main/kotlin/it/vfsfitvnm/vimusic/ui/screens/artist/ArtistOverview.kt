@@ -199,6 +199,7 @@ fun ArtistOverview(
 
     val overviewSongs = sectionItemsFor("songs", "top tracks", "top songs").filterIsInstance<Innertube.SongItem>()
         .ifEmpty { youtubeArtistPage?.songs.orEmpty() }
+    val overviewLatestRelease = sectionItemsFor("latest release", "new release").filterIsInstance<Innertube.AlbumItem>()
     val overviewAlbums = sectionItemsFor("albums", "releases", "full albums").filterIsInstance<Innertube.AlbumItem>()
         .ifEmpty { youtubeArtistPage?.albums.orEmpty() }
     val overviewSingles = sectionItemsFor("singles", "eps").filterIsInstance<Innertube.AlbumItem>()
@@ -314,6 +315,29 @@ fun ArtistOverview(
                                     )
                                     .padding(endPaddingValues)
                             )
+                        }
+                    }
+
+                    overviewLatestRelease.takeIf { it.isNotEmpty() }?.let { albums ->
+                        BasicText(
+                            text = "Latest Release",
+                            style = typography.m.semiBold.copy(color = Color.White),
+                            modifier = sectionTextModifier
+                        )
+                        LazyRow(
+                            contentPadding = endPaddingValues,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(albums, key = Innertube.AlbumItem::key) { album ->
+                                AlbumItem(
+                                    album = album,
+                                    thumbnailSizePx = albumThumbnailSizePx,
+                                    thumbnailSizeDp = albumThumbnailSizeDp,
+                                    alternative = true,
+                                    titleColor = Color.White,
+                                    modifier = Modifier.clickable { onAlbumClick(album.key) }
+                                )
+                            }
                         }
                     }
 
