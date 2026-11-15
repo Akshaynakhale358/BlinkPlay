@@ -216,7 +216,7 @@ fun ArtistScreen(browseId: String) {
                             onViewAllSinglesClick = { tabIndex = 3 },
                         )
 
-                        1 -> {
+                        3 -> {
                             val binder = LocalPlayerServiceBinder.current
                             val menuState = LocalMenuState.current
                             val thumbnailSizeDp = Dimensions.thumbnails.song
@@ -281,7 +281,7 @@ fun ArtistScreen(browseId: String) {
                             )
                         }
 
-                        2 -> {
+                        4 -> {
                             val thumbnailSizeDp = 108.dp
                             val thumbnailSizePx = thumbnailSizeDp.px
 
@@ -331,7 +331,7 @@ fun ArtistScreen(browseId: String) {
                             )
                         }
 
-                        3 -> {
+                        5 -> {
                             val thumbnailSizeDp = 108.dp
                             val thumbnailSizePx = thumbnailSizeDp.px
 
