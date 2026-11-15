@@ -79,3 +79,34 @@ fun Innertube.PlaylistItem.Companion.from(renderer: MusicTwoRowItemRenderer): In
             ?.firstOrNull()
     ).takeIf { it.info?.endpoint?.browseId != null }
 }
+
+// Adapted from haturatu/ViMusic (GPL-3.0): artist video cards expose the Watch
+// endpoint on the renderer, not necessarily on the title run.
+fun Innertube.VideoItem.Companion.from(renderer: MusicTwoRowItemRenderer): Innertube.VideoItem? =
+    runCatching {
+        val endpoint = renderer.navigationEndpoint?.watchEndpoint
+            ?: renderer.title
+                ?.runs
+                ?.firstOrNull()
+                ?.navigationEndpoint
+                ?.watchEndpoint
+
+        Innertube.VideoItem(
+            info = endpoint?.let { watchEndpoint ->
+                Innertube.Info(
+                    name = renderer.title?.text
+                        ?: renderer.title?.runs?.firstOrNull()?.text,
+                    endpoint = watchEndpoint
+                )
+            },
+            authors = null,
+            viewsText = renderer.subtitle?.runs?.lastOrNull()?.text,
+            durationText = null,
+            thumbnail = renderer
+                .thumbnailRenderer
+                ?.musicThumbnailRenderer
+                ?.thumbnail
+                ?.thumbnails
+                ?.firstOrNull()
+        ).takeIf { it.info?.endpoint?.videoId != null }
+    }.getOrNull()
