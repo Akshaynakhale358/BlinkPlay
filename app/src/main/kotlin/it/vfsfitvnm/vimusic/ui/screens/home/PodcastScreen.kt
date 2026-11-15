@@ -3,6 +3,7 @@ package it.vfsfitvnm.vimusic.ui.screens.home
 import android.net.Uri
 import android.text.Html
 import android.util.Xml
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import it.vfsfitvnm.vimusic.ui.items.AlbumItem
 import it.vfsfitvnm.vimusic.ui.styling.px
@@ -79,6 +80,17 @@ fun PodcastScreen() {
     var isLoadingMore by remember { mutableStateOf(false) }
     val loadedPodcastKeys = remember { mutableStateListOf<String>() }
 
+    fun showPodcastHome() {
+        selectedPodcast = null
+        episodes.clear()
+        error = null
+        isLoading = false
+    }
+
+    BackHandler(enabled = selectedPodcast != null) {
+        showPodcastHome()
+    }
+
     fun loadEpisodes(podcast: PodcastSearchResult) {
         selectedPodcast = podcast
         scope.launch {
@@ -150,12 +162,10 @@ fun PodcastScreen() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = "Podcast")
+            Text(text = "Podcast", modifier = Modifier.clickable { showPodcastHome() })
             IconButton(onClick = {
                 if (selectedPodcast != null) {
-                    selectedPodcast = null
-                    episodes.clear()
-                    error = null
+                    showPodcastHome()
                 } else {
                     searchOpen = !searchOpen
                     if (!searchOpen) {
