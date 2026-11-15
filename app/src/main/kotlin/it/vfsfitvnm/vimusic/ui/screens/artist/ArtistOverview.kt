@@ -280,6 +280,7 @@ fun ArtistOverview(
                                     thumbnailSizePx = albumThumbnailSizePx,
                                     thumbnailSizeDp = albumThumbnailSizeDp,
                                     alternative = true,
+                                    titleColor = Color.White,
                                     modifier = Modifier
                                         .clickable(onClick = { onAlbumClick(album.key) })
                                 )
