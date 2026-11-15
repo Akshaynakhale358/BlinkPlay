@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.BasicText
@@ -259,6 +260,7 @@ fun ArtistScreen(browseId: String) {
                                         song = song,
                                         thumbnailSizeDp = thumbnailSizeDp,
                                         thumbnailSizePx = thumbnailSizePx,
+                                        titleColor = Color.White,
                                         modifier = Modifier
                                             .combinedClickable(
                                                 onLongClick = {
@@ -323,6 +325,7 @@ fun ArtistScreen(browseId: String) {
                                         album = album,
                                         thumbnailSizePx = thumbnailSizePx,
                                         thumbnailSizeDp = thumbnailSizeDp,
+                                        titleColor = Color.White,
                                         modifier = Modifier
                                             .clickable(onClick = { albumRoute(album.key) })
                                     )
@@ -333,7 +336,7 @@ fun ArtistScreen(browseId: String) {
                             )
                         }
 
-                        1 -> ArtistShelfPage("Latest release", artistPage?.findArtistSection("latest release", "latest releases"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        1 -> ArtistShelfPage("Latest release", artistPage?.findArtistSection("latest release", "latest releases", "new release", "new releases", "latest album", "latest albums"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
                         2 -> ArtistShelfPage("Top tracks", artistPage?.findArtistSection("top tracks", "top songs", "tracks"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
                         5 -> ArtistShelfPage("Singles & EPs", artistPage?.findArtistSection("singles & eps", "singles", "eps"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
                         6 -> ArtistShelfPage("Appears on / Featured on", artistPage?.findArtistSection("appears on", "featured on"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
@@ -392,6 +395,7 @@ private fun ArtistShelfPage(
                         song = item,
                         thumbnailSizeDp = songSize,
                         thumbnailSizePx = songSizePx,
+                        titleColor = Color.White,
                         modifier = Modifier.clickable {
                             binder?.stopRadio()
                             binder?.player?.forcePlay(item.asMediaItem)
@@ -403,6 +407,7 @@ private fun ArtistShelfPage(
                         thumbnailSizePx = entitySizePx,
                         thumbnailSizeDp = entitySize,
                         alternative = true,
+                        titleColor = Color.White,
                         modifier = Modifier.clickable { onAlbumClick(item.key) }
                     )
                     is Innertube.ArtistItem -> ArtistItem(
