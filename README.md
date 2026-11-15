@@ -1,6 +1,6 @@
 <div align="center">
     <img src="./app/src/main/ic_launcher-playstore.png" width="128" height="128" style="display: block; margin: 0 auto"/>
-    <h1>BlinkPlay</h1>
+    <h1>BlinkPlayPodcast</h1>
     <p>An Android application for streaming music from YouTube Music</p>
 </div>
 
@@ -52,6 +52,10 @@ explicitly bookmarked, which for most people is nothing at all.
 
 Also modernised throughout: AGP 8.13, Kotlin 2.3, Compose BOM 2026.06, Media3 1.11, Room 2.8, KSP
 in place of kapt.
+
+## Music + Podcast Features
+
+Music features are inherited from BlinkPlay. Podcast features from AntennaPod are planned for a later port; they are not integrated in this initial copy.
 
 ## Features
 - Play (almost) any song or video from YouTube Music
