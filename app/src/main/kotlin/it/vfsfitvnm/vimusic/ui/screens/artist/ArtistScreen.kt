@@ -411,16 +411,20 @@ private fun ArtistShelfPage(
                         }
                     )
                 }
-                result.onSuccess { page ->
-                    if (page == null) {
-                        continuation = null
-                    } else {
-                        val knownKeys = shelfItems.mapTo(mutableSetOf(), Innertube.Item::key)
-                        page.items.orEmpty().filter { knownKeys.add(it.key) }.forEach { shelfItems.add(it) }
-                        continuation = page.continuation?.takeIf { it != token }
+                if (result == null) {
+                    continuation = null
+                } else {
+                    result.onSuccess { page ->
+                        if (page == null) {
+                            continuation = null
+                        } else {
+                            val knownKeys = shelfItems.mapTo(mutableSetOf(), Innertube.Item::key)
+                            page.items.orEmpty().filter { knownKeys.add(it.key) }.forEach { shelfItems.add(it) }
+                            continuation = page.continuation?.takeIf { it != token }
+                        }
+                    }.onFailure {
+                        loadFailed = true
                     }
-                }.onFailure {
-                    loadFailed = true
                 }
                 isLoading = false
             }
