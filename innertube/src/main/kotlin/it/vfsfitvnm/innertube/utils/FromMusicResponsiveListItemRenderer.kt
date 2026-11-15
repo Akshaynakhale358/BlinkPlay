@@ -47,3 +47,39 @@ fun Innertube.SongItem.Companion.from(renderer: MusicResponsiveListItemRenderer)
             ?.maxByOrNull { (it.width ?: 0) * (it.height ?: 0) }
     ).takeIf { it.info?.endpoint?.videoId != null }
 }
+
+fun Innertube.ArtistItem.Companion.from(renderer: MusicResponsiveListItemRenderer): Innertube.ArtistItem? {
+    val endpoint = renderer.navigationEndpoint?.browseEndpoint
+        ?: renderer.flexColumns.firstOrNull()
+            ?.musicResponsiveListItemFlexColumnRenderer
+            ?.text?.runs
+            ?.firstNotNullOfOrNull { it.navigationEndpoint?.browseEndpoint }
+        ?: return null
+
+    val browseId = endpoint.browseId ?: return null
+    val pageType = endpoint.type
+    val isArtist = pageType == "MUSIC_PAGE_TYPE_ARTIST" ||
+        pageType == "MUSIC_PAGE_TYPE_LIBRARY_ARTIST" ||
+        pageType == "MUSIC_PAGE_TYPE_USER_CHANNEL" ||
+        browseId.startsWith("UC")
+    if (!isArtist) return null
+
+    val title = renderer.flexColumns.firstOrNull()
+        ?.musicResponsiveListItemFlexColumnRenderer
+        ?.text?.runs?.firstOrNull()?.text
+        ?.takeIf { it.isNotBlank() } ?: return null
+
+    val thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail
+        ?.thumbnails?.maxByOrNull { (it.width ?: 0) * (it.height ?: 0) }
+        ?: return null
+
+    val subscribers = renderer.flexColumns.getOrNull(1)
+        ?.musicResponsiveListItemFlexColumnRenderer
+        ?.text?.runs?.lastOrNull()?.text
+
+    return Innertube.ArtistItem(
+        info = Innertube.Info(name = title, endpoint = endpoint),
+        subscribersCountText = subscribers,
+        thumbnail = thumbnail
+    )
+}
