@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import coil.compose.AsyncImage
@@ -34,7 +35,8 @@ fun SongItem(
     song: Innertube.SongItem,
     thumbnailSizePx: Int,
     thumbnailSizeDp: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    titleColor: Color = Color.Unspecified
 ) {
     SongItem(
         thumbnailUrl = song.thumbnail?.size(thumbnailSizePx),
@@ -43,6 +45,7 @@ fun SongItem(
         duration = song.durationText,
         thumbnailSizeDp = thumbnailSizeDp,
         modifier = modifier,
+        titleColor = titleColor
     )
 }
 
@@ -97,7 +100,8 @@ fun SongItem(
     thumbnailSizeDp: Dp,
     modifier: Modifier = Modifier,
     onThumbnailContent: (@Composable BoxScope.() -> Unit)? = null,
-    trailingContent: (@Composable () -> Unit)? = null
+    trailingContent: (@Composable () -> Unit)? = null,
+    titleColor: Color = Color.Unspecified
 ) {
     SongItem(
         title = title,
@@ -117,7 +121,8 @@ fun SongItem(
             onThumbnailContent?.invoke(this)
         },
         modifier = modifier,
-        trailingContent = trailingContent
+        trailingContent = trailingContent,
+        titleColor = titleColor
     )
 }
 
@@ -130,6 +135,7 @@ fun SongItem(
     thumbnailSizeDp: Dp,
     modifier: Modifier = Modifier,
     trailingContent: @Composable (() -> Unit)? = null,
+    titleColor: Color = Color.Unspecified
 ) {
     val (_, typography) = LocalAppearance.current
 
@@ -150,7 +156,7 @@ fun SongItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BasicText(
                         text = title ?: "",
-                        style = typography.xs.semiBold,
+                        style = typography.xs.semiBold.copy(color = titleColor),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
