@@ -288,7 +288,7 @@ fun HomeAlbums(
                     ) {
                         BasicText(
                             text = shelf.title,
-                            style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 1.2f),
+                            style = typography.s.semiBold,
                             modifier = Modifier.weight(1f)
                         )
                         BasicText(
