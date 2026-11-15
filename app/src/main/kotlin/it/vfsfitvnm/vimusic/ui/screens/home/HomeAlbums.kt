@@ -114,11 +114,36 @@ fun HomeAlbums(
             "Punjabi Tamil Telugu Bengali Kannada Malayalam Indian regional music albums",
             "English international music albums"
         )
-        val loaded = withContext(Dispatchers.IO) {
+        // Show the album shelves as soon as the first regional query returns.
+        // Fetch the remaining language mixes in the background so the page does not
+        // wait for all 16 network requests before displaying anything.
+        val firstPaint = withContext(Dispatchers.IO) {
             coroutineScope {
                 shelves.map { shelf ->
                     async {
-                        val results = languageQueries.map { languageQuery ->
+                        val results = runCatching {
+                            Innertube.searchPage(
+                                body = SearchBody(
+                                    context = context,
+                                    query = "${languageQueries.first()} ${shelf.query}",
+                                    params = Innertube.SearchFilter.Album.value
+                                ),
+                                fromMusicShelfRendererContent = Innertube.AlbumItem::from
+                            )?.getOrNull()?.items.orEmpty()
+                        }.getOrDefault(emptyList())
+                        shelf.key to results.distinctBy { it.key }.take(15)
+                    }
+                }.awaitAll().toMap()
+            }
+        }
+        shelfAlbums = firstPaint
+        loading = false
+
+        val additionalAlbums = withContext(Dispatchers.IO) {
+            coroutineScope {
+                shelves.map { shelf ->
+                    async {
+                        val results = languageQueries.drop(1).map { languageQuery ->
                             async {
                                 runCatching {
                                     Innertube.searchPage(
@@ -131,14 +156,16 @@ fun HomeAlbums(
                                     )?.getOrNull()?.items.orEmpty()
                                 }.getOrDefault(emptyList())
                             }
-                        }.awaitAll().flatten().distinctBy { it.key }.take(15)
-                        shelf.key to results
+                        }.awaitAll().flatten()
+                        shelf.key to results.distinctBy { it.key }
                     }
                 }.awaitAll().toMap()
             }
         }
-        shelfAlbums = loaded
-        loading = false
+        shelfAlbums = shelves.associate { shelf ->
+            shelf.key to (firstPaint[shelf.key].orEmpty() + additionalAlbums[shelf.key].orEmpty())
+                .distinctBy { it.key }.take(15)
+        }
     }
 
     BackHandler(enabled = selectedShelf != null) { selectedShelf = null }
