@@ -22,25 +22,40 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
             mask("contents,header")
         }.body<BrowseResponse>()
 
-        val sectionList = response.contents
-            ?.twoColumnBrowseResultsRenderer
-            ?.secondaryContents
-            ?.sectionListRenderer
-            ?: response.contents
-                ?.twoColumnBrowseResultsRenderer
-                ?.tabs
-                ?.firstOrNull()
-                ?.tabRenderer
-                ?.content
-                ?.sectionListRenderer
-            ?: response.contents
-                ?.singleColumnBrowseResultsRenderer
-                ?.tabs
-                ?.firstOrNull()
-                ?.tabRenderer
-                ?.content
-                ?.sectionListRenderer
-            ?: response.contents?.sectionListRenderer
+        // Artist responses can split the page between the main tab and secondary contents.
+        // Merge every supported section list instead of selecting only the first one.
+        val sectionLists = buildList {
+            response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents
+                ?.sectionListRenderer?.let(::add)
+            response.contents?.twoColumnBrowseResultsRenderer?.tabs.orEmpty()
+                .mapNotNull { it.tabRenderer?.content?.sectionListRenderer }
+                .forEach(::add)
+            response.contents?.singleColumnBrowseResultsRenderer?.tabs.orEmpty()
+                .mapNotNull { it.tabRenderer?.content?.sectionListRenderer }
+                .forEach(::add)
+            response.contents?.sectionListRenderer?.let(::add)
+        }
+        val sectionContents = sectionLists.flatMap { it.contents.orEmpty() }
+            .distinctBy { content ->
+                content.musicCarouselShelfRenderer?.header?.musicCarouselShelfBasicHeaderRenderer?.title?.text
+                    ?: content.musicPlaylistShelfRenderer?.title?.text
+                    ?: content.musicShelfRenderer?.title?.text
+                    ?: content.musicResponsiveHeaderRenderer?.title?.text
+                    ?: content.hashCode().toString()
+            }
+        val sectionList = sectionLists.firstOrNull()
+
+        // YouTube changes shelf names and header renderer variants. Keep the lookup tolerant,
+        // following the artist parser strategy used by Metrolist, while retaining BlinkPlay models.
+        fun section(vararg titles: String): SectionListRenderer.Content? =
+            sectionContents.firstOrNull { content ->
+                val title = content.musicCarouselShelfRenderer
+                    ?.header?.musicCarouselShelfBasicHeaderRenderer?.title?.text
+                    ?: content.musicPlaylistShelfRenderer?.title?.text
+                    ?: content.musicShelfRenderer?.title?.text
+                    ?: content.musicResponsiveHeaderRenderer?.title?.text
+                title?.let { value -> titles.any { value.contains(it, ignoreCase = true) } } == true
+            }
 
         // YouTube changes shelf names and header renderer variants. Keep the lookup tolerant,
         // following the artist parser strategy used by Metrolist, while retaining BlinkPlay models.
@@ -99,10 +114,9 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
 
         // Preserve shelves the current screen does not render yet. This lets the next UI pass
         // decide how to display the data without throwing away sections the API already returned.
-        val allSections = sectionList?.contents.orEmpty().mapNotNull { content ->
+        val allSections = sectionContents.mapNotNull { content ->
             val title = shelfTitle(content)?.trim()?.takeIf(String::isNotEmpty) ?: return@mapNotNull null
             val items = shelfItems(content)
-            if (items.isEmpty()) return@mapNotNull null
 
             val browseEndpoint = (content.musicPlaylistShelfRenderer ?: content.musicShelfRenderer)
                 ?.bottomEndpoint
@@ -131,7 +145,7 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                 items = items,
                 browseEndpoint = browseEndpoint,
                 continuation = shelfContinuation,
-            )
+            ).takeIf { items.isNotEmpty() || shelfContinuation != null || browseEndpoint != null }
         }
 
         val immersiveHeader = response.header?.musicImmersiveHeaderRenderer
