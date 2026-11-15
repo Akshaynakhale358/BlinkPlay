@@ -21,14 +21,25 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
             mask("contents,header")
         }.body<BrowseResponse>()
 
-        val sectionList = response
-            .contents
-            ?.singleColumnBrowseResultsRenderer
-            ?.tabs
-            ?.firstOrNull()
-            ?.tabRenderer
-            ?.content
+        val sectionList = response.contents
+            ?.twoColumnBrowseResultsRenderer
+            ?.secondaryContents
             ?.sectionListRenderer
+            ?: response.contents
+                ?.twoColumnBrowseResultsRenderer
+                ?.tabs
+                ?.firstOrNull()
+                ?.tabRenderer
+                ?.content
+                ?.sectionListRenderer
+            ?: response.contents
+                ?.singleColumnBrowseResultsRenderer
+                ?.tabs
+                ?.firstOrNull()
+                ?.tabRenderer
+                ?.content
+                ?.sectionListRenderer
+            ?: response.contents?.sectionListRenderer
 
         // YouTube changes shelf names and header renderer variants. Keep the lookup tolerant,
         // following the artist parser strategy used by Metrolist, while retaining BlinkPlay models.
