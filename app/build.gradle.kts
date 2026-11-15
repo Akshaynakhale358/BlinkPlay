@@ -21,7 +21,7 @@ android {
         // still theirs. The application id is the identity on a device and in a store, and
         // that one has to be ours: the original already occupies the old id on F-Droid, and
         // two apps cannot share it.
-        applicationId = "net.m4j.ViMusic"
+        applicationId = "net.m4j.BlinkPlayPodcast"
         minSdk = 23
         targetSdk = 36
         versionCode = 23
@@ -51,13 +51,13 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["appName"] = "BlinkPlay"
+            manifestPlaceholders["appName"] = "BlinkPlayPodcast"
         }
 
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            manifestPlaceholders["appName"] = "BlinkPlay"
+            manifestPlaceholders["appName"] = "BlinkPlayPodcast"
             // Falls back to the debug key when no keystore.properties is present, so a fresh
             // clone -- or F-Droid, which signs with its own key anyway -- still builds.
             signingConfig = signingConfigs.findByName("release")
