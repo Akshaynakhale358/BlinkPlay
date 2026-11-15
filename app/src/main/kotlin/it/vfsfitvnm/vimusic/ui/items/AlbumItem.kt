@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,7 +72,8 @@ fun AlbumItem(
     thumbnailSizePx: Int,
     thumbnailSizeDp: Dp,
     modifier: Modifier = Modifier,
-    alternative: Boolean = false
+    alternative: Boolean = false,
+    titleColor: Color = Color.Unspecified
 ) {
     val (_, typography, thumbnailShape) = LocalAppearance.current
 
@@ -92,7 +94,7 @@ fun AlbumItem(
         ItemInfoContainer {
             BasicText(
                 text = title ?: "",
-                style = typography.xs.semiBold,
+                style = typography.xs.semiBold.copy(color = titleColor),
                 maxLines = if (alternative) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
             )
