@@ -158,7 +158,7 @@ fun ArtistOverview(
                             youtubeArtistPage.songsEndpoint?.let {
                                 BasicText(
                                     text = "View all",
-                                    style = typography.s.semiBold,
+                                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
                                     modifier = sectionTextModifier
                                         .clickable(onClick = onViewAllSongsClick),
                                 )
