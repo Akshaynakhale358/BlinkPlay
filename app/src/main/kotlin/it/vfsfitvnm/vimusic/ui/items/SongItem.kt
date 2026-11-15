@@ -167,7 +167,7 @@ fun SongItem(
                 }
             } ?: BasicText(
                 text = title ?: "",
-                style = typography.xs.semiBold,
+                style = typography.xs.semiBold.copy(color = titleColor),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
