@@ -66,9 +66,7 @@ internal fun SectionListRenderer.findSectionByTitleAny(vararg texts: String): Se
                 ?.runs
                 ?.firstOrNull()
                 ?.text
-                ?: content.musicPlaylistShelfRenderer
-                    ?.title
-                    ?: content.musicShelfRenderer?.title
+                ?: (content.musicPlaylistShelfRenderer?.title ?: content.musicShelfRenderer?.title)
                     ?.runs
                     ?.firstOrNull()
                     ?.text
