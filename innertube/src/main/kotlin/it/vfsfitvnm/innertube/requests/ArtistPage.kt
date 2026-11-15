@@ -49,28 +49,8 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                 ?.watchEndpointMusicSupportedConfigs
                 ?.watchEndpointMusicConfig
                 ?.musicVideoType
-            // Port of Metrolist's VideoType classification used by ArtistSongs:
-            // OMV, UGC, VIDEO and LIVE are video shelves, while ATV is an audio-track
-            // counterpart and must remain playable. Podcast episodes are never artist songs.
-            // Unknown/missing types are retained to avoid dropping valid audio results.
-            val normalizedType = videoType
-                ?.uppercase()
-                ?.trim()
-                ?.removePrefix("MUSIC_VIDEO_TYPE_")
-                .orEmpty()
-            val isPodcast = "PODCAST" in normalizedType
-            val isVideoSong = !isPodcast && (
-                "OMV" in normalizedType ||
-                    "OFFICIAL_SOURCE_MUSIC_VIDEO" in normalizedType ||
-                    "OFFICIAL_SOURCE" in normalizedType ||
-                    "UGC" in normalizedType ||
-                    "USER_GENERATED" in normalizedType ||
-                    normalizedType == "VIDEO" ||
-                    normalizedType.contains("VIDEO") ||
-                    "LIVE" in normalizedType
-                )
-
-            return song.takeUnless { isPodcast || isVideoSong }
+            // Apply the same video/podcast distinction as Metrolist ArtistSongs.
+            return song.takeIf { isMetrolistArtistAudioType(videoType) }
         }
 
         fun shelfTitle(content: SectionListRenderer.Content): String? =
