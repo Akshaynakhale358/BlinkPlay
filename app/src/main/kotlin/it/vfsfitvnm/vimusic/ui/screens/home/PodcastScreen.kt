@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import it.vfsfitvnm.vimusic.ui.items.AlbumItem
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.styling.px
+import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
+import it.vfsfitvnm.vimusic.utils.semiBold
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -28,6 +31,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,6 +72,7 @@ private data class PodcastEpisode(
 
 @Composable
 fun PodcastScreen(homeResetKey: Int) {
+    val (_, typography) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
     var searchText by remember { mutableStateOf("") }
     var searchOpen by remember { mutableStateOf(false) }
@@ -243,9 +249,21 @@ fun PodcastScreen(homeResetKey: Int) {
                 }
             }
         } else {
-            Text(
+            BasicText(
                 text = selectedPodcast!!.title,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                style = typography.m.semiBold.copy(
+                    fontSize = typography.s.fontSize,
+                    textAlign = TextAlign.End
+                ),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
+            )
+            BasicText(
+                text = "All Episodes",
+                style = typography.s.semiBold.copy(
+                    fontSize = typography.xxl.fontSize * 0.5616f,
+                    textAlign = TextAlign.End
+                ),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
             )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 AsyncImage(model = selectedPodcast!!.artwork, contentDescription = selectedPodcast!!.title, contentScale = ContentScale.Crop, modifier = Modifier.size(88.dp))
@@ -253,7 +271,6 @@ fun PodcastScreen(homeResetKey: Int) {
                     if (selectedPodcast!!.author.isNotBlank()) Text(selectedPodcast!!.author)
                 }
             }
-            Text(text = "All Episodes")
             if (isLoading) CircularProgressIndicator()
             error?.let { Text(it) }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
