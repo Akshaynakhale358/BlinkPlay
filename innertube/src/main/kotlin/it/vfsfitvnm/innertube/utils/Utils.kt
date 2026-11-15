@@ -12,8 +12,9 @@ internal fun SectionListRenderer.findSectionByTitle(text: String): SectionListRe
             ?.musicCarouselShelfBasicHeaderRenderer
             ?.title
             ?: content
-                .musicShelfRenderer
+                .musicPlaylistShelfRenderer
                 ?.title
+                ?: content.musicShelfRenderer?.title
 
         title
             ?.runs
@@ -37,8 +38,9 @@ internal fun SectionListRenderer.findSectionByTitleContaining(text: String): Sec
             ?.musicCarouselShelfBasicHeaderRenderer
             ?.title
             ?: content
-                .musicShelfRenderer
+                .musicPlaylistShelfRenderer
                 ?.title
+                ?: content.musicShelfRenderer?.title
 
         title
             ?.runs
@@ -64,8 +66,9 @@ internal fun SectionListRenderer.findSectionByTitleAny(vararg texts: String): Se
                 ?.runs
                 ?.firstOrNull()
                 ?.text
-                ?: content.musicShelfRenderer
+                ?: content.musicPlaylistShelfRenderer
                     ?.title
+                    ?: content.musicShelfRenderer?.title
                     ?.runs
                     ?.firstOrNull()
                     ?.text
