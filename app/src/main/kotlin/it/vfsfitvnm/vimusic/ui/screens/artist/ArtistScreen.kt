@@ -386,6 +386,9 @@ private fun ArtistShelfPage(
         mutableStateListOf<Innertube.Item>().apply { addAll(section?.items.orEmpty()) }
     }
     var continuation by remember(section) { mutableStateOf(section?.continuation) }
+    var useBrowseEndpoint by remember(section) {
+        mutableStateOf(section?.continuation == null && section?.browseEndpoint?.browseId != null)
+    }
     var isLoading by remember(section) { mutableStateOf(false) }
     var loadFailed by remember(section) { mutableStateOf(false) }
     var retryKey by remember(section) { mutableStateOf(0) }
@@ -393,24 +396,43 @@ private fun ArtistShelfPage(
     // Every artist shelf keeps its first batch and appends subsequent batches as the user scrolls.
     LaunchedEffect(section, retryKey) {
         snapshotFlow {
-            (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) to shelfItems.size
-        }.distinctUntilChanged().collect { (lastVisibleIndex, loadedCount) ->
-            val loadThreshold = (loadedCount - 4).coerceAtLeast(0) + 2
-            val token = continuation
-            if (token != null && !isLoading && lastVisibleIndex >= loadThreshold) {
+            Triple(
+                listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1,
+                shelfItems.size,
+                continuation to useBrowseEndpoint
+            )
+        }.distinctUntilChanged().collect { (lastVisibleIndex, loadedCount, pagingState) ->
+            val loadThreshold = (loadedCount - 4).coerceAtLeast(0) + 1
+            val (token, browseFallback) = pagingState
+            if ((token != null || browseFallback) && !isLoading && lastVisibleIndex >= loadThreshold) {
                 isLoading = true
                 loadFailed = false
                 val result = withContext(Dispatchers.IO) {
-                    Innertube.itemsPage<Innertube.Item>(
-                        body = ContinuationBody(continuation = token),
-                        fromMusicResponsiveListItemRenderer = { renderer -> Innertube.SongItem.from(renderer) },
-                        fromMusicTwoRowItemRenderer = { renderer ->
-                            Innertube.AlbumItem.from(renderer)
-                                ?: Innertube.ArtistItem.from(renderer)
-                                ?: Innertube.PlaylistItem.from(renderer)
+                    val fromMusicResponsive = { renderer: it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer ->
+                        Innertube.SongItem.from(renderer)
+                    }
+                    val fromMusicTwoRow = { renderer: it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer ->
+                        Innertube.AlbumItem.from(renderer)
+                            ?: Innertube.ArtistItem.from(renderer)
+                            ?: Innertube.PlaylistItem.from(renderer)
+                    }
+                    if (token != null) {
+                        Innertube.itemsPage<Innertube.Item>(
+                            body = ContinuationBody(continuation = token),
+                            fromMusicResponsiveListItemRenderer = fromMusicResponsive,
+                            fromMusicTwoRowItemRenderer = fromMusicTwoRow
+                        )
+                    } else {
+                        section?.browseEndpoint?.browseId?.let { browseId ->
+                            Innertube.itemsPage<Innertube.Item>(
+                                body = BrowseBody(browseId = browseId, params = section.browseEndpoint.params),
+                                fromMusicResponsiveListItemRenderer = fromMusicResponsive,
+                                fromMusicTwoRowItemRenderer = fromMusicTwoRow
+                            )
                         }
-                    )
+                    }
                 }
+                useBrowseEndpoint = false
                 if (result == null) {
                     continuation = null
                 } else {
