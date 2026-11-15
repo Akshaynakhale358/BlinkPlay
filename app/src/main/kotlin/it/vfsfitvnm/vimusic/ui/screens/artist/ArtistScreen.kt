@@ -31,6 +31,8 @@ import com.valentinilk.shimmer.shimmer
 import it.vfsfitvnm.compose.persist.PersistMapCleanup
 import it.vfsfitvnm.compose.persist.persist
 import it.vfsfitvnm.innertube.Innertube
+import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
+import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.requests.metrolistArtistPage
@@ -408,10 +410,10 @@ private fun ArtistShelfPage(
                 isLoading = true
                 loadFailed = false
                 val result = withContext(Dispatchers.IO) {
-                    val fromMusicResponsive = { renderer: it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer ->
+                    val fromMusicResponsive = { renderer: MusicResponsiveListItemRenderer ->
                         Innertube.SongItem.from(renderer)
                     }
-                    val fromMusicTwoRow = { renderer: it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer ->
+                    val fromMusicTwoRow = { renderer: MusicTwoRowItemRenderer ->
                         Innertube.AlbumItem.from(renderer)
                             ?: Innertube.ArtistItem.from(renderer)
                             ?: Innertube.PlaylistItem.from(renderer)
@@ -423,12 +425,14 @@ private fun ArtistShelfPage(
                             fromMusicTwoRowItemRenderer = fromMusicTwoRow
                         )
                     } else {
-                        section?.browseEndpoint?.browseId?.let { browseId ->
-                            Innertube.itemsPage<Innertube.Item>(
-                                body = BrowseBody(browseId = browseId, params = section.browseEndpoint.params),
-                                fromMusicResponsiveListItemRenderer = fromMusicResponsive,
-                                fromMusicTwoRowItemRenderer = fromMusicTwoRow
-                            )
+                        section?.browseEndpoint?.let { endpoint ->
+                            endpoint.browseId?.let { browseId ->
+                                Innertube.itemsPage<Innertube.Item>(
+                                    body = BrowseBody(browseId = browseId, params = endpoint.params),
+                                    fromMusicResponsiveListItemRenderer = fromMusicResponsive,
+                                    fromMusicTwoRowItemRenderer = fromMusicTwoRow
+                                )
+                            }
                         }
                     }
                 }
@@ -532,7 +536,12 @@ private fun ArtistShelfPage(
                         text = "Couldn't load more. Tap to retry.",
                         style = typography.s.copy(color = Color.White),
                         modifier = Modifier
-                            .clickable { retryKey++ }
+                            .clickable {
+                                if (continuation == null) {
+                                    useBrowseEndpoint = section?.browseEndpoint?.browseId != null
+                                }
+                                retryKey++
+                            }
                             .padding(16.dp)
                     )
                 }
