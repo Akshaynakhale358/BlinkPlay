@@ -416,7 +416,7 @@ private fun ArtistShelfPage(
                         continuation = null
                     } else {
                         val knownKeys = shelfItems.mapTo(mutableSetOf(), Innertube.Item::key)
-                        page.items.orEmpty().filter { knownKeys.add(it.key) }.forEach(shelfItems::add)
+                        page.items.orEmpty().filter { knownKeys.add(it.key) }.forEach { shelfItems.add(it) }
                         continuation = page.continuation?.takeIf { it != token }
                     }
                 }.onFailure {
