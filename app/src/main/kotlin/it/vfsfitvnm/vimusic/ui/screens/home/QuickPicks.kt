@@ -574,7 +574,7 @@ fun QuickPicks(
             discoveryBundles().forEach { bundle ->
                 BasicText(
                     text = bundle.title.uppercase(),
-                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 1.2f),
+                    style = typography.s.semiBold,
                     modifier = sectionTextModifier
                 )
                 LazyRow(
@@ -1093,7 +1093,7 @@ private fun QuickPicksDiscoveryShelf(
     Column(modifier = Modifier.width(276.dp)) {
         BasicText(
             text = category.title.uppercase(),
-            style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 1.2f),
+            style = typography.s.semiBold,
             modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
         )
         Column(
