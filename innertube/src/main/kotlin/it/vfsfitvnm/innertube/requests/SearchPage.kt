@@ -60,13 +60,18 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
         }
     }.distinctBy(Innertube.Item::key)
 
-    val continuation = sections.asReversed().mapNotNull { section ->
+    val continuation = sections.asReversed().firstNotNullOfOrNull { section ->
         section.musicShelfRenderer
             ?.continuations
             ?.firstOrNull()
             ?.nextContinuationData
             ?.continuation
-    }.firstOrNull()
+            ?: section.gridRenderer
+                ?.continuations
+                ?.firstOrNull()
+                ?.nextContinuationData
+                ?.continuation
+    }
 
     Innertube.ItemsPage(items = items, continuation = continuation)
 }
