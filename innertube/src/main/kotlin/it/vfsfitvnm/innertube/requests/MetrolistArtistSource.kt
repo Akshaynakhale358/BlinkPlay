@@ -6,6 +6,7 @@ import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.BrowseResponse
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
+import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
 
 /**
  * Artist-only source boundary adapted from MetrolistGroup/Metrolist's artist data flow
