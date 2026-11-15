@@ -121,6 +121,7 @@ fun ArtistOverview(
     }
     var isLoadingMore by remember(youtubeArtistPage) { mutableStateOf(false) }
     var loadMoreFailed by remember(youtubeArtistPage) { mutableStateOf(false) }
+    var retryKey by remember(youtubeArtistPage) { mutableStateOf(0) }
 
     fun sectionItemsFor(vararg aliases: String): List<Innertube.Item> {
         val section = artistSections.firstOrNull { shelf ->
@@ -186,11 +187,11 @@ fun ArtistOverview(
         isLoadingMore = false
     }
 
-    LaunchedEffect(youtubeArtistPage) {
+    LaunchedEffect(youtubeArtistPage, retryKey) {
         snapshotFlow {
             Triple(scrollState.value, scrollState.maxValue, sectionItems.values.sumOf { it.size })
         }.distinctUntilChanged().collect { (value, maxValue, _) ->
-            if (maxValue == 0 || value >= maxValue - 500) {
+            if (!loadMoreFailed && (maxValue == 0 || value >= maxValue - 500)) {
                 loadMoreArtistSections()
             }
         }
@@ -555,7 +556,10 @@ fun ArtistOverview(
                         text = "Couldn't load more. Tap to retry.",
                         style = typography.s.copy(color = Color.White),
                         modifier = Modifier
-                            .clickable { /* scrolling at the bottom retries automatically */ }
+                            .clickable {
+                                loadMoreFailed = false
+                                retryKey++
+                            }
                             .padding(16.dp)
                     )
                 }
