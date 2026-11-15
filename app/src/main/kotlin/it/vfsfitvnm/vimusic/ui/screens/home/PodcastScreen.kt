@@ -1,6 +1,7 @@
 package it.vfsfitvnm.vimusic.ui.screens.home
 
 import android.net.Uri
+import android.text.Html
 import android.util.Xml
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -177,6 +178,16 @@ private fun searchPodcasts(term: String): List<PodcastSearchResult> {
     }
 }
 
+private fun cleanPodcastHtml(raw: String): String {
+    if (raw.isBlank()) return ""
+    return Html.fromHtml(raw, Html.FROM_HTML_MODE_COMPACT)
+        .toString()
+        .replace(Regex("[\\t ]+"), " ")
+        .replace(Regex("\\n{3,}"), "\\n\\n")
+        .trim()
+        .take(500)
+}
+
 private fun fetchPodcastEpisodes(feedUrl: String): List<PodcastEpisode> {
     val request = Request.Builder().url(feedUrl).header("User-Agent", "BlinkPlayPodcast/1.0").build()
     val stream = OkHttpClient().newCall(request).execute().use { response ->
@@ -211,7 +222,7 @@ private fun fetchPodcastEpisodes(feedUrl: String): List<PodcastEpisode> {
                 }
             }
             XmlPullParser.END_TAG -> if (parser.name.equals("item", true) && insideItem) {
-                if (title.isNotBlank()) found.add(PodcastEpisode(title, description, audio, published))
+                if (title.isNotBlank()) found.add(PodcastEpisode(title, cleanPodcastHtml(description), audio, published))
                 insideItem = false
             }
         }
