@@ -19,9 +19,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +36,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.NavigationEndpoint
+import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
+import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
+import it.vfsfitvnm.innertube.models.bodies.BrowseBody
+import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
+import it.vfsfitvnm.innertube.requests.itemsPage
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
 import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
 import it.vfsfitvnm.vimusic.R
@@ -54,6 +66,9 @@ import it.vfsfitvnm.vimusic.utils.color
 import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.secondary
 import it.vfsfitvnm.vimusic.utils.semiBold
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.withContext
 
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
@@ -88,6 +103,111 @@ fun ArtistOverview(
         .padding(top = 24.dp, bottom = 8.dp)
 
     val scrollState = rememberScrollState()
+    val artistSections = youtubeArtistPage?.sections.orEmpty()
+    val sectionItems = remember(youtubeArtistPage) {
+        mutableStateMapOf<String, List<Innertube.Item>>().apply {
+            artistSections.forEach { put(it.title, it.items) }
+        }
+    }
+    val sectionContinuations = remember(youtubeArtistPage) {
+        mutableStateMapOf<String, String?>().apply {
+            artistSections.forEach { put(it.title, it.continuation) }
+        }
+    }
+    val sectionBrowsePending = remember(youtubeArtistPage) {
+        mutableStateMapOf<String, Boolean>().apply {
+            artistSections.forEach { put(it.title, it.continuation == null && it.browseEndpoint?.browseId != null) }
+        }
+    }
+    var isLoadingMore by remember(youtubeArtistPage) { mutableStateOf(false) }
+    var loadMoreFailed by remember(youtubeArtistPage) { mutableStateOf(false) }
+
+    fun sectionItemsFor(vararg aliases: String): List<Innertube.Item> {
+        val section = artistSections.firstOrNull { shelf ->
+            aliases.any { shelf.title.contains(it, ignoreCase = true) }
+        } ?: return emptyList()
+        return sectionItems[section.title].orEmpty()
+    }
+
+    suspend fun loadMoreArtistSections() {
+        if (isLoadingMore) return
+        val targets = artistSections.filter { section ->
+            sectionContinuations[section.title] != null || sectionBrowsePending[section.title] == true
+        }
+        if (targets.isEmpty()) return
+        isLoadingMore = true
+        loadMoreFailed = false
+        for (section in targets) {
+            val token = sectionContinuations[section.title]
+            val endpoint = section.browseEndpoint
+            val response = withContext(Dispatchers.IO) {
+                val fromResponsive = { renderer: MusicResponsiveListItemRenderer ->
+                    Innertube.SongItem.from(renderer)
+                }
+                val fromTwoRow = { renderer: MusicTwoRowItemRenderer ->
+                    Innertube.AlbumItem.from(renderer)
+                        ?: Innertube.ArtistItem.from(renderer)
+                        ?: Innertube.PlaylistItem.from(renderer)
+                }
+                if (token != null) {
+                    Innertube.itemsPage<Innertube.Item>(
+                        body = ContinuationBody(continuation = token),
+                        fromMusicResponsiveListItemRenderer = fromResponsive,
+                        fromMusicTwoRowItemRenderer = fromTwoRow
+                    )
+                } else {
+                    endpoint?.browseId?.let { browseId ->
+                        Innertube.itemsPage<Innertube.Item>(
+                            body = BrowseBody(browseId = browseId, params = endpoint.params),
+                            fromMusicResponsiveListItemRenderer = fromResponsive,
+                            fromMusicTwoRowItemRenderer = fromTwoRow
+                        )
+                    }
+                }
+            }
+            if (response == null) {
+                loadMoreFailed = true
+                continue
+            }
+            response.onSuccess { page ->
+                if (page == null) {
+                    sectionContinuations[section.title] = null
+                    sectionBrowsePending[section.title] = false
+                } else {
+                    sectionItems[section.title] = (sectionItems[section.title].orEmpty() + page.items.orEmpty())
+                        .distinctBy(Innertube.Item::key)
+                    sectionContinuations[section.title] = page.continuation?.takeIf { it != token }
+                    sectionBrowsePending[section.title] = false
+                }
+            }.onFailure {
+                loadMoreFailed = true
+            }
+        }
+        isLoadingMore = false
+    }
+
+    LaunchedEffect(youtubeArtistPage) {
+        snapshotFlow {
+            Triple(scrollState.value, scrollState.maxValue, sectionItems.values.sumOf { it.size })
+        }.distinctUntilChanged().collect { (value, maxValue, _) ->
+            if (maxValue == 0 || value >= maxValue - 500) {
+                loadMoreArtistSections()
+            }
+        }
+    }
+
+    val overviewSongs = sectionItemsFor("songs", "top tracks", "top songs").filterIsInstance<Innertube.SongItem>()
+        .ifEmpty { youtubeArtistPage?.songs.orEmpty() }
+    val overviewAlbums = sectionItemsFor("albums", "releases", "full albums").filterIsInstance<Innertube.AlbumItem>()
+        .ifEmpty { youtubeArtistPage?.albums.orEmpty() }
+    val overviewSingles = sectionItemsFor("singles", "eps").filterIsInstance<Innertube.AlbumItem>()
+        .ifEmpty { youtubeArtistPage?.singles.orEmpty() }
+    val overviewArtists = sectionItemsFor("fans might also like", "similar artists", "related artists")
+        .filterIsInstance<Innertube.ArtistItem>().ifEmpty { youtubeArtistPage?.similarArtists.orEmpty() }
+    val overviewPlaylists = sectionItemsFor("playlists").filterIsInstance<Innertube.PlaylistItem>()
+        .ifEmpty { youtubeArtistPage?.playlists.orEmpty() }
+    val overviewFeaturedOn = sectionItemsFor("featured on", "appears on").filterIsInstance<Innertube.PlaylistItem>()
+        .ifEmpty { youtubeArtistPage?.featuredOn.orEmpty() }
 
     LayoutWithAdaptiveThumbnail(thumbnailContent = thumbnailContent) {
         Box {
@@ -142,7 +262,7 @@ fun ArtistOverview(
                 }
 
                 if (youtubeArtistPage != null) {
-                    youtubeArtistPage.songs?.let { songs ->
+                    overviewSongs.takeIf { it.isNotEmpty() }?.let { songs ->
                         Row(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -196,7 +316,7 @@ fun ArtistOverview(
                         }
                     }
 
-                    youtubeArtistPage.albums?.let { albums ->
+                    overviewAlbums.takeIf { it.isNotEmpty() }?.let { albums ->
                         Row(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -242,7 +362,7 @@ fun ArtistOverview(
                         }
                     }
 
-                    youtubeArtistPage.singles?.let { singles ->
+                    overviewSingles.takeIf { it.isNotEmpty() }?.let { singles ->
                         Row(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -291,7 +411,7 @@ fun ArtistOverview(
                     // YouTube returns this shelf for every artist and nothing was reading it:
                     // a way sideways into artists of the same stripe, rather than only deeper
                     // into this one.
-                    youtubeArtistPage.similarArtists?.takeIf { it.isNotEmpty() }?.let { artists ->
+                    overviewArtists.takeIf { it.isNotEmpty() }?.let { artists ->
                         BasicText(
                             text = "Fans might also like",
                             style = typography.m.semiBold.copy(color = Color.White),
@@ -319,7 +439,7 @@ fun ArtistOverview(
                         }
                     }
 
-                    youtubeArtistPage.playlists?.takeIf { it.isNotEmpty() }?.let { playlists ->
+                    overviewPlaylists.takeIf { it.isNotEmpty() }?.let { playlists ->
                         BasicText(
                             text = "Playlists",
                             style = typography.m.semiBold.copy(color = Color.White),
@@ -342,6 +462,28 @@ fun ArtistOverview(
                                     alternative = true,
                                     modifier = Modifier
                                         .clickable(onClick = { onPlaylistClick(playlist.key) })
+                                )
+                            }
+                        }
+                    }
+
+                    overviewFeaturedOn.takeIf { it.isNotEmpty() }?.let { playlists ->
+                        BasicText(
+                            text = "Featured On",
+                            style = typography.m.semiBold.copy(color = Color.White),
+                            modifier = sectionTextModifier
+                        )
+                        LazyRow(
+                            contentPadding = endPaddingValues,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(playlists, key = Innertube.PlaylistItem::key) { playlist ->
+                                PlaylistItem(
+                                    playlist = playlist,
+                                    thumbnailSizePx = albumThumbnailSizePx,
+                                    thumbnailSizeDp = albumThumbnailSizeDp,
+                                    alternative = true,
+                                    modifier = Modifier.clickable { onPlaylistClick(playlist.key) }
                                 )
                             }
                         }
@@ -401,7 +543,24 @@ fun ArtistOverview(
                             )
                         }
                     }
-                } else {
+                }
+                if (isLoadingMore) {
+                    BasicText(
+                        text = "Loading more...",
+                        style = typography.s.copy(color = Color.White),
+                        modifier = Modifier.padding(16.dp)
+                    )
+                } else if (loadMoreFailed) {
+                    BasicText(
+                        text = "Couldn't load more. Tap to retry.",
+                        style = typography.s.copy(color = Color.White),
+                        modifier = Modifier
+                            .clickable { /* scrolling at the bottom retries automatically */ }
+                            .padding(16.dp)
+                    )
+                }
+
+                else {
                     ShimmerHost {
                         TextPlaceholder(modifier = sectionTextModifier)
 
