@@ -38,7 +38,7 @@ import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
-import it.vfsfitvnm.innertube.requests.searchPage
+import it.vfsfitvnm.innertube.requests.metrolistArtistSearchPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
@@ -113,7 +113,7 @@ fun HomeArtistList(
                     val token = continuation
                     val result = withContext(Dispatchers.IO) {
                         if (token != null) {
-                            Innertube.searchPage(
+                            Innertube.metrolistArtistSearchPage(
                                 body = ContinuationBody(context = indiaContext, continuation = token),
                                 fromMusicShelfRendererContent = Innertube.ArtistItem::from,
                                 fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from

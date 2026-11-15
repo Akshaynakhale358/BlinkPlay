@@ -22,6 +22,8 @@ data class BrowseResponse(
         @JsonNames("musicVisualHeaderRenderer")
         val musicImmersiveHeaderRenderer: MusicImmersiveHeaderRenderer? = null,
         val musicDetailHeaderRenderer: MusicDetailHeaderRenderer? = null,
+        val musicResponsiveHeaderRenderer: MusicResponsiveHeaderRenderer? = null,
+        val musicHeaderRenderer: MusicResponsiveHeaderRenderer? = null,
     ) {
         @Serializable
         data class MusicDetailHeaderRenderer(

@@ -36,7 +36,7 @@ import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.requests.metrolistArtistPage
-import it.vfsfitvnm.innertube.requests.itemsPage
+import it.vfsfitvnm.innertube.requests.metrolistArtistItemsPage
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.compose.routing.RouteHandler
 import it.vfsfitvnm.vimusic.Database
@@ -236,7 +236,7 @@ fun ArtistScreen(browseId: String) {
                                 itemsPageProvider = artistPage?.let {
                                     ({ continuation ->
                                         continuation?.let {
-                                            Innertube.itemsPage(
+                                            Innertube.metrolistArtistItemsPage(
                                                 body = ContinuationBody(continuation = continuation),
                                                 fromMusicResponsiveListItemRenderer = Innertube.SongItem::from,
                                             )
@@ -419,7 +419,7 @@ private fun ArtistShelfPage(
                             ?: Innertube.PlaylistItem.from(renderer)
                     }
                     if (token != null) {
-                        Innertube.itemsPage<Innertube.Item>(
+                        Innertube.metrolistArtistItemsPage<Innertube.Item>(
                             body = ContinuationBody(continuation = token),
                             fromMusicResponsiveListItemRenderer = fromMusicResponsive,
                             fromMusicTwoRowItemRenderer = fromMusicTwoRow

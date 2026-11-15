@@ -10,11 +10,13 @@ data class ContinuationResponse(
     val continuationContents: ContinuationContents? = null,
     val onResponseReceivedActions: List<ResponseAction>? = null,
     val onResponseReceivedEndpoints: List<ResponseAction>? = null,
+    val onResponseReceivedCommands: List<ResponseAction>? = null,
 ) {
     @Serializable
     data class ResponseAction(
         val appendContinuationItemsAction: AppendContinuationItemsAction? = null,
         val reloadContinuationItemsCommand: AppendContinuationItemsAction? = null,
+        val appendContinuationItemsCommand: AppendContinuationItemsAction? = null,
     )
 
     @Serializable
