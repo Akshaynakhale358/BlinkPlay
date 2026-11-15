@@ -152,14 +152,14 @@ fun ArtistOverview(
                         ) {
                             BasicText(
                                 text = "Songs",
-                                style = typography.m.semiBold.copy(color = Color.White, color = Color.White),
+                                style = typography.m.semiBold.copy(color = Color.White),
                                 modifier = sectionTextModifier
                             )
 
                             youtubeArtistPage.songsEndpoint?.let {
                                 BasicText(
                                     text = "View all",
-                                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f).copy(color = Color.White, color = Color.White),
+                                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f).copy(color = Color.White),
                                     modifier = sectionTextModifier
                                         .clickable(onClick = onViewAllSongsClick),
                                 )
@@ -206,14 +206,14 @@ fun ArtistOverview(
                         ) {
                             BasicText(
                                 text = "Albums",
-                                style = typography.m.semiBold.copy(color = Color.White, color = Color.White),
+                                style = typography.m.semiBold.copy(color = Color.White),
                                 modifier = sectionTextModifier
                             )
 
                             youtubeArtistPage.albumsEndpoint?.let {
                                 BasicText(
                                     text = "View all",
-                                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f).copy(color = Color.White, color = Color.White),
+                                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f).copy(color = Color.White),
                                     modifier = sectionTextModifier
                                         .clickable(onClick = onViewAllAlbumsClick),
                                 )
@@ -252,14 +252,14 @@ fun ArtistOverview(
                         ) {
                             BasicText(
                                 text = "Singles",
-                                style = typography.m.semiBold.copy(color = Color.White, color = Color.White),
+                                style = typography.m.semiBold.copy(color = Color.White),
                                 modifier = sectionTextModifier
                             )
 
                             youtubeArtistPage.singlesEndpoint?.let {
                                 BasicText(
                                     text = "View all",
-                                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f).copy(color = Color.White, color = Color.White),
+                                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f).copy(color = Color.White),
                                     modifier = sectionTextModifier
                                         .clickable(onClick = onViewAllSinglesClick),
                                 )
@@ -293,7 +293,7 @@ fun ArtistOverview(
                     youtubeArtistPage.similarArtists?.takeIf { it.isNotEmpty() }?.let { artists ->
                         BasicText(
                             text = "Fans might also like",
-                            style = typography.m.semiBold.copy(color = Color.White, color = Color.White),
+                            style = typography.m.semiBold.copy(color = Color.White),
                             modifier = sectionTextModifier
                         )
 
@@ -321,7 +321,7 @@ fun ArtistOverview(
                     youtubeArtistPage.playlists?.takeIf { it.isNotEmpty() }?.let { playlists ->
                         BasicText(
                             text = "Playlists",
-                            style = typography.m.semiBold.copy(color = Color.White, color = Color.White),
+                            style = typography.m.semiBold.copy(color = Color.White),
                             modifier = sectionTextModifier
                         )
 
@@ -349,7 +349,7 @@ fun ArtistOverview(
                     youtubeArtistPage.description?.let { description ->
                         BasicText(
                             text = "About Artist",
-                            style = typography.m.semiBold.copy(color = Color.White, color = Color.White),
+                            style = typography.m.semiBold.copy(color = Color.White),
                             modifier = sectionTextModifier
                         )
                         val attributionsIndex = description.lastIndexOf("\n\nFrom Wikipedia")
@@ -362,7 +362,7 @@ fun ArtistOverview(
                         ) {
                             BasicText(
                                 text = "“",
-                                style = typography.xxl.semiBold.copy(color = Color.White, color = Color.White),
+                                style = typography.xxl.semiBold.copy(color = Color.White),
                                 modifier = Modifier
                                     .offset(y = (-8).dp)
                                     .align(Alignment.Top)
@@ -374,7 +374,7 @@ fun ArtistOverview(
                                 } else {
                                     description.substring(0, attributionsIndex)
                                 },
-                                style = typography.xxs.secondary.copy(color = Color.White, color = Color.White),
+                                style = typography.xxs.secondary.copy(color = Color.White),
                                 modifier = Modifier
                                     .padding(horizontal = 8.dp)
                                     .weight(1f)
@@ -382,7 +382,7 @@ fun ArtistOverview(
 
                             BasicText(
                                 text = "„",
-                                style = typography.xxl.semiBold.copy(color = Color.White, color = Color.White),
+                                style = typography.xxl.semiBold.copy(color = Color.White),
                                 modifier = Modifier
                                     .offset(y = 4.dp)
                                     .align(Alignment.Bottom)
@@ -392,7 +392,7 @@ fun ArtistOverview(
                         if (attributionsIndex != -1) {
                             BasicText(
                                 text = "From Wikipedia under Creative Commons Attribution CC-BY-SA 3.0",
-                                style = typography.xxs.color(colorPalette.textDisabled).align(TextAlign.End).copy(color = Color.White, color = Color.White),
+                                style = typography.xxs.color(colorPalette.textDisabled).align(TextAlign.End).copy(color = Color.White),
                                 modifier = Modifier
                                     .padding(horizontal = 16.dp)
                                     .padding(bottom = 16.dp)
