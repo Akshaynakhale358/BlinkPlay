@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.Box
 import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.items.AlbumItem
 import it.vfsfitvnm.vimusic.ui.styling.px
-import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
-import it.vfsfitvnm.vimusic.utils.asMediaItem
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
@@ -33,6 +31,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
