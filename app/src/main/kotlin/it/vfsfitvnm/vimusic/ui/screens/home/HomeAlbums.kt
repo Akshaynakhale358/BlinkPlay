@@ -220,7 +220,7 @@ fun HomeAlbums(
                 Result.success(Innertube.ItemsPage(combined.distinctBy { it.key }, next))
             },
             emptyItemsText = "No online albums found. Try Search.",
-            refreshOnEnter = true,
+            refreshOnEnter = false,
             headerContent = {
                 Column {
                     Header(title = "Albums", titleScale = 1.404f) {}
