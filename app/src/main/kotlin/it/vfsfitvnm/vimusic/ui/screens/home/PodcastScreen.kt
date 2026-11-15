@@ -4,6 +4,20 @@ import android.net.Uri
 import android.text.Html
 import android.util.Xml
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.foundation.layout.Box
+import it.vfsfitvnm.vimusic.R
+import it.vfsfitvnm.vimusic.ui.items.AlbumItem
+import it.vfsfitvnm.vimusic.ui.styling.px
+import it.vfsfitvnm.vimusic.utils.forcePlayFromBeginning
+import it.vfsfitvnm.vimusic.utils.asMediaItem
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
@@ -19,7 +33,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -202,14 +215,66 @@ fun PodcastScreen() {
             error?.let { Text(it) }
             LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(results) { podcast ->
-                    Card(modifier = Modifier.fillMaxWidth().clickable { loadEpisodes(podcast) }) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            AsyncImage(model = podcast.artwork, contentDescription = podcast.title, contentScale = ContentScale.Crop, modifier = Modifier.size(76.dp))
-                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(podcast.title)
-                                if (podcast.author.isNotBlank()) Text(podcast.author)
-                                Text("सर्व Episodes पाहा")
-                            }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AlbumItem(
+                            thumbnailUrl = podcast.artwork,
+                            title = podcast.title,
+                            authors = podcast.author,
+                            year = "Podcast",
+                            thumbnailSizePx = 72.dp.px,
+                            thumbnailSizeDp = 72.dp,
+                            modifier = Modifier.weight(1f).clickable { loadEpisodes(podcast) }
+                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(end = 16.dp).size(38.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
+                                .background(Color.White.copy(alpha = 0.14f))
+                                .clickable {
+                                    scope.launch {
+                                        isLoading = true
+                                        try {
+                                            val podcastEpisodes = withContext(Dispatchers.IO) {
+                                                fetchPodcastEpisodes(podcast.feedUrl, podcast.title)
+                                            }
+                                            val mediaItems = podcastEpisodes
+                                                .filter { it.audioUrl.isNotBlank() }
+                                                .map { episode ->
+                                                    MediaItem.Builder()
+                                                        .setMediaId(episode.audioUrl)
+                                                        .setUri(episode.audioUrl)
+                                                        .setCustomCacheKey("podcast:${episode.audioUrl}")
+                                                        .setMediaMetadata(
+                                                            MediaMetadata.Builder()
+                                                                .setTitle(episode.title)
+                                                                .setArtist(podcast.title)
+                                                                .setArtworkUri(podcast.artwork.takeIf { it.isNotBlank() }?.let(Uri::parse))
+                                                                .build()
+                                                        )
+                                                        .build()
+                                                }
+                                            if (mediaItems.isNotEmpty()) {
+                                                binder?.stopRadio()
+                                                binder?.player?.setMediaItems(mediaItems, true)
+                                                binder?.player?.prepare()
+                                                binder?.player?.playWhenReady = true
+                                            }
+                                        } finally {
+                                            isLoading = false
+                                        }
+                                    }
+                                }
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.play),
+                                contentDescription = "Play podcast",
+                                colorFilter = ColorFilter.tint(Color.White),
+                                modifier = Modifier.size(17.dp)
+                            )
                         }
                     }
                 }
