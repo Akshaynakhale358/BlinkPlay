@@ -130,12 +130,26 @@ fun HomeArtistList(
                                     fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
                                 )
 
-                            // YouTube Music's dedicated Artist filter sometimes returns an
-                            // empty/partial layout for broad regional queries. Retry the same
-                            // query without the filter; SearchPage still parses only ArtistItems.
+                            // First use YouTube Music's dedicated Artist filter, matching
+                            // Metrolist's typed artist detection. If that response has no
+                            // continuation, also query the unfiltered result so artists that
+                            // YouTube omits from the dedicated filter are not lost.
                             val filtered = searchArtists(Innertube.SearchFilter.Artist.value)
-                            if (filtered?.getOrNull()?.items.isNullOrEmpty()) {
-                                searchArtists("")
+                            val filteredPage = filtered?.getOrNull()
+                            if (filteredPage == null || filteredPage.continuation == null) {
+                                val broad = searchArtists("")
+                                val broadPage = broad?.getOrNull()
+                                if (broadPage != null && broadPage.items.orEmpty().isNotEmpty()) {
+                                    Result.success(
+                                        Innertube.ItemsPage(
+                                            items = (filteredPage?.items.orEmpty() + broadPage.items.orEmpty())
+                                                .distinctBy(Innertube.ArtistItem::key),
+                                            continuation = broadPage.continuation ?: filteredPage?.continuation
+                                        )
+                                    )
+                                } else {
+                                    filtered
+                                }
                             } else {
                                 filtered
                             }
