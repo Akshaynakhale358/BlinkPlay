@@ -115,10 +115,22 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                     ?.navigationEndpoint
                     ?.browseEndpoint
 
+            val shelfContinuation = (content.musicPlaylistShelfRenderer ?: content.musicShelfRenderer)
+                ?.continuations
+                ?.firstOrNull()
+                ?.nextContinuationData
+                ?.continuation
+                ?: content.musicCarouselShelfRenderer
+                    ?.continuations
+                    ?.firstOrNull()
+                    ?.nextContinuationData
+                    ?.continuation
+
             Innertube.ArtistSection(
                 title = title,
                 items = items,
                 browseEndpoint = browseEndpoint,
+                continuation = shelfContinuation,
             )
         }
 
