@@ -120,7 +120,7 @@ fun HomeArtistList(
                             )
                         } else {
                             suspend fun searchArtists(params: String) =
-                                Innertube.searchPage(
+                                Innertube.metrolistArtistSearchPage(
                                     body = SearchBody(
                                         context = indiaContext,
                                         query = query,
@@ -246,7 +246,7 @@ fun HomeArtistList(
                 delay(350)
                 artistSearchLoading = true
                 val result = withContext(Dispatchers.IO) {
-                    Innertube.searchPage(
+                    Innertube.metrolistArtistSearchPage(
                         body = SearchBody(
                             context = indiaContext,
                             query = artistSearchText,

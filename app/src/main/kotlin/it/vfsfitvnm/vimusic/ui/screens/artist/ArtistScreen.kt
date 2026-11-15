@@ -244,7 +244,7 @@ fun ArtistScreen(browseId: String) {
                                             ?.songsEndpoint
                                             ?.takeIf { it.browseId != null }
                                             ?.let { endpoint ->
-                                                Innertube.itemsPage(
+                                                Innertube.metrolistArtistItemsPage(
                                                     body = BrowseBody(
                                                         browseId = endpoint.browseId!!,
                                                         params = endpoint.params,
@@ -303,7 +303,7 @@ fun ArtistScreen(browseId: String) {
                                 itemsPageProvider = artistPage?.let {
                                     ({ continuation ->
                                         continuation?.let {
-                                            Innertube.itemsPage(
+                                            Innertube.metrolistArtistItemsPage(
                                                 body = ContinuationBody(continuation = continuation),
                                                 fromMusicTwoRowItemRenderer = Innertube.AlbumItem::from,
                                             )
@@ -311,7 +311,7 @@ fun ArtistScreen(browseId: String) {
                                             ?.albumsEndpoint
                                             ?.takeIf { it.browseId != null }
                                             ?.let { endpoint ->
-                                                Innertube.itemsPage(
+                                                Innertube.metrolistArtistItemsPage(
                                                     body = BrowseBody(
                                                         browseId = endpoint.browseId!!,
                                                         params = endpoint.params,
