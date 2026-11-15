@@ -433,7 +433,7 @@ private fun HomeSongCategoryCard(
 
         BasicText(
             text = "VIEW ALL  ›",
-            style = typography.s.semiBold,
+            style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
             modifier = Modifier
                 .align(Alignment.End)
                 .padding(top = 8.dp, end = 4.dp, bottom = 2.dp)
