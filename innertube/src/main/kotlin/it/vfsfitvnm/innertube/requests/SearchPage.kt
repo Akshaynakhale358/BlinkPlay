@@ -108,7 +108,6 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
         ?: grid?.continuations?.firstOrNull()?.nextContinuationData?.continuation
         ?: sequenceOf(
             shelf?.contents.orEmpty().lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token(),
-            grid?.items.orEmpty().lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token(),
             response.onResponseReceivedActions.orEmpty()
                 .plus(response.onResponseReceivedEndpoints.orEmpty())
                 .flatMap { it.appendContinuationItemsAction?.continuationItems.orEmpty() }
