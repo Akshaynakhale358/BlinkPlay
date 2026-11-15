@@ -150,7 +150,7 @@ fun PodcastScreen() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = if (selectedPodcast == null) "Podcasts" else "Episodes")
+            Text(text = "Podcast")
             IconButton(onClick = {
                 if (selectedPodcast != null) {
                     selectedPodcast = null
@@ -229,6 +229,7 @@ fun PodcastScreen() {
                     if (selectedPodcast!!.author.isNotBlank()) Text(selectedPodcast!!.author)
                 }
             }
+            Text(text = "All Episodes")
             if (isLoading) CircularProgressIndicator()
             error?.let { Text(it) }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
