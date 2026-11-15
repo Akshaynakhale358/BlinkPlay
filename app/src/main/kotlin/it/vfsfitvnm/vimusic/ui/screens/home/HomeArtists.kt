@@ -112,22 +112,33 @@ fun HomeArtistList(
 
                     val token = continuation
                     val result = withContext(Dispatchers.IO) {
-                        if (token == null) {
-                            Innertube.searchPage(
-                                body = SearchBody(
-                                    context = indiaContext,
-                                    query = query,
-                                    params = Innertube.SearchFilter.Artist.value
-                                ),
-                                fromMusicShelfRendererContent = Innertube.ArtistItem::from,
-                                fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
-                            )
-                        } else {
+                        if (token != null) {
                             Innertube.searchPage(
                                 body = ContinuationBody(context = indiaContext, continuation = token),
                                 fromMusicShelfRendererContent = Innertube.ArtistItem::from,
                                 fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
                             )
+                        } else {
+                            suspend fun searchArtists(params: String) =
+                                Innertube.searchPage(
+                                    body = SearchBody(
+                                        context = indiaContext,
+                                        query = query,
+                                        params = params
+                                    ),
+                                    fromMusicShelfRendererContent = Innertube.ArtistItem::from,
+                                    fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
+                                )
+
+                            // YouTube Music's dedicated Artist filter sometimes returns an
+                            // empty/partial layout for broad regional queries. Retry the same
+                            // query without the filter; SearchPage still parses only ArtistItems.
+                            val filtered = searchArtists(Innertube.SearchFilter.Artist.value)
+                            if (filtered?.getOrNull()?.items.isNullOrEmpty()) {
+                                searchArtists("")
+                            } else {
+                                filtered
+                            }
                         }
                     }
 
