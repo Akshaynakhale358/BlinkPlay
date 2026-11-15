@@ -320,7 +320,7 @@ fun HomeAlbums(
                         )
                         BasicText(
                             text = "VIEW ALL",
-                            style = typography.s.semiBold,
+                            style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
                             modifier = Modifier.clip(RoundedCornerShape(50))
                                 .background(Color.White.copy(alpha = 0.14f))
                                 .clickable {
