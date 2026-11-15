@@ -20,7 +20,6 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 ) = runCatchingNonCancellable {
     val response = client.post(search) {
         setBody(body)
-        // Keep the complete response: Artist search can return a grid rather than a shelf.
         mask("*")
     }.body<SearchResponse>()
 
@@ -56,17 +55,31 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
         }
     }.distinctBy(Innertube.Item::key)
 
+    // Search artist grids can put the continuation renderer inside the final grid item,
+    // rather than in GridRenderer.continuations. Read both response shapes.
     val continuation = sections.asReversed().firstNotNullOfOrNull { section ->
         section.musicShelfRenderer
             ?.continuations
             ?.firstOrNull()
             ?.nextContinuationData
             ?.continuation
+            ?: section.musicShelfRenderer
+                ?.contents
+                ?.lastOrNull()
+                ?.continuationItemRenderer
+                ?.continuationEndpoint
+                ?.token()
             ?: section.gridRenderer
                 ?.continuations
                 ?.firstOrNull()
                 ?.nextContinuationData
                 ?.continuation
+            ?: section.gridRenderer
+                ?.items
+                ?.lastOrNull()
+                ?.continuationItemRenderer
+                ?.continuationEndpoint
+                ?.token()
     }
 
     Innertube.ItemsPage(items = items, continuation = continuation)
@@ -79,7 +92,6 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 ) = runCatchingNonCancellable {
     val response = client.post(search) {
         setBody(body)
-        // Continuation responses may be shelf, grid, or append-action payloads.
         mask("*")
     }.body<ContinuationResponse>()
 
@@ -104,29 +116,23 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 
     val responseActions = response.onResponseReceivedActions.orEmpty()
         .plus(response.onResponseReceivedEndpoints.orEmpty())
-    val actionItems = responseActions
-        .flatMap { action ->
-            (action.appendContinuationItemsAction ?: action.reloadContinuationItemsCommand)
-                ?.continuationItems.orEmpty()
-        }
-        .mapNotNull { item ->
-            item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)
-                ?: item.musicResponsiveListItemRenderer?.let {
-                    fromMusicShelfRendererContent(MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it))
-                }
-        }
-
     val actionContinuationItems = responseActions.flatMap { action ->
         (action.appendContinuationItemsAction ?: action.reloadContinuationItemsCommand)
             ?.continuationItems.orEmpty()
     }
+    val actionItems = actionContinuationItems.mapNotNull { item ->
+        item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)
+            ?: item.musicResponsiveListItemRenderer?.let {
+                fromMusicShelfRendererContent(MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it))
+            }
+    }
+
     val continuation = shelf?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        ?: shelf?.contents?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
         ?: grid?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        ?: grid?.items?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
         ?: carousel?.continuations?.firstOrNull()?.nextContinuationData?.continuation
-        ?: sequenceOf(
-            shelf?.contents.orEmpty().lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token(),
-            actionContinuationItems.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
-        ).filterNotNull().firstOrNull()
+        ?: actionContinuationItems.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
 
     Innertube.ItemsPage(
         items = (shelfItems + gridItems + carouselItems + actionItems).distinctBy(Innertube.Item::key),
