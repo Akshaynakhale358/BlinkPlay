@@ -598,7 +598,7 @@ fun QuickPicks(
             discoveryBundles().forEach { bundle ->
                 BasicText(
                     text = bundle.title.uppercase(),
-                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
+                    style = typography.s.semiBold,
                     modifier = sectionTextModifier
                 )
                 LazyRow(
@@ -646,7 +646,7 @@ fun QuickPicks(
 
             BasicText(
                 text = "CALM",
-                style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
+                style = typography.s.semiBold,
                 modifier = sectionTextModifier
             )
             LazyRow(
@@ -743,7 +743,7 @@ fun QuickPicks(
                 )
                 BasicText(
                     text = "All Songs",
-                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f).copy(
+                    style = typography.s.semiBold.copy(
                         fontSize = typography.xxl.fontSize * 0.5616f,
                         textAlign = TextAlign.End
                     ),
@@ -784,7 +784,7 @@ fun QuickPicks(
                 )
                 BasicText(
                     text = "All Songs",
-                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f).copy(
+                    style = typography.s.semiBold.copy(
                         fontSize = typography.xxl.fontSize * 0.5616f,
                         textAlign = TextAlign.End
                     ),
@@ -818,7 +818,7 @@ fun QuickPicks(
         if (scrollState.value > 300) {
             BasicText(
                 text = "↑",
-                style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f).copy(color = Color.White),
+                style = typography.s.semiBold.copy(color = Color.White),
                 modifier = Modifier.align(Alignment.BottomEnd).padding(18.dp)
                     .clip(RoundedCornerShape(50)).background(Color(0xFF343434))
                     .clickable { scope.launch { scrollState.animateScrollTo(0) } }
@@ -842,7 +842,7 @@ private fun QuickPicksSimpleSongRail(
     onSongLongClick: (Innertube.SongItem) -> Unit
 ) {
     val (_, typography) = LocalAppearance.current
-    BasicText(text = title, style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
+    BasicText(text = title, style = typography.s.semiBold,
         modifier = Modifier.padding(horizontal = 16.dp).padding(top = 24.dp, bottom = 8.dp))
     if (songs.isEmpty()) {
         ShimmerHost { repeat(4) { SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp) } }
@@ -880,7 +880,7 @@ private fun QuickPicksSectionHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
     ) {
-        BasicText(text = title, style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f), modifier = Modifier.weight(1f))
+        BasicText(text = title, style = typography.s.semiBold, modifier = Modifier.weight(1f))
         Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -940,7 +940,7 @@ private fun QuickPicksSongShelf(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
         ) {
-            BasicText(text = title, style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f), modifier = Modifier.weight(1f))
+            BasicText(text = title, style = typography.s.semiBold, modifier = Modifier.weight(1f))
             if (onPlay != null || onViewAll != null) {
                 Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     onPlay?.let { action ->
@@ -960,7 +960,7 @@ private fun QuickPicksSongShelf(
                         }
                     }
                     onViewAll?.let { action ->
-                        BasicText(text = "VIEW ALL", style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
+                        BasicText(text = "VIEW ALL", style = typography.s.semiBold,
                             modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
                                 .clickable(onClick = action).padding(horizontal = 9.dp, vertical = 7.dp))
                     }
@@ -1117,7 +1117,7 @@ private fun QuickPicksDiscoveryShelf(
     Column(modifier = Modifier.width(276.dp)) {
         BasicText(
             text = category.title.uppercase(),
-            style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
+            style = typography.s.semiBold,
             modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
         )
         Column(
