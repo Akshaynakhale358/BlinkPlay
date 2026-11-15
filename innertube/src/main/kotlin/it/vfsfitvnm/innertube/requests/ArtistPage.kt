@@ -46,7 +46,9 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
         fun section(vararg titles: String): SectionListRenderer.Content? =
             sectionList?.findSectionByTitleAny(*titles)
 
-        val songsSection = section("Songs", "Top songs", "Top tracks", "Popular songs", "Tracks")?.musicShelfRenderer
+        val songsSectionContent = section("Songs", "Top songs", "Top tracks", "Popular songs", "Tracks")
+        val songsSection = songsSectionContent?.musicPlaylistShelfRenderer
+            ?: songsSectionContent?.musicShelfRenderer
         val albumsSection = section("Albums", "Releases", "Full albums")?.musicCarouselShelfRenderer
         val singlesSection = section("Singles & EPs", "Singles and EPs", "Singles", "EPs")?.musicCarouselShelfRenderer
         val similarArtistsSection = section("Fans might also like", "Similar artists", "Related artists", "You might also like")?.musicCarouselShelfRenderer
@@ -70,12 +72,13 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                 ?.musicCarouselShelfBasicHeaderRenderer
                 ?.title
                 ?.text
+                ?: content.musicPlaylistShelfRenderer?.title?.text
                 ?: content.musicShelfRenderer?.title?.text
                 ?: content.musicResponsiveHeaderRenderer?.title?.text
 
         fun shelfItems(content: SectionListRenderer.Content): List<Innertube.Item> =
             buildList {
-                content.musicShelfRenderer?.contents.orEmpty().forEach { shelfItem ->
+                (content.musicPlaylistShelfRenderer ?: content.musicShelfRenderer)?.contents.orEmpty().forEach { shelfItem ->
                     shelfItem.musicResponsiveListItemRenderer
                         ?.let(::audioSong)
                         ?.let(::add)
@@ -100,7 +103,7 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
             val items = shelfItems(content)
             if (items.isEmpty()) return@mapNotNull null
 
-            val browseEndpoint = content.musicShelfRenderer
+            val browseEndpoint = (content.musicPlaylistShelfRenderer ?: content.musicShelfRenderer)
                 ?.bottomEndpoint
                 ?.browseEndpoint
                 ?: content.musicCarouselShelfRenderer
