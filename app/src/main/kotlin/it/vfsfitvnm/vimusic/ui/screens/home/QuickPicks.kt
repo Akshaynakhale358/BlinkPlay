@@ -415,6 +415,30 @@ fun QuickPicks(
     }
 
 
+    val orderedDiscoveryCategoryKeys = remember {
+        discoveryBundles().flatMap { it.categories }.map(DiscoverySubcategory::key)
+    }
+    val orderedCalmCategoryKeys = remember {
+        calmMusicCategories().map(DiscoverySubcategory::key)
+    }
+    val uniqueQuickPicksSongs = remember(
+        songsForYou, trendingSongs, topSongs, newReleases,
+        discoverySongs, calmCategorySongs, longListenSongs,
+        orderedDiscoveryCategoryKeys, orderedCalmCategoryKeys
+    ) {
+        makeQuickPicksSongsUnique(
+            forYou = songsForYou,
+            trending = trendingSongs,
+            top = topSongs,
+            newReleases = newReleases,
+            discovery = discoverySongs,
+            calm = calmCategorySongs,
+            longListen = longListenSongs,
+            discoveryOrder = orderedDiscoveryCategoryKeys,
+            calmOrder = orderedCalmCategoryKeys
+        )
+    }
+
     val endPaddingValues = windowInsets.only(WindowInsetsSides.End).asPaddingValues()
 
     val sectionTextModifier = Modifier
@@ -466,9 +490,9 @@ fun QuickPicks(
 
             QuickPicksSongShelf(
                 title = "SONGS FOR YOU",
-                songs = songsForYou,
+                songs = uniqueQuickPicksSongs.forYou,
                 onPlay = {
-                    val items = songsForYou.take(15).map(Innertube.SongItem::asMediaItem)
+                    val items = uniqueQuickPicksSongs.forYou.take(15).map(Innertube.SongItem::asMediaItem)
                     if (items.isNotEmpty()) {
                         binder?.stopRadio()
                         binder?.player?.forcePlayFromBeginning(items)
@@ -500,8 +524,8 @@ fun QuickPicks(
 
             QuickPicksSongShelf(
                 title = "TRENDING SONGS",
-                songs = trendingSongs,
-                onPlay = { val items = trendingSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                songs = uniqueQuickPicksSongs.trending,
+                onPlay = { val items = uniqueQuickPicksSongs.trending.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "trending" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
@@ -524,8 +548,8 @@ fun QuickPicks(
 
             QuickPicksSongShelf(
                 title = "TOP SONGS",
-                songs = topSongs,
-                onPlay = { val items = topSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                songs = uniqueQuickPicksSongs.top,
+                onPlay = { val items = uniqueQuickPicksSongs.top.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "top" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
@@ -548,8 +572,8 @@ fun QuickPicks(
 
             QuickPicksSongShelf(
                 title = "NEW RELEASES",
-                songs = newReleases,
-                onPlay = { val items = newReleases.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                songs = uniqueQuickPicksSongs.newReleases,
+                onPlay = { val items = uniqueQuickPicksSongs.newReleases.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "new" },
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
@@ -585,7 +609,7 @@ fun QuickPicks(
                     lazyRowItems(items = bundle.categories, key = DiscoverySubcategory::key) { category ->
                         QuickPicksDiscoveryShelf(
                             category = category,
-                            songs = discoverySongs[category.key].orEmpty(),
+                            songs = uniqueQuickPicksSongs.discovery[category.key].orEmpty(),
                             refreshToken = refreshToken + discoveryDailyToken,
 
                             onLoadCategory = { requestCategoryLoad(category, refreshToken + discoveryDailyToken) },
@@ -603,7 +627,7 @@ fun QuickPicks(
                             },
                             onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedDiscoveryCategory = category },
                             onPlayBundle = {
-                                val bundleMediaItems = (discoverySongs[category.key] ?: calmCategorySongs[category.key]).orEmpty()
+                                val bundleMediaItems = (uniqueQuickPicksSongs.discovery[category.key] ?: uniqueQuickPicksSongs.calm[category.key]).orEmpty()
                                     .map(Innertube.SongItem::asMediaItem)
                                 if (bundleMediaItems.isNotEmpty()) {
                                     binder?.stopRadio()
@@ -633,7 +657,7 @@ fun QuickPicks(
                 lazyRowItems(items = calmMusicCategories(), key = DiscoverySubcategory::key) { category ->
                     QuickPicksDiscoveryShelf(
                         category = category,
-                        songs = calmCategorySongs[category.key].orEmpty(),
+                        songs = uniqueQuickPicksSongs.calm[category.key].orEmpty(),
                         refreshToken = refreshToken + discoveryDailyToken,
 
                         onLoadCategory = { requestCategoryLoad(category, refreshToken + discoveryDailyToken) },
@@ -651,7 +675,7 @@ fun QuickPicks(
                         },
                         onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedDiscoveryCategory = category },
                         onPlayBundle = {
-                            val mediaItems = calmCategorySongs[category.key].orEmpty()
+                            val mediaItems = uniqueQuickPicksSongs.calm[category.key].orEmpty()
                                 .map(Innertube.SongItem::asMediaItem)
                             if (mediaItems.isNotEmpty()) {
                                 binder?.stopRadio()
@@ -670,7 +694,7 @@ fun QuickPicks(
 
             QuickPicksSongShelf(
                 title = "LONG LISTEN",
-                songs = longListenSongs,
+                songs = uniqueQuickPicksSongs.longListen,
                 thumbnailSizePx = songThumbnailSizePx,
                 thumbnailSizeDp = songThumbnailSizeDp,
                 itemWidth = itemInHorizontalGridWidth,
@@ -678,7 +702,7 @@ fun QuickPicks(
                 verticalList = false,
                 previewLimit = 15,
                 regularDurationOnly = false,
-                onPlay = { val items = longListenSongs.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
+                onPlay = { val items = uniqueQuickPicksSongs.longListen.take(15).map(Innertube.SongItem::asMediaItem); if (items.isNotEmpty()) { binder?.stopRadio(); binder?.player?.forcePlayFromBeginning(items) } },
                 onViewAll = { savedHomeScrollOffset = scrollState.value; restoreHomeScroll = false; selectedQuickPicksShelf = "long_listen" },
                 onSongClick = { song ->
                     val mediaItem = song.asMediaItem
@@ -701,11 +725,11 @@ fun QuickPicks(
                     else -> "Long Listen"
                 }
                 val shelfSongs = when (shelfKey) {
-                    "for_you" -> songsForYou
-                    "trending" -> trendingSongs
-                    "top" -> topSongs
-                    "new" -> newReleases
-                    "long_listen" -> longListenSongs
+                    "for_you" -> uniqueQuickPicksSongs.forYou
+                    "trending" -> uniqueQuickPicksSongs.trending
+                    "top" -> uniqueQuickPicksSongs.top
+                    "new" -> uniqueQuickPicksSongs.newReleases
+                    "long_listen" -> uniqueQuickPicksSongs.longListen
                     else -> longListenSongs
                 }
                 Header(title = "Quick Picks", titleScale = 1.404f)
@@ -768,7 +792,7 @@ fun QuickPicks(
                 )
                 QuickPicksSongShelf(
                     title = "All Songs",
-                    songs = discoverySongs[category.key] ?: calmCategorySongs[category.key].orEmpty(),
+                    songs = discoverySongs[category.key] ?: uniqueQuickPicksSongs.calm[category.key].orEmpty(),
                     thumbnailSizePx = songThumbnailSizePx,
                     thumbnailSizeDp = songThumbnailSizeDp,
                     itemWidth = itemInHorizontalGridWidth,
@@ -1353,6 +1377,58 @@ private suspend fun fetchLongListenSongs(batchIndex: Int = 0): List<Innertube.So
     rotateDiscoverySongsDaily(personalizeAndDiversify(relevant))
 }
 
+
+private data class QuickPicksUniqueSongs(
+    val forYou: List<Innertube.SongItem>,
+    val trending: List<Innertube.SongItem>,
+    val top: List<Innertube.SongItem>,
+    val newReleases: List<Innertube.SongItem>,
+    val discovery: Map<String, List<Innertube.SongItem>>,
+    val calm: Map<String, List<Innertube.SongItem>>,
+    val longListen: List<Innertube.SongItem>
+)
+
+/**
+ * A song belongs to the first Quick Picks category in this fixed priority order only.
+ * The same rule is applied to preview shelves, View All pages and newly loaded batches.
+ */
+private fun makeQuickPicksSongsUnique(
+    forYou: List<Innertube.SongItem>,
+    trending: List<Innertube.SongItem>,
+    top: List<Innertube.SongItem>,
+    newReleases: List<Innertube.SongItem>,
+    discovery: Map<String, List<Innertube.SongItem>>,
+    calm: Map<String, List<Innertube.SongItem>>,
+    longListen: List<Innertube.SongItem>,
+    discoveryOrder: List<String>,
+    calmOrder: List<String>
+): QuickPicksUniqueSongs {
+    val claimedSongKeys = mutableSetOf<String>()
+    fun takeUnclaimed(songs: List<Innertube.SongItem>): List<Innertube.SongItem> =
+        songs.distinctBy(Innertube.SongItem::key).filter { claimedSongKeys.add(it.key) }
+
+    val uniqueForYou = takeUnclaimed(forYou)
+    val uniqueTrending = takeUnclaimed(trending)
+    val uniqueTop = takeUnclaimed(top)
+    val uniqueNewReleases = takeUnclaimed(newReleases)
+    val uniqueDiscovery = discoveryOrder.mapNotNull { key ->
+        discovery[key]?.let { key to takeUnclaimed(it) }
+    }.toMap()
+    val uniqueCalm = calmOrder.mapNotNull { key ->
+        calm[key]?.let { key to takeUnclaimed(it) }
+    }.toMap()
+    val uniqueLongListen = takeUnclaimed(longListen)
+
+    return QuickPicksUniqueSongs(
+        forYou = uniqueForYou,
+        trending = uniqueTrending,
+        top = uniqueTop,
+        newReleases = uniqueNewReleases,
+        discovery = uniqueDiscovery,
+        calm = uniqueCalm,
+        longListen = uniqueLongListen
+    )
+}
 
 private suspend fun fetchMoreQuickPicksShelf(
     shelfKey: String,
