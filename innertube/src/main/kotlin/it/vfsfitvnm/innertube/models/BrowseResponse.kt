@@ -39,7 +39,8 @@ data class BrowseResponse(
             val thumbnail: ThumbnailRenderer? = null,
             val foregroundThumbnail: ThumbnailRenderer? = null,
             val title: Runs? = null,
-            val subscriptionButton: SubscriptionButton? = null
+            val subscriptionButton: SubscriptionButton? = null,
+            val monthlyListenerCount: Runs? = null
         ) {
             @Serializable
             data class SubscriptionButton(
@@ -48,6 +49,7 @@ data class BrowseResponse(
                 @Serializable
                 data class SubscribeButtonRenderer(
                     val subscriberCountText: Runs? = null,
+                    val longSubscriberCountText: Runs? = null,
                     val subscribed: Boolean? = null
                 )
             }
