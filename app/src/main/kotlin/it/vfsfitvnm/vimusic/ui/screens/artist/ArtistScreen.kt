@@ -436,17 +436,19 @@ private fun ArtistShelfPage(
                         }
                     }
                 }
-                useBrowseEndpoint = false
                 if (result == null) {
-                    continuation = null
+                    // Keep the current token / browse fallback so a failed request can be retried.
+                    loadFailed = true
                 } else {
                     result.onSuccess { page ->
                         if (page == null) {
                             continuation = null
+                            useBrowseEndpoint = false
                         } else {
                             val knownKeys = shelfItems.mapTo(mutableSetOf(), Innertube.Item::key)
                             page.items.orEmpty().filter { knownKeys.add(it.key) }.forEach { shelfItems.add(it) }
                             continuation = page.continuation?.takeIf { it != token }
+                            useBrowseEndpoint = false
                         }
                     }.onFailure {
                         loadFailed = true
@@ -530,7 +532,7 @@ private fun ArtistShelfPage(
                         modifier = Modifier.padding(16.dp)
                     )
                 }
-            } else if (loadFailed && continuation != null) {
+            } else if (loadFailed && (continuation != null || section?.browseEndpoint?.browseId != null)) {
                 item(key = "artist-shelf-retry") {
                     BasicText(
                         text = "Couldn't load more. Tap to retry.",
