@@ -6,11 +6,10 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -374,22 +373,35 @@ private fun ArtistShelfPage(
     val entitySize = 108.dp
     val entitySizePx = entitySize.px
     val binder = LocalPlayerServiceBinder.current
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        headerContent(null)
-        BasicText(
-            text = title,
-            style = typography.m.semiBold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
-        )
-        val shelfItems = section?.items.orEmpty()
-        if (shelfItems.isEmpty()) {
+    val shelfItems = section?.items.orEmpty()
+
+    // Lazy composition keeps large artist shelves responsive and avoids creating every row
+    // and thumbnail at once when opening an artist tab.
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item(key = "artist-header") {
+            headerContent(null)
+        }
+        item(key = "artist-shelf-title") {
             BasicText(
-                text = "No $title available for this artist.",
-                style = typography.s,
-                modifier = Modifier.padding(16.dp)
+                text = title,
+                style = typography.m.semiBold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
             )
+        }
+
+        if (shelfItems.isEmpty()) {
+            item(key = "artist-shelf-empty") {
+                BasicText(
+                    text = "No $title available for this artist.",
+                    style = typography.s,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
         } else {
-            shelfItems.forEach { item ->
+            items(
+                items = shelfItems,
+                key = Innertube.Item::key
+            ) { item ->
                 when (item) {
                     is Innertube.SongItem -> SongItem(
                         song = item,
