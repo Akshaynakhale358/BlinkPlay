@@ -5,6 +5,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.BrowseResponse
+import it.vfsfitvnm.innertube.models.Continuation
 import it.vfsfitvnm.innertube.models.ContinuationResponse
 import it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicResponsiveHeaderRenderer
@@ -118,19 +119,25 @@ suspend fun Innertube.playlistPage(body: ContinuationBody) = runCatchingNonCance
         ?.musicPlaylistShelfContinuation
         ?: response.continuationContents?.musicShelfContinuation
 
-    (shelf ?: response.onResponseReceivedActions
+    val actionItems = response.onResponseReceivedActions
         ?.plus(response.onResponseReceivedEndpoints.orEmpty())
         ?.flatMap { action ->
             (action.appendContinuationItemsAction ?: action.reloadContinuationItemsCommand)
                 ?.continuationItems.orEmpty()
-        }
-        ?.mapNotNull { it.musicResponsiveListItemRenderer }
-        ?.takeIf { it.isNotEmpty() }
+        }.orEmpty()
+    val actionShelf = actionItems
+        .mapNotNull { it.musicResponsiveListItemRenderer }
+        .takeIf { it.isNotEmpty() }
         ?.let { renderers ->
+            val nextToken = actionItems
+                .firstNotNullOfOrNull { it.continuationItemRenderer?.continuationEndpoint?.token() }
             MusicShelfRenderer(
-                contents = renderers.map { MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it) }
+                contents = renderers.map { MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it) },
+                continuations = nextToken?.let { listOf(Continuation(Continuation.Data(it))) }
             )
-        })?.toSongsPage()
+        }
+
+    (shelf ?: actionShelf)?.toSongsPage()
 }
 
 private fun MusicShelfRenderer?.toSongsPage() =
