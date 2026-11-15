@@ -15,9 +15,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -373,11 +377,56 @@ private fun ArtistShelfPage(
     val entitySize = 108.dp
     val entitySizePx = entitySize.px
     val binder = LocalPlayerServiceBinder.current
-    val shelfItems = section?.items.orEmpty()
+    val listState = rememberLazyListState()
+    val shelfItems = remember(section) {
+        mutableStateListOf<Innertube.Item>().apply { addAll(section?.items.orEmpty()) }
+    }
+    var continuation by remember(section) { mutableStateOf(section?.continuation) }
+    var isLoading by remember(section) { mutableStateOf(false) }
+    var loadFailed by remember(section) { mutableStateOf(false) }
+    var retryKey by remember(section) { mutableStateOf(0) }
 
-    // Lazy composition keeps large artist shelves responsive and avoids creating every row
-    // and thumbnail at once when opening an artist tab.
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    // Every artist shelf keeps its first batch and appends subsequent batches as the user scrolls.
+    LaunchedEffect(section, retryKey) {
+        snapshotFlow {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 to shelfItems.size
+        }.distinctUntilChanged().collect { (lastVisibleIndex, loadedCount) ->
+            val loadThreshold = (loadedCount - 4).coerceAtLeast(0) + 2
+            val token = continuation
+            if (token != null && !isLoading && lastVisibleIndex >= loadThreshold) {
+                isLoading = true
+                loadFailed = false
+                val result = withContext(Dispatchers.IO) {
+                    Innertube.itemsPage(
+                        body = ContinuationBody(continuation = token),
+                        fromMusicResponsiveListItemRenderer = Innertube.SongItem::from,
+                        fromMusicTwoRowItemRenderer = { renderer ->
+                            Innertube.AlbumItem.from(renderer)
+                                ?: Innertube.ArtistItem.from(renderer)
+                                ?: Innertube.PlaylistItem.from(renderer)
+                        }
+                    )
+                }
+                result.onSuccess { page ->
+                    if (page == null) {
+                        continuation = null
+                    } else {
+                        val knownKeys = shelfItems.mapTo(mutableSetOf(), Innertube.Item::key)
+                        page.items.orEmpty().filter { knownKeys.add(it.key) }.forEach(shelfItems::add)
+                        continuation = page.continuation?.takeIf { it != token }
+                    }
+                }.onFailure {
+                    loadFailed = true
+                }
+                isLoading = false
+            }
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize()
+    ) {
         item(key = "artist-header") {
             headerContent(null)
         }
@@ -389,7 +438,7 @@ private fun ArtistShelfPage(
             )
         }
 
-        if (shelfItems.isEmpty()) {
+        if (shelfItems.isEmpty() && continuation == null) {
             item(key = "artist-shelf-empty") {
                 BasicText(
                     text = "No $title available for this artist.",
@@ -437,6 +486,25 @@ private fun ArtistShelfPage(
                         modifier = Modifier.clickable { onPlaylistClick(item.key) }
                     )
                     else -> Unit
+                }
+            }
+            if (isLoading) {
+                item(key = "artist-shelf-loading") {
+                    BasicText(
+                        text = "Loading more...",
+                        style = typography.s.copy(color = Color.White),
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            } else if (loadFailed && continuation != null) {
+                item(key = "artist-shelf-retry") {
+                    BasicText(
+                        text = "Couldn't load more. Tap to retry.",
+                        style = typography.s.copy(color = Color.White),
+                        modifier = Modifier
+                            .clickable { retryKey++ }
+                            .padding(16.dp)
+                    )
                 }
             }
         }
