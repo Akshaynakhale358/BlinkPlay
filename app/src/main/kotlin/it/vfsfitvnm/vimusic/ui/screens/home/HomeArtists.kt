@@ -63,7 +63,16 @@ fun HomeArtistList(
     onSearchClick: () -> Unit,
 ) {
     val (colorPalette, typography) = LocalAppearance.current
-    val queries = listOf("Hindi singers", "Bollywood playback singers", "Marathi singers", "Punjabi singers", "Tamil singers", "Telugu singers", "Bengali singers", "Kannada singers", "Malayalam singers", "English pop artists", "international music artists")
+    val queries = listOf(
+        "Hindi singers", "Bollywood playback singers", "Indian singers", "Indian music artists",
+        "Marathi singers", "Punjabi singers", "Tamil singers", "Telugu singers",
+        "Bengali singers", "Kannada singers", "Malayalam singers", "Assamese singers",
+        "Gujarati singers", "Urdu singers", "Indian female singers", "Indian male singers",
+        "Hindi music artists", "Marathi music artists", "Punjabi music artists",
+        "Tamil music artists", "Telugu music artists", "Bengali music artists",
+        "English pop artists", "international music artists", "world music singers",
+        "pop singers", "rock bands", "hip hop artists", "independent music artists"
+    )
     var artistSearchActive by remember { mutableStateOf(false) }
     var artistSearchText by remember { mutableStateOf("") }
     var artistSearchResults by remember { mutableStateOf<List<Innertube.ArtistItem>>(emptyList()) }
@@ -97,7 +106,7 @@ fun HomeArtistList(
                 loading = true
                 withContext(Dispatchers.IO) {
                     var attempts = 0
-                    while (attempts < 20 && !finished) {
+                    while (attempts < 50 && !finished) {
                         val query = queries.getOrNull(queryIndex)
                         if (query == null) {
                             finished = true
@@ -107,7 +116,8 @@ fun HomeArtistList(
                         val result = if (token == null) {
                             Innertube.searchPage(
                                 body = SearchBody(context = indiaContext, query = query, params = Innertube.SearchFilter.Artist.value),
-                                fromMusicShelfRendererContent = Innertube.ArtistItem::from
+                                fromMusicShelfRendererContent = Innertube.ArtistItem::from,
+                                fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
                             )
                         } else {
                             Innertube.searchPage(
