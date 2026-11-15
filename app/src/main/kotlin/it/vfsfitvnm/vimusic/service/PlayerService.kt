@@ -561,37 +561,29 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     }
 
     private fun maybeNormalizeVolume() {
-        volumeNormalizationJob?.cancel()
-
-        if (!preferences.getBoolean(volumeNormalizationKey, false) || player.currentMediaItem == null) {
-            runCatching {
-                loudnessEnhancer?.enabled = false
-                loudnessEnhancer?.release()
-            }
+        if (!preferences.getBoolean(volumeNormalizationKey, false)) {
+            loudnessEnhancer?.enabled = false
+            loudnessEnhancer?.release()
             loudnessEnhancer = null
+            volumeNormalizationJob?.cancel()
+            player.volume = 1f
             return
         }
 
-        try {
-            if (loudnessEnhancer == null) {
-                loudnessEnhancer = LoudnessEnhancer(player.audioSessionId)
-            }
+        if (loudnessEnhancer == null) {
+            loudnessEnhancer = LoudnessEnhancer(player.audioSessionId)
+        }
 
-            val songId = player.currentMediaItem?.mediaId ?: return
+        player.currentMediaItem?.mediaId?.let { songId ->
+            volumeNormalizationJob?.cancel()
             volumeNormalizationJob = coroutineScope.launch(Dispatchers.Main) {
                 Database.loudnessDb(songId).cancellable().collectLatest { loudnessDb ->
-                    runCatching {
-                        // Only apply a modest boost to quieter tracks. Do not reduce the
-                        // user's output level or add an arbitrary boost when loudness is unknown.
-                        val gainMb = (-(loudnessDb ?: 0f) * 100f).toInt().coerceIn(0, 600)
-                        loudnessEnhancer?.setTargetGain(gainMb)
+                    try {
+                        loudnessEnhancer?.setTargetGain((-((loudnessDb ?: 0f) * 100).toInt() + 500).coerceIn(0, 6000))
                         loudnessEnhancer?.enabled = true
-                    }
+                    } catch (_: Exception) { }
                 }
             }
-        } catch (_: Exception) {
-            runCatching { loudnessEnhancer?.release() }
-            loudnessEnhancer = null
         }
     }
 
