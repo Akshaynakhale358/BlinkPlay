@@ -4,16 +4,6 @@ import android.net.Uri
 import android.text.Html
 import android.util.Xml
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.Image
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.foundation.layout.Box
-import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.items.AlbumItem
 import it.vfsfitvnm.vimusic.ui.styling.px
 import androidx.compose.foundation.layout.Arrangement
@@ -227,54 +217,7 @@ fun PodcastScreen() {
                             thumbnailSizeDp = 72.dp,
                             modifier = Modifier.weight(1f).clickable { loadEpisodes(podcast) }
                         )
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.padding(end = 16.dp).size(38.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
-                                .background(Color.White.copy(alpha = 0.14f))
-                                .clickable {
-                                    scope.launch {
-                                        isLoading = true
-                                        try {
-                                            val podcastEpisodes = withContext(Dispatchers.IO) {
-                                                fetchPodcastEpisodes(podcast.feedUrl, podcast.title)
-                                            }
-                                            val mediaItems = podcastEpisodes
-                                                .filter { it.audioUrl.isNotBlank() }
-                                                .map { episode ->
-                                                    MediaItem.Builder()
-                                                        .setMediaId(episode.audioUrl)
-                                                        .setUri(episode.audioUrl)
-                                                        .setCustomCacheKey("podcast:${episode.audioUrl}")
-                                                        .setMediaMetadata(
-                                                            MediaMetadata.Builder()
-                                                                .setTitle(episode.title)
-                                                                .setArtist(podcast.title)
-                                                                .setArtworkUri(podcast.artwork.takeIf { it.isNotBlank() }?.let(Uri::parse))
-                                                                .build()
-                                                        )
-                                                        .build()
-                                                }
-                                            if (mediaItems.isNotEmpty()) {
-                                                binder?.stopRadio()
-                                                binder?.player?.setMediaItems(mediaItems, true)
-                                                binder?.player?.prepare()
-                                                binder?.player?.playWhenReady = true
-                                            }
-                                        } finally {
-                                            isLoading = false
-                                        }
-                                    }
-                                }
-                        ) {
-                            Image(
-                                painter = painterResource(R.drawable.play),
-                                contentDescription = "Play podcast",
-                                colorFilter = ColorFilter.tint(Color.White),
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
+
                     }
                 }
             }
@@ -292,7 +235,7 @@ fun PodcastScreen() {
                 items(episodes) { episode ->
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            AsyncImage(model = episode.artwork.ifBlank { selectedPodcast?.artwork.orEmpty() }, contentDescription = episode.title, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp))
+                            AsyncImage(model = episode.artwork.ifBlank { selectedPodcast?.artwork.orEmpty() }, contentDescription = episode.title, contentScale = ContentScale.Crop, modifier = Modifier.size(60.dp))
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 Text(
                                     text = episode.title,
@@ -308,7 +251,7 @@ fun PodcastScreen() {
                                 }
                             }
                             if (episode.audioUrl.isNotBlank()) {
-                                Button(onClick = {
+                                IconButton(onClick = {
                                     val mediaItem = MediaItem.Builder()
                                         .setMediaId(episode.audioUrl)
                                         .setUri(episode.audioUrl)
@@ -318,7 +261,7 @@ fun PodcastScreen() {
                                     binder?.player?.setMediaItem(mediaItem, true)
                                     binder?.player?.playWhenReady = true
                                     binder?.player?.prepare()
-                                }, enabled = binder != null) { Text("▶") }
+                                }, enabled = binder != null, modifier = Modifier.size(36.dp)) { Text("▶") }
                             }
                         }
                     }
