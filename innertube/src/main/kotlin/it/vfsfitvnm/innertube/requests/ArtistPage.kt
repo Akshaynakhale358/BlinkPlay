@@ -42,8 +42,6 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                     ?: content.musicResponsiveHeaderRenderer?.title?.text
                     ?: content.hashCode().toString()
             }
-        val sectionList = sectionLists.firstOrNull()
-
         // YouTube changes shelf names and header renderer variants. Keep the lookup tolerant,
         // following the artist parser strategy used by Metrolist, while retaining BlinkPlay models.
         fun section(vararg titles: String): SectionListRenderer.Content? =
@@ -104,6 +102,17 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                         item?.let(::add)
                     }
                 }
+                content.gridRenderer?.items.orEmpty().forEach { shelfItem ->
+                    shelfItem.musicResponsiveListItemRenderer
+                        ?.let(::audioSong)
+                        ?.let(::add)
+                    shelfItem.musicTwoRowItemRenderer?.let { renderer ->
+                        val item = Innertube.AlbumItem.from(renderer)
+                            ?: Innertube.ArtistItem.from(renderer)
+                            ?: Innertube.PlaylistItem.from(renderer)
+                        item?.let(::add)
+                    }
+                }
             }.distinctBy(Innertube.Item::key)
 
         // Preserve shelves the current screen does not render yet. This lets the next UI pass
@@ -129,6 +138,11 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                 ?.nextContinuationData
                 ?.continuation
                 ?: content.musicCarouselShelfRenderer
+                    ?.continuations
+                    ?.firstOrNull()
+                    ?.nextContinuationData
+                    ?.continuation
+                ?: content.gridRenderer
                     ?.continuations
                     ?.firstOrNull()
                     ?.nextContinuationData
