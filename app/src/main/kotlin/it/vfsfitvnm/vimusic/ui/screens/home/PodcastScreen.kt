@@ -260,6 +260,17 @@ fun PodcastScreen(homeResetKey: Int) {
                 ),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
             )
+            if (selectedPodcast!!.author.isNotBlank()) {
+                BasicText(
+                    text = selectedPodcast!!.author,
+                    style = typography.m.semiBold.copy(
+                        color = Color.White,
+                        fontSize = typography.s.fontSize,
+                        textAlign = TextAlign.End
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
+                )
+            }
             BasicText(
                 text = "All Episodes",
                 style = typography.s.semiBold.copy(
@@ -268,12 +279,7 @@ fun PodcastScreen(homeResetKey: Int) {
                 ),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
             )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                AsyncImage(model = selectedPodcast!!.artwork, contentDescription = selectedPodcast!!.title, contentScale = ContentScale.Crop, modifier = Modifier.size(88.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    if (selectedPodcast!!.author.isNotBlank()) Text(selectedPodcast!!.author)
-                }
-            }
+            AsyncImage(model = selectedPodcast!!.artwork, contentDescription = selectedPodcast!!.title, contentScale = ContentScale.Crop, modifier = Modifier.size(88.dp))
             if (isLoading) CircularProgressIndicator()
             error?.let { Text(it) }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
