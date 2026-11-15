@@ -5,6 +5,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.ContinuationResponse
+import it.vfsfitvnm.innertube.models.GridRenderer
 import it.vfsfitvnm.innertube.models.MusicShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 import it.vfsfitvnm.innertube.models.SearchResponse
@@ -19,15 +20,10 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 ) = runCatchingNonCancellable {
     val response = client.post(search) {
         setBody(body)
-        // Request the complete search response while diagnosing YouTube Music field-mask changes.
-        // A stale nested mask can make the API reject the request; callers previously swallowed
-        // that error and rendered every shelf as empty.
+        // Keep the complete response: Artist search can return a grid rather than a shelf.
         mask("*")
     }.body<SearchResponse>()
 
-    // Search filters can return the requested results on a non-first tab.
-    // Collect matching shelves and grids from every tab so songs, albums,
-    // artists and playlists all use the same reliable parser.
     val sections = response.contents
         ?.tabbedSearchResultsRenderer
         ?.tabs
@@ -83,17 +79,44 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 ) = runCatchingNonCancellable {
     val response = client.post(search) {
         setBody(body)
-        mask("continuationContents.musicShelfContinuation(continuations,contents.$musicResponsiveListItemRendererMask)")
+        // Continuation responses may be shelf, grid, or append-action payloads.
+        mask("*")
     }.body<ContinuationResponse>()
 
-    response
-        .continuationContents
-        ?.musicShelfContinuation
-        ?.toItemsPage(fromMusicShelfRendererContent)
-}
+    val shelf = response.continuationContents?.musicShelfContinuation
+    val grid = response.continuationContents?.gridContinuation
 
-private fun <T : Innertube.Item> MusicShelfRenderer?.toItemsPage(mapper: (MusicShelfRenderer.Content) -> T?) =
+    val shelfItems = shelf?.contents.orEmpty().mapNotNull(fromMusicShelfRendererContent)
+    val gridItems = grid?.items.orEmpty().mapNotNull { item ->
+        item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)
+            ?: item.musicResponsiveListItemRenderer?.let {
+                fromMusicShelfRendererContent(MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it))
+            }
+    }
+
+    val actionItems = response.onResponseReceivedActions.orEmpty()
+        .plus(response.onResponseReceivedEndpoints.orEmpty())
+        .flatMap { action -> action.appendContinuationItemsAction?.continuationItems.orEmpty() }
+        .mapNotNull { item ->
+            item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)
+                ?: item.musicResponsiveListItemRenderer?.let {
+                    fromMusicShelfRendererContent(MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it))
+                }
+        }
+
+    val continuation = shelf?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        ?: grid?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        ?: sequenceOf(
+            shelf?.contents.orEmpty().lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token(),
+            grid?.items.orEmpty().lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token(),
+            response.onResponseReceivedActions.orEmpty()
+                .plus(response.onResponseReceivedEndpoints.orEmpty())
+                .flatMap { it.appendContinuationItemsAction?.continuationItems.orEmpty() }
+                .lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
+        ).filterNotNull().firstOrNull()
+
     Innertube.ItemsPage(
-        items = this?.contents?.mapNotNull(mapper),
-        continuation = this?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        items = (shelfItems + gridItems + actionItems).distinctBy(Innertube.Item::key),
+        continuation = continuation
     )
+}
