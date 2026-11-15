@@ -134,7 +134,12 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
         ?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents
         ?.firstNotNullOfOrNull(SectionListRenderer.Content::musicResponsiveHeaderRenderer)
 
-    val sectionListRendererContents = twoColumn?.secondaryContents?.sectionListRenderer?.contents
+    // Album song rows are normally in the primary tab of the two-column
+    // browse response. The secondary column can contain only related albums.
+    // Prefer the primary tab, then fall back to the other response layouts.
+    val sectionListRendererContents = twoColumn?.tabs?.firstOrNull()
+        ?.tabRenderer?.content?.sectionListRenderer?.contents
+        ?: twoColumn?.secondaryContents?.sectionListRenderer?.contents
         ?: response?.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer?.contents
         ?: response?.contents?.sectionListRenderer?.contents
