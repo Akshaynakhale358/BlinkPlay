@@ -6,6 +6,7 @@ import android.util.Xml
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import it.vfsfitvnm.vimusic.ui.items.AlbumItem
+import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.styling.px
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -167,22 +168,25 @@ fun PodcastScreen(homeResetKey: Int) {
         modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = "Podcast", modifier = Modifier.clickable { showPodcastHome() })
-            IconButton(onClick = {
-                if (selectedPodcast != null) {
-                    showPodcastHome()
-                } else {
-                    searchOpen = !searchOpen
-                    if (!searchOpen) {
-                        searchText = ""
-                        error = null
+        Header(
+            title = "Podcast",
+            titleScale = 1.404f,
+            actionsContent = {
+                IconButton(onClick = {
+                    if (selectedPodcast != null) {
+                        showPodcastHome()
+                    } else {
+                        searchOpen = !searchOpen
+                        if (!searchOpen) {
+                            searchText = ""
+                            error = null
+                        }
                     }
+                }) {
+                    Text(if (selectedPodcast != null) "←" else "⌕")
                 }
-            }) {
-                Text(if (selectedPodcast != null) "←" else "⌕")
             }
-        }
+        )
 
         if (selectedPodcast == null) {
             if (searchOpen) {
