@@ -55,7 +55,8 @@ private data class PodcastEpisode(
     val title: String,
     val description: String,
     val audioUrl: String,
-    val published: String
+    val published: String,
+    val artwork: String
 )
 
 @Composable
@@ -191,7 +192,7 @@ fun PodcastScreen() {
                 items(episodes) { episode ->
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            AsyncImage(model = selectedPodcast?.artwork, contentDescription = episode.title, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp))
+                            AsyncImage(model = episode.artwork.ifBlank { selectedPodcast?.artwork.orEmpty() }, contentDescription = episode.title, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp))
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 Text(episode.title)
                                 if (episode.published.isNotBlank()) Text(episode.published)
@@ -227,7 +228,7 @@ private fun httpGet(url: String): String {
 }
 
 private fun fetchTopPodcasts(): List<PodcastSearchResult> {
-    val chart = JSONObject(httpGet("https://rss.applemarketingtools.com/api/v2/in/podcasts/top/25/podcasts.json"))
+    val chart = JSONObject(httpGet("https://rss.applemarketingtools.com/api/v2/in/podcasts/top/100/podcasts.json"))
     val items = chart.optJSONObject("feed")?.optJSONArray("results") ?: return emptyList()
     val ids = (0 until items.length()).mapNotNull { items.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank) }
     if (ids.isEmpty()) return emptyList()
@@ -247,7 +248,7 @@ private fun fetchTopPodcasts(): List<PodcastSearchResult> {
 }
 
 private fun searchPodcasts(term: String): List<PodcastSearchResult> {
-    val url = "https://itunes.apple.com/search?media=podcast&entity=podcast&limit=30&term=${Uri.encode(term)}"
+    val url = "https://itunes.apple.com/search?media=podcast&entity=podcast&limit=100&term=${Uri.encode(term)}"
     val json = JSONObject(httpGet(url))
     val array = json.optJSONArray("results") ?: return emptyList()
     val words = term.lowercase().split(Regex("\\s+")).filter(String::isNotBlank)
@@ -288,6 +289,7 @@ private fun fetchPodcastEpisodes(feedUrl: String, expectedTitle: String): List<P
     var description = ""
     var audio = ""
     var published = ""
+    var artwork = ""
     var event = parser.eventType
     while (event != XmlPullParser.END_DOCUMENT) {
         when (event) {
@@ -303,14 +305,17 @@ private fun fetchPodcastEpisodes(feedUrl: String, expectedTitle: String): List<P
                     description = ""
                     audio = ""
                     published = ""
+                    artwork = ""
                 }
                 "description", "summary" -> if (insideItem && description.isBlank()) description = parser.nextText().trim()
                 "pubdate", "published" -> if (insideItem && published.isBlank()) published = parser.nextText().trim()
                 "enclosure" -> if (insideItem && audio.isBlank()) audio = parser.getAttributeValue(null, "url") ?: ""
                 "content" -> if (insideItem && audio.isBlank()) audio = parser.getAttributeValue("http://search.yahoo.com/mrss/", "url") ?: ""
+                "image" -> if (insideItem && artwork.isBlank()) artwork = parser.getAttributeValue(null, "href") ?: ""
+                "thumbnail" -> if (insideItem && artwork.isBlank()) artwork = parser.getAttributeValue(null, "url") ?: ""
             }
             XmlPullParser.END_TAG -> if (parser.name.equals("item", true) && insideItem) {
-                if (title.isNotBlank()) found.add(PodcastEpisode(title, cleanPodcastHtml(description), audio, published))
+                if (title.isNotBlank()) found.add(PodcastEpisode(title, cleanPodcastHtml(description), audio, published, artwork))
                 insideItem = false
             }
         }
