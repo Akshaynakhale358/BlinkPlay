@@ -19,7 +19,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -30,9 +29,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.compose.ui.platform.LocalContext
+import androidx.media3.common.MediaMetadata
+import it.vfsfitvnm.vimusic.LocalPlayerServiceBinder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,31 +55,15 @@ private data class PodcastEpisode(
 
 @Composable
 fun PodcastScreen() {
-    val context = LocalContext.current
-    val player = remember(context) { ExoPlayer.Builder(context).build() }
+    val binder = LocalPlayerServiceBinder.current
     var searchText by remember { mutableStateOf("") }
     var searchOpen by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedPodcast by remember { mutableStateOf<PodcastSearchResult?>(null) }
-    var playingUrl by remember { mutableStateOf<String?>(null) }
-    var isPlaying by remember { mutableStateOf(false) }
     val results = remember { mutableStateListOf<PodcastSearchResult>() }
     val episodes = remember { mutableStateListOf<PodcastEpisode>() }
     val scope = rememberCoroutineScope()
-
-    DisposableEffect(player) {
-        val listener = object : Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) {
-                isPlaying = playing
-            }
-        }
-        player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-            player.release()
-        }
-    }
 
     fun loadEpisodes(podcast: PodcastSearchResult) {
         selectedPodcast = podcast
@@ -201,18 +183,22 @@ fun PodcastScreen() {
                             if (episode.description.isNotBlank()) Text(episode.description)
                             if (episode.audioUrl.isNotBlank()) {
                                 Button(onClick = {
-                                    if (playingUrl == episode.audioUrl && isPlaying) {
-                                        player.pause()
-                                    } else {
-                                        if (playingUrl != episode.audioUrl) {
-                                            playingUrl = episode.audioUrl
-                                            player.setMediaItem(MediaItem.fromUri(episode.audioUrl))
-                                            player.prepare()
-                                        }
-                                        player.play()
-                                    }
+                                    val mediaItem = MediaItem.Builder()
+                                        .setMediaId(episode.audioUrl)
+                                        .setUri(episode.audioUrl)
+                                        .setMediaMetadata(
+                                            MediaMetadata.Builder()
+                                                .setTitle(episode.title)
+                                                .setArtist(selectedPodcast?.title ?: "Podcast")
+                                                .setArtworkUri(selectedPodcast?.artwork?.takeIf { it.isNotBlank() }?.let(Uri::parse))
+                                                .build()
+                                        )
+                                        .build()
+                                    binder?.player?.setMediaItem(mediaItem)
+                                    binder?.player?.prepare()
+                                    binder?.player?.play()
                                 }) {
-                                    Text(if (playingUrl == episode.audioUrl && isPlaying) "Pause" else if (playingUrl == episode.audioUrl) "Resume" else "▶ Play")
+                                    Text("▶ Play in Mini Player")
                                 }
                             } else {
                                 Text("या Episode साठी Audio उपलब्ध नाही.")
