@@ -18,33 +18,8 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
     runCatchingNonCancellable {
         val response = client.post(browse) {
             setBody(body)
-            // Request only the artist shelves and header fields used by the parser.
-            // Avoid downloading unrelated browse data from the full YouTube response.
-            mask(
-                "contents(" +
-                    "twoColumnBrowseResultsRenderer(" +
-                        "secondaryContents.sectionListRenderer.contents(" +
-                            "musicResponsiveHeaderRenderer(title)," +
-                            "musicDescriptionShelfRenderer(description)," +
-                            "musicShelfRenderer(title,bottomEndpoint,continuations,contents.$musicResponsiveListItemRendererMask)," +
-                            "musicPlaylistShelfRenderer(title,bottomEndpoint,continuations,contents.$musicResponsiveListItemRendererMask)," +
-                            "musicCarouselShelfRenderer(header.musicCarouselShelfBasicHeaderRenderer(title,moreContentButton),contents.$musicResponsiveListItemRendererMask,contents.$musicTwoRowItemRendererMask))," +
-                        "tabs.tabRenderer.content.sectionListRenderer.contents(" +
-                            "musicResponsiveHeaderRenderer(title)," +
-                            "musicDescriptionShelfRenderer(description)," +
-                            "musicShelfRenderer(title,bottomEndpoint,continuations,contents.$musicResponsiveListItemRendererMask)," +
-                            "musicPlaylistShelfRenderer(title,bottomEndpoint,continuations,contents.$musicResponsiveListItemRendererMask)," +
-                            "musicCarouselShelfRenderer(header.musicCarouselShelfBasicHeaderRenderer(title,moreContentButton),contents.$musicResponsiveListItemRendererMask,contents.$musicTwoRowItemRendererMask)))," +
-                    "singleColumnBrowseResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents(" +
-                        "musicResponsiveHeaderRenderer(title)," +
-                        "musicDescriptionShelfRenderer(description)," +
-                        "musicShelfRenderer(title,bottomEndpoint,continuations,contents.$musicResponsiveListItemRendererMask)," +
-                        "musicPlaylistShelfRenderer(title,bottomEndpoint,continuations,contents.$musicResponsiveListItemRendererMask)," +
-                        "musicCarouselShelfRenderer(header.musicCarouselShelfBasicHeaderRenderer(title,moreContentButton),contents.$musicResponsiveListItemRendererMask,contents.$musicTwoRowItemRendererMask)))," +
-                "header(" +
-                    "musicImmersiveHeaderRenderer(title,description,foregroundThumbnail,thumbnail,playButton.buttonRenderer(navigationEndpoint),startRadioButton.buttonRenderer(navigationEndpoint),subscriptionButton.subscribeButtonRenderer(subscriberCountText,longSubscriberCountText,subscribed),monthlyListenerCount)," +
-                    "musicDetailHeaderRenderer(title,subtitle,thumbnail))"
-            )
+            // Keep the complete artist contents and header so all required shelves and continuation data are returned.
+            mask("contents,header")
         }.body<BrowseResponse>()
 
         val sectionList = response.contents
