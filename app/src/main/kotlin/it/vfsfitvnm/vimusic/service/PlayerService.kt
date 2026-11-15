@@ -579,7 +579,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             volumeNormalizationJob = coroutineScope.launch(Dispatchers.Main) {
                 Database.loudnessDb(songId).cancellable().collectLatest { loudnessDb ->
                     try {
-                        loudnessEnhancer?.setTargetGain((-((loudnessDb ?: 0f) * 100).toInt() + 500).coerceIn(0, 6000))
+                        loudnessEnhancer?.setTargetGain(-((loudnessDb ?: 0f) * 100).toInt() + 500)
                         loudnessEnhancer?.enabled = true
                     } catch (_: Exception) { }
                 }
