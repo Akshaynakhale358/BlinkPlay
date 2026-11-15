@@ -49,7 +49,8 @@ fun AlbumItem(
     thumbnailSizePx: Int,
     thumbnailSizeDp: Dp,
     modifier: Modifier = Modifier,
-    alternative: Boolean = false
+    alternative: Boolean = false,
+    titleColor: Color = Color.Unspecified
 ) {
     AlbumItem(
         thumbnailUrl = album.thumbnail?.url,
@@ -59,7 +60,8 @@ fun AlbumItem(
         thumbnailSizePx = thumbnailSizePx,
         thumbnailSizeDp = thumbnailSizeDp,
         alternative = alternative,
-        modifier = modifier
+        modifier = modifier,
+        titleColor = titleColor
     )
 }
 
