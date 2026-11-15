@@ -100,9 +100,15 @@ fun HomeArtistList(
         // Observe both scroll position and list size: appending a page must
         // re-check the near-end condition even when the user has not scrolled.
         snapshotFlow {
-            (gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) to artists.size
-        }.collect { (lastVisible, artistCount) ->
-                if (loading || finished || lastVisible < artistCount - 4) return@collect
+            Triple(
+                gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0,
+                artists.size,
+                loading
+            )
+        }.collect { (lastVisible, artistCount, isLoading) ->
+                // Include loading in the observed state. When a request completes,
+                // re-evaluate the near-end condition even if the user did not scroll.
+                if (isLoading || finished || lastVisible < artistCount - 4) return@collect
                 loading = true
                 withContext(Dispatchers.IO) {
                     var attempts = 0
@@ -122,7 +128,8 @@ fun HomeArtistList(
                         } else {
                             Innertube.searchPage(
                                 body = ContinuationBody(context = indiaContext, continuation = token),
-                                fromMusicShelfRendererContent = Innertube.ArtistItem::from
+                                fromMusicShelfRendererContent = Innertube.ArtistItem::from,
+                                fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
                             )
                         }
                         val page = result?.getOrNull()
