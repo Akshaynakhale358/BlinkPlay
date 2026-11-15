@@ -147,6 +147,7 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                             4 -> podcastHomeResetKey.value += 1
                         }
                     } else {
+                        if (newIndex == 4) podcastHomeResetKey.value += 1
                         saveTabChanged(newIndex)
                     }
                 },
@@ -205,7 +206,7 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                             onSearchClick = { searchRoute("") }
                         )
 
-                        4 -> PodcastScreen()
+                        4 -> PodcastScreen(homeResetKey = podcastHomeResetKey.value)
                     }
                 }
             }
