@@ -389,7 +389,7 @@ private fun ArtistShelfPage(
     // Every artist shelf keeps its first batch and appends subsequent batches as the user scrolls.
     LaunchedEffect(section, retryKey) {
         snapshotFlow {
-            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 to shelfItems.size
+            (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) to shelfItems.size
         }.distinctUntilChanged().collect { (lastVisibleIndex, loadedCount) ->
             val loadThreshold = (loadedCount - 4).coerceAtLeast(0) + 2
             val token = continuation
@@ -397,9 +397,9 @@ private fun ArtistShelfPage(
                 isLoading = true
                 loadFailed = false
                 val result = withContext(Dispatchers.IO) {
-                    Innertube.itemsPage(
+                    Innertube.itemsPage<Innertube.Item>(
                         body = ContinuationBody(continuation = token),
-                        fromMusicResponsiveListItemRenderer = Innertube.SongItem::from,
+                        fromMusicResponsiveListItemRenderer = { renderer -> Innertube.SongItem.from(renderer) },
                         fromMusicTwoRowItemRenderer = { renderer ->
                             Innertube.AlbumItem.from(renderer)
                                 ?: Innertube.ArtistItem.from(renderer)
