@@ -122,7 +122,11 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
         ?: grid?.continuations?.firstOrNull()?.nextContinuationData?.continuation
         ?: grid?.items?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
         ?: carousel?.continuations?.firstOrNull()?.nextContinuationData?.continuation
-        ?: actionContinuationItems.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
+        // Metrolist-style continuation handling: YouTube can return the next token
+        // as an appended continuation item instead of shelf.continuations.
+        ?: actionContinuationItems.asReversed().firstNotNullOfOrNull { item ->
+            item.continuationItemRenderer?.continuationEndpoint?.token()
+        }
 
     Innertube.ItemsPage(
         items = (shelfItems(playlistShelf) + shelfItems(shelf) + gridItems + carouselItems + actionItems)
