@@ -35,12 +35,12 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
         fun section(vararg titles: String): SectionListRenderer.Content? =
             sectionList?.findSectionByTitleAny(*titles)
 
-        val songsSection = section("Songs", "Top songs", "Tracks")?.musicShelfRenderer
-        val albumsSection = section("Albums", "Releases")?.musicCarouselShelfRenderer
-        val singlesSection = section("Singles & EPs", "Singles", "EPs")?.musicCarouselShelfRenderer
-        val similarArtistsSection = section("Fans might also like", "Similar artists", "Related artists")?.musicCarouselShelfRenderer
+        val songsSection = section("Songs", "Top songs", "Top tracks", "Popular songs", "Tracks")?.musicShelfRenderer
+        val albumsSection = section("Albums", "Releases", "Full albums")?.musicCarouselShelfRenderer
+        val singlesSection = section("Singles & EPs", "Singles and EPs", "Singles", "EPs")?.musicCarouselShelfRenderer
+        val similarArtistsSection = section("Fans might also like", "Similar artists", "Related artists", "You might also like")?.musicCarouselShelfRenderer
         val playlistsSection = section("Playlists")?.musicCarouselShelfRenderer
-        val featuredOnSection = section("Featured on")?.musicCarouselShelfRenderer
+        val featuredOnSection = section("Featured on", "Appears on", "Appears on / Featured on")?.musicCarouselShelfRenderer
 
         fun audioSong(renderer: MusicResponsiveListItemRenderer): Innertube.SongItem? {
             val song = Innertube.SongItem.from(renderer) ?: return null
