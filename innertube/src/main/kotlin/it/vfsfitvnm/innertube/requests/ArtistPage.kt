@@ -9,7 +9,7 @@ import it.vfsfitvnm.innertube.models.MusicCarouselShelfRenderer
 import it.vfsfitvnm.innertube.models.MusicShelfRenderer
 import it.vfsfitvnm.innertube.models.SectionListRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
-import it.vfsfitvnm.innertube.utils.findSectionByTitleContaining
+import it.vfsfitvnm.innertube.utils.findSectionByTitleAny
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
 
@@ -20,10 +20,9 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
             mask("contents,header")
         }.body<BrowseResponse>()
 
-        // Matched on a substring, not equality: YouTube titles these "Top songs" and
-        // "Singles & EPs", so the old exact lookups for "Songs" and "Singles" quietly found
-        // nothing and left the page showing albums alone.
-        fun section(text: String): SectionListRenderer.Content? {
+        // Adapted from haturatu/ViMusic (GPL-3.0): tolerate YouTube's changing
+        // artist shelf names while keeping the page audio-only.
+        fun section(vararg titles: String): SectionListRenderer.Content? {
             return response
                 .contents
                 ?.singleColumnBrowseResultsRenderer
@@ -32,15 +31,15 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                 ?.tabRenderer
                 ?.content
                 ?.sectionListRenderer
-                ?.findSectionByTitleContaining(text)
+                ?.findSectionByTitleAny(*titles)
         }
 
-        val songsSection = section("songs")?.musicShelfRenderer
-        val albumsSection = section("albums")?.musicCarouselShelfRenderer
-        val singlesSection = section("singles")?.musicCarouselShelfRenderer
-        val similarArtistsSection = section("might also like")?.musicCarouselShelfRenderer
-        val playlistsSection = section("playlists")?.musicCarouselShelfRenderer
-        val featuredOnSection = section("featured on")?.musicCarouselShelfRenderer
+        val songsSection = section("Songs", "Top songs", "Tracks")?.musicShelfRenderer
+        val albumsSection = section("Albums", "Releases")?.musicCarouselShelfRenderer
+        val singlesSection = section("Singles & EPs", "Singles", "EPs")?.musicCarouselShelfRenderer
+        val similarArtistsSection = section("Fans might also like", "Similar artists", "Related artists")?.musicCarouselShelfRenderer
+        val playlistsSection = section("Playlists")?.musicCarouselShelfRenderer
+        val featuredOnSection = section("Featured on")?.musicCarouselShelfRenderer
 
         Innertube.ArtistPage(
             name = response
