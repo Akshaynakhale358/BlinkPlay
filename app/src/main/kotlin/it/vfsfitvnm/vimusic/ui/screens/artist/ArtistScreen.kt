@@ -6,6 +6,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -17,6 +20,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.BasicText
 import com.valentinilk.shimmer.shimmer
 import it.vfsfitvnm.compose.persist.PersistMapCleanup
 import it.vfsfitvnm.compose.persist.persist
@@ -41,6 +45,8 @@ import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.components.themed.Scaffold
 import it.vfsfitvnm.vimusic.ui.components.themed.adaptiveThumbnailContent
 import it.vfsfitvnm.vimusic.ui.items.AlbumItem
+import it.vfsfitvnm.vimusic.ui.items.ArtistItem
+import it.vfsfitvnm.vimusic.ui.items.PlaylistItem
 import it.vfsfitvnm.vimusic.ui.items.AlbumItemPlaceholder
 import it.vfsfitvnm.vimusic.ui.items.SongItem
 import it.vfsfitvnm.vimusic.ui.items.SongItemPlaceholder
@@ -51,9 +57,11 @@ import it.vfsfitvnm.vimusic.ui.screens.globalRoutes
 import it.vfsfitvnm.vimusic.ui.screens.searchresult.ItemsPage
 import it.vfsfitvnm.vimusic.ui.styling.Dimensions
 import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
+import it.vfsfitvnm.vimusic.ui.styling.LocalAppearance
 import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.artistScreenTabIndexKey
 import it.vfsfitvnm.vimusic.utils.asMediaItem
+import it.vfsfitvnm.vimusic.utils.semiBold
 import it.vfsfitvnm.vimusic.utils.forcePlay
 import it.vfsfitvnm.vimusic.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -79,7 +87,7 @@ fun ArtistScreen(browseId: String) {
     LaunchedEffect(browseId) {
         Database
             .artist(browseId)
-            .combine(snapshotFlow { tabIndex }.map { it != 4 }) { artist, mustFetch -> artist to mustFetch }
+            .combine(snapshotFlow { tabIndex }.map { it != 8 }) { artist, mustFetch -> artist to mustFetch }
             .distinctUntilChanged()
             .collect { (currentArtist, mustFetch) ->
                 artist = currentArtist
@@ -164,10 +172,14 @@ fun ArtistScreen(browseId: String) {
                 onTabChanged = { tabIndex = it },
                 tabColumnContent = { Item ->
                     Item(0, "Overview", R.drawable.sparkles)
-                    Item(1, "Songs", R.drawable.musical_notes)
-                    Item(2, "Albums", R.drawable.disc)
-                    Item(3, "Singles", R.drawable.disc)
-                    Item(4, "Library", R.drawable.library)
+                    Item(1, "Latest release", R.drawable.disc)
+                    Item(2, "Top tracks", R.drawable.musical_notes)
+                    Item(3, "Songs", R.drawable.musical_notes)
+                    Item(4, "Albums", R.drawable.disc)
+                    Item(5, "Singles & EPs", R.drawable.disc)
+                    Item(6, "Appears on / Featured on", R.drawable.disc)
+                    Item(7, "Fans might also like", R.drawable.person)
+                    Item(8, "Library", R.drawable.library)
                 },
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
@@ -370,12 +382,93 @@ fun ArtistScreen(browseId: String) {
                             )
                         }
 
-                        4 -> ArtistLocalSongs(
+                        1 -> ArtistShelfPage("Latest release", artistPage?.findArtistSection("latest release", "latest releases"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        2 -> ArtistShelfPage("Top tracks", artistPage?.findArtistSection("top tracks", "top songs", "tracks"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        5 -> ArtistShelfPage("Singles & EPs", artistPage?.findArtistSection("singles & eps", "singles", "eps"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        6 -> ArtistShelfPage("Appears on / Featured on", artistPage?.findArtistSection("appears on", "featured on"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        7 -> ArtistShelfPage("Fans might also like", artistPage?.findArtistSection("fans might also like", "similar artists", "related artists"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        8 -> ArtistLocalSongs(
                             browseId = browseId,
                             headerContent = headerContent,
                             thumbnailContent = thumbnailContent,
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+
+private fun Innertube.ArtistPage.findArtistSection(vararg aliases: String): Innertube.ArtistSection? =
+    sections.firstOrNull { section ->
+        aliases.any { alias -> section.title.contains(alias, ignoreCase = true) }
+    }
+
+@Composable
+private fun ArtistShelfPage(
+    title: String,
+    section: Innertube.ArtistSection?,
+    headerContent: @Composable (textButton: (@Composable () -> Unit)?) -> Unit,
+    onAlbumClick: (String) -> Unit,
+    onArtistClick: (String) -> Unit,
+    onPlaylistClick: (String) -> Unit,
+) {
+    val (_, typography) = LocalAppearance.current
+    val songSize = Dimensions.thumbnails.song
+    val songSizePx = songSize.px
+    val entitySize = 108.dp
+    val entitySizePx = entitySize.px
+    val binder = LocalPlayerServiceBinder.current
+    Column(modifier = Modifier.fillMaxSize()) {
+        headerContent(null)
+        BasicText(
+            text = title,
+            style = typography.m.semiBold,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+        )
+        val shelfItems = section?.items.orEmpty()
+        if (shelfItems.isEmpty()) {
+            BasicText(
+                text = "No $title available for this artist.",
+                style = typography.s,
+                modifier = Modifier.padding(16.dp)
+            )
+        } else {
+            shelfItems.forEach { item ->
+                when (item) {
+                    is Innertube.SongItem -> SongItem(
+                        song = item,
+                        thumbnailSizeDp = songSize,
+                        thumbnailSizePx = songSizePx,
+                        modifier = Modifier.clickable {
+                            binder?.stopRadio()
+                            binder?.player?.forcePlay(item.asMediaItem)
+                            binder?.setupRadio(item.info?.endpoint)
+                        }
+                    )
+                    is Innertube.AlbumItem -> AlbumItem(
+                        album = item,
+                        thumbnailSizePx = entitySizePx,
+                        thumbnailSizeDp = entitySize,
+                        alternative = true,
+                        modifier = Modifier.clickable { onAlbumClick(item.key) }
+                    )
+                    is Innertube.ArtistItem -> ArtistItem(
+                        artist = item,
+                        thumbnailSizePx = entitySizePx,
+                        thumbnailSizeDp = entitySize,
+                        alternative = true,
+                        modifier = Modifier.clickable { onArtistClick(item.key) }
+                    )
+                    is Innertube.PlaylistItem -> PlaylistItem(
+                        playlist = item,
+                        thumbnailSizePx = entitySizePx,
+                        thumbnailSizeDp = entitySize,
+                        alternative = true,
+                        modifier = Modifier.clickable { onPlaylistClick(item.key) }
+                    )
+                    else -> Unit
                 }
             }
         }
