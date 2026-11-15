@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 data class MusicCarouselShelfRenderer(
     val header: Header? = null,
     val contents: List<Content>? = null,
+    val continuations: List<Continuation>? = null,
 ) {
     @Serializable
     data class Content(
