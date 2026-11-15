@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -68,7 +70,12 @@ fun PodcastScreen() {
     var selectedPodcast by remember { mutableStateOf<PodcastSearchResult?>(null) }
     val results = remember { mutableStateListOf<PodcastSearchResult>() }
     val episodes = remember { mutableStateListOf<PodcastEpisode>() }
+    val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val storefronts = remember { listOf("in", "us", "gb", "ca", "au", "sg", "nz", "ie", "za", "de", "fr", "jp", "br", "mx") }
+    var nextStorefrontIndex by remember { mutableStateOf(1) }
+    var isLoadingMore by remember { mutableStateOf(false) }
+    val loadedPodcastKeys = remember { mutableStateListOf<String>() }
 
     fun loadEpisodes(podcast: PodcastSearchResult) {
         selectedPodcast = podcast
@@ -95,14 +102,44 @@ fun PodcastScreen() {
         isLoading = true
         error = null
         try {
-            val popular = withContext(Dispatchers.IO) { fetchTopPodcasts() }
+            val popular = withContext(Dispatchers.IO) { fetchTopPodcasts("in") }
             results.clear()
-            results.addAll(popular)
+            loadedPodcastKeys.clear()
+            popular.forEach { podcast ->
+                val key = podcast.feedUrl.ifBlank { podcast.title }
+                if (loadedPodcastKeys.add(key)) results.add(podcast)
+            }
+            nextStorefrontIndex = 1
             if (popular.isEmpty()) error = "आत्ता Podcasts मिळाले नाहीत. Search icon वापरून शोधा."
         } catch (e: Exception) {
             error = "Popular Podcasts load झाले नाहीत. Search icon वापरून शोधा."
         } finally {
             isLoading = false
+        }
+    }
+
+    LaunchedEffect(selectedPodcast, searchOpen, results.size) {
+        if (selectedPodcast != null || searchOpen) return@LaunchedEffect
+        snapshotFlow {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisible >= (results.size - 6).coerceAtLeast(0)
+        }.collect { nearEnd ->
+            if (nearEnd && !isLoading && !isLoadingMore && nextStorefrontIndex < storefronts.size) {
+                isLoadingMore = true
+                try {
+                    val country = storefronts[nextStorefrontIndex]
+                    val more = withContext(Dispatchers.IO) { fetchTopPodcasts(country) }
+                    more.forEach { podcast ->
+                        val key = podcast.feedUrl.ifBlank { podcast.title }
+                        if (loadedPodcastKeys.add(key)) results.add(podcast)
+                    }
+                    nextStorefrontIndex++
+                } catch (_: Exception) {
+                    // A later scroll can retry if a storefront is temporarily unavailable.
+                } finally {
+                    isLoadingMore = false
+                }
+            }
         }
     }
 
@@ -163,7 +200,7 @@ fun PodcastScreen() {
 
             if (isLoading) CircularProgressIndicator()
             error?.let { Text(it) }
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(results) { podcast ->
                     Card(modifier = Modifier.fillMaxWidth().clickable { loadEpisodes(podcast) }) {
                         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -226,10 +263,12 @@ private fun httpGet(url: String): String {
     }
 }
 
-private fun fetchTopPodcasts(): List<PodcastSearchResult> {
-    val chart = JSONObject(httpGet("https://rss.applemarketingtools.com/api/v2/in/podcasts/top/100/podcasts.json"))
-    val items = chart.optJSONObject("feed")?.optJSONArray("results") ?: return emptyList()
-    val ids = (0 until items.length()).mapNotNull { items.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank) }
+private fun fetchTopPodcasts(country: String): List<PodcastSearchResult> {
+    val chart = JSONObject(httpGet("https://itunes.apple.com/$country/rss/toppodcasts/limit=200/json"))
+    val items = chart.optJSONObject("feed")?.optJSONArray("entry") ?: return emptyList()
+    val ids = (0 until items.length()).mapNotNull { index ->
+        items.optJSONObject(index)?.optJSONObject("id")?.optString("im:id")?.takeIf(String::isNotBlank)
+    }
     if (ids.isEmpty()) return emptyList()
     val lookup = JSONObject(httpGet("https://itunes.apple.com/lookup?id=${ids.joinToString(",")}&entity=podcast"))
     val array = lookup.optJSONArray("results") ?: return emptyList()
