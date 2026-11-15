@@ -241,7 +241,7 @@ fun HomeArtistList(
                 repeat(6) { ArtistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true) }
             }
         } else if (displayedArtists.isEmpty() && !(artistSearchActive && artistSearchText.isNotBlank()) && !finished) {
-            ShimmerHost(modifier = Modifier.fillMaxSize()) {
+            ShimmerHost(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 repeat(9) {
                     ArtistItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp, alternative = true)
                 }
