@@ -74,7 +74,6 @@ fun HomeArtistList(
     var artistSearchResults by remember { mutableStateOf<List<Innertube.ArtistItem>>(emptyList()) }
     var artistSearchLoading by remember { mutableStateOf(false) }
     var refreshToken by remember { mutableStateOf(0) }
-    val queries = categories.first { it.first == selectedCategory }.second
     val gridState = rememberLazyGridState()
     LaunchedEffect(homeResetKey) {
         if (homeResetKey > 0) {
