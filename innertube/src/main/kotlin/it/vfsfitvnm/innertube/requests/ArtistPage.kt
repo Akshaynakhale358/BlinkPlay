@@ -42,8 +42,8 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                     ?: content.musicResponsiveHeaderRenderer?.title?.text
                     ?: content.hashCode().toString()
             }
-        // YouTube changes shelf names and header renderer variants. Keep the lookup tolerant,
-        // following the artist parser strategy used by Metrolist, while retaining BlinkPlay models.
+        // YouTube changes shelf names and header renderer variants. Keep the lookup tolerant
+        // while retaining BlinkPlay's existing InnerTube models.
         fun section(vararg titles: String): SectionListRenderer.Content? =
             sectionContents.firstOrNull { content ->
                 val title = content.musicCarouselShelfRenderer
@@ -63,16 +63,8 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
         val playlistsSection = section("Playlists")?.musicCarouselShelfRenderer
         val featuredOnSection = section("Featured on", "Appears on", "Appears on / Featured on")?.musicCarouselShelfRenderer
 
-        fun audioSong(renderer: MusicResponsiveListItemRenderer): Innertube.SongItem? {
-            val song = Innertube.SongItem.from(renderer) ?: return null
-            val videoType = song.info
-                ?.endpoint
-                ?.watchEndpointMusicSupportedConfigs
-                ?.watchEndpointMusicConfig
-                ?.musicVideoType
-            // Apply the same video/podcast distinction as Metrolist ArtistSongs.
-            return song.takeIf { isMetrolistArtistAudioType(videoType) }
-        }
+        fun audioSong(renderer: MusicResponsiveListItemRenderer): Innertube.SongItem? =
+            Innertube.SongItem.from(renderer)
 
         fun shelfTitle(content: SectionListRenderer.Content): String? =
             content.musicCarouselShelfRenderer

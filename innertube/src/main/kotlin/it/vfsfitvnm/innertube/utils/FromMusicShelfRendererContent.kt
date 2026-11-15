@@ -88,8 +88,27 @@ fun Innertube.AlbumItem.Companion.from(content: MusicShelfRenderer.Content): Inn
     ).takeIf { it.info?.endpoint?.browseId != null }
 }
 
-fun Innertube.ArtistItem.Companion.from(content: MusicShelfRenderer.Content): Innertube.ArtistItem? =
-    content.musicResponsiveListItemRenderer?.let(Innertube.ArtistItem::from)
+fun Innertube.ArtistItem.Companion.from(content: MusicShelfRenderer.Content): Innertube.ArtistItem? {
+    val (mainRuns, otherRuns) = content.runs
+
+    return Innertube.ArtistItem(
+        info = Innertube.Info(
+            name = mainRuns
+                .firstOrNull()
+                ?.text,
+            endpoint = content
+                .musicResponsiveListItemRenderer
+                ?.navigationEndpoint
+                ?.browseEndpoint
+        ),
+        subscribersCountText = otherRuns
+            .lastOrNull()
+            ?.last()
+            ?.text,
+        thumbnail = content
+            .thumbnail
+    ).takeIf { it.info?.endpoint?.browseId != null }
+}
 
 fun Innertube.PlaylistItem.Companion.from(content: MusicShelfRenderer.Content): Innertube.PlaylistItem? {
     val (mainRuns, otherRuns) = content.runs
