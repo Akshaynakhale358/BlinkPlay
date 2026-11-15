@@ -127,6 +127,7 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
             val songsHomeResetKey = remember { mutableStateOf(0) }
             val albumsHomeResetKey = remember { mutableStateOf(0) }
             val artistsHomeResetKey = remember { mutableStateOf(0) }
+            val podcastHomeResetKey = remember { mutableStateOf(0) }
             val (tabIndex, saveTabChanged) = rememberPreference(
                 homeScreenTabIndexKey,
                 defaultValue = 0
@@ -143,6 +144,7 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                             1 -> songsHomeResetKey.value += 1
                             2 -> albumsHomeResetKey.value += 1
                             3 -> artistsHomeResetKey.value += 1
+                            4 -> podcastHomeResetKey.value += 1
                         }
                     } else {
                         saveTabChanged(newIndex)
@@ -153,6 +155,7 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                     Item(1, "Songs", R.drawable.musical_notes)
                     Item(2, "Albums", R.drawable.disc)
                     Item(3, "Artists", R.drawable.person)
+                    Item(4, "Podcast", R.drawable.disc)
                 },
                 bottomContent = {
                     Spacer(modifier = Modifier.height(12.dp))
@@ -201,6 +204,8 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                             onArtistClick = { artistRoute(it) },
                             onSearchClick = { searchRoute("") }
                         )
+
+                        4 -> PodcastScreen()
                     }
                 }
             }
