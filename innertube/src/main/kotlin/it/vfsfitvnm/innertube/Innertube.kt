@@ -227,6 +227,7 @@ object Innertube {
         val title: String,
         val items: List<Item>,
         val browseEndpoint: NavigationEndpoint.Endpoint.Browse? = null,
+        val continuation: String? = null,
     )
 
     data class ArtistPage(
