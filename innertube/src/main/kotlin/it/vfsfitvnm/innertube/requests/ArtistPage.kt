@@ -38,6 +38,7 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
         val songsSection = section("songs")?.musicShelfRenderer
         val albumsSection = section("albums")?.musicCarouselShelfRenderer
         val singlesSection = section("singles")?.musicCarouselShelfRenderer
+        val videosSection = section("videos")?.musicCarouselShelfRenderer
         val similarArtistsSection = section("might also like")?.musicCarouselShelfRenderer
         val playlistsSection = section("playlists")?.musicCarouselShelfRenderer
         val featuredOnSection = section("featured on")?.musicCarouselShelfRenderer
@@ -128,5 +129,16 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                 ?.contents
                 ?.mapNotNull(MusicCarouselShelfRenderer.Content::musicTwoRowItemRenderer)
                 ?.mapNotNull(Innertube.PlaylistItem::from),
+            videos = videosSection
+                ?.contents
+                ?.mapNotNull(MusicCarouselShelfRenderer.Content::musicTwoRowItemRenderer)
+                ?.mapNotNull(Innertube.VideoItem::from),
+            videosEndpoint = videosSection
+                ?.header
+                ?.musicCarouselShelfBasicHeaderRenderer
+                ?.moreContentButton
+                ?.buttonRenderer
+                ?.navigationEndpoint
+                ?.browseEndpoint,
         )
     }
