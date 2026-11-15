@@ -253,7 +253,9 @@ fun ArtistScreen(browseId: String) {
                                         ?: Result.success(
                                             Innertube.ItemsPage(
                                                 items = artistPage?.songs,
-                                                continuation = null
+                                                continuation = artistPage?.findArtistSection(
+                                                    "songs", "top songs", "top tracks", "popular songs", "tracks"
+                                                )?.continuation
                                             )
                                         )
                                     })
@@ -318,7 +320,9 @@ fun ArtistScreen(browseId: String) {
                                         ?: Result.success(
                                             Innertube.ItemsPage(
                                                 items = artistPage?.albums,
-                                                continuation = null
+                                                continuation = artistPage?.findArtistSection(
+                                                    "albums", "releases", "full albums"
+                                                )?.continuation
                                             )
                                         )
                                     })
