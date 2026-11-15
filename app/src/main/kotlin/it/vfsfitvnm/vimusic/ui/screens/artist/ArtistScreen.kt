@@ -331,56 +331,6 @@ fun ArtistScreen(browseId: String) {
                             )
                         }
 
-                        5 -> {
-                            val thumbnailSizeDp = 108.dp
-                            val thumbnailSizePx = thumbnailSizeDp.px
-
-                            ItemsPage(
-                                tag = "artist/$browseId/singles",
-                                headerContent = headerContent,
-                                emptyItemsText = "This artist didn't release any single",
-                                itemsPageProvider = artistPage?.let {
-                                    ({ continuation ->
-                                        continuation?.let {
-                                            Innertube.itemsPage(
-                                                body = ContinuationBody(continuation = continuation),
-                                                fromMusicTwoRowItemRenderer = Innertube.AlbumItem::from,
-                                            )
-                                        } ?: artistPage
-                                            ?.singlesEndpoint
-                                            ?.takeIf { it.browseId != null }
-                                            ?.let { endpoint ->
-                                                Innertube.itemsPage(
-                                                    body = BrowseBody(
-                                                        browseId = endpoint.browseId!!,
-                                                        params = endpoint.params,
-                                                    ),
-                                                    fromMusicTwoRowItemRenderer = Innertube.AlbumItem::from,
-                                                )
-                                            }
-                                        ?: Result.success(
-                                            Innertube.ItemsPage(
-                                                items = artistPage?.singles,
-                                                continuation = null
-                                            )
-                                        )
-                                    })
-                                },
-                                itemContent = { album ->
-                                    AlbumItem(
-                                        album = album,
-                                        thumbnailSizePx = thumbnailSizePx,
-                                        thumbnailSizeDp = thumbnailSizeDp,
-                                        modifier = Modifier
-                                            .clickable(onClick = { albumRoute(album.key) })
-                                    )
-                                },
-                                itemPlaceholderContent = {
-                                    AlbumItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
-                                }
-                            )
-                        }
-
                         1 -> ArtistShelfPage("Latest release", artistPage?.findArtistSection("latest release", "latest releases"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
                         2 -> ArtistShelfPage("Top tracks", artistPage?.findArtistSection("top tracks", "top songs", "tracks"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
                         5 -> ArtistShelfPage("Singles & EPs", artistPage?.findArtistSection("singles & eps", "singles", "eps"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
