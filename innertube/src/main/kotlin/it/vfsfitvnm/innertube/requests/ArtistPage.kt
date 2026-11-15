@@ -10,7 +10,6 @@ import it.vfsfitvnm.innertube.models.MusicResponsiveListItemRenderer
 import it.vfsfitvnm.innertube.models.MusicShelfRenderer
 import it.vfsfitvnm.innertube.models.SectionListRenderer
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
-import it.vfsfitvnm.innertube.utils.findSectionByTitleAny
 import it.vfsfitvnm.innertube.utils.from
 import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
 
@@ -56,11 +55,6 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                     ?: content.musicResponsiveHeaderRenderer?.title?.text
                 title?.let { value -> titles.any { value.contains(it, ignoreCase = true) } } == true
             }
-
-        // YouTube changes shelf names and header renderer variants. Keep the lookup tolerant,
-        // following the artist parser strategy used by Metrolist, while retaining BlinkPlay models.
-        fun section(vararg titles: String): SectionListRenderer.Content? =
-            sectionList?.findSectionByTitleAny(*titles)
 
         val songsSectionContent = section("Songs", "Top songs", "Top tracks", "Popular songs", "Tracks")
         val songsSection = songsSectionContent?.musicPlaylistShelfRenderer
@@ -151,8 +145,8 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
         val immersiveHeader = response.header?.musicImmersiveHeaderRenderer
         val detailHeader = response.header?.musicDetailHeaderRenderer
         val description = immersiveHeader?.description?.text
-            ?: sectionList?.contents
-                ?.firstNotNullOfOrNull { it.musicDescriptionShelfRenderer?.description?.text }
+            ?: sectionContents
+                .firstNotNullOfOrNull { it.musicDescriptionShelfRenderer?.description?.text }
 
         Innertube.ArtistPage(
             name = immersiveHeader?.title?.text ?: detailHeader?.title?.text,
