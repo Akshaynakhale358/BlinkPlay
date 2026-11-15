@@ -85,6 +85,7 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 
     val shelf = response.continuationContents?.musicShelfContinuation
     val grid = response.continuationContents?.gridContinuation
+    val carousel = response.continuationContents?.musicCarouselShelfContinuation
 
     val shelfItems = shelf?.contents.orEmpty().mapNotNull(fromMusicShelfRendererContent)
     val gridItems = grid?.items.orEmpty().mapNotNull { item ->
@@ -94,9 +95,20 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
             }
     }
 
-    val actionItems = response.onResponseReceivedActions.orEmpty()
+    val carouselItems = carousel?.contents.orEmpty().mapNotNull { item ->
+        item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)
+            ?: item.musicResponsiveListItemRenderer?.let {
+                fromMusicShelfRendererContent(MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it))
+            }
+    }
+
+    val responseActions = response.onResponseReceivedActions.orEmpty()
         .plus(response.onResponseReceivedEndpoints.orEmpty())
-        .flatMap { action -> action.appendContinuationItemsAction?.continuationItems.orEmpty() }
+    val actionItems = responseActions
+        .flatMap { action ->
+            (action.appendContinuationItemsAction ?: action.reloadContinuationItemsCommand)
+                ?.continuationItems.orEmpty()
+        }
         .mapNotNull { item ->
             item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)
                 ?: item.musicResponsiveListItemRenderer?.let {
@@ -104,18 +116,20 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
                 }
         }
 
+    val actionContinuationItems = responseActions.flatMap { action ->
+        (action.appendContinuationItemsAction ?: action.reloadContinuationItemsCommand)
+            ?.continuationItems.orEmpty()
+    }
     val continuation = shelf?.continuations?.firstOrNull()?.nextContinuationData?.continuation
         ?: grid?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        ?: carousel?.continuations?.firstOrNull()?.nextContinuationData?.continuation
         ?: sequenceOf(
             shelf?.contents.orEmpty().lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token(),
-            response.onResponseReceivedActions.orEmpty()
-                .plus(response.onResponseReceivedEndpoints.orEmpty())
-                .flatMap { it.appendContinuationItemsAction?.continuationItems.orEmpty() }
-                .lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
+            actionContinuationItems.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
         ).filterNotNull().firstOrNull()
 
     Innertube.ItemsPage(
-        items = (shelfItems + gridItems + actionItems).distinctBy(Innertube.Item::key),
+        items = (shelfItems + gridItems + carouselItems + actionItems).distinctBy(Innertube.Item::key),
         continuation = continuation
     )
 }
