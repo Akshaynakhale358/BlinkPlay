@@ -62,7 +62,7 @@ suspend fun Innertube.playlistPage(body: BrowseBody) = runCatchingNonCancellable
             ?.contents
 
     val musicShelfRenderer = sectionListRendererContents
-        ?.firstNotNullOfOrNull(SectionListRenderer.Content::musicShelfRenderer)
+        ?.firstNotNullOfOrNull { it.musicPlaylistShelfRenderer ?: it.musicShelfRenderer }
 
     val musicCarouselShelfRenderer = sectionListRendererContents
         ?.firstNotNullOfOrNull(SectionListRenderer.Content::musicCarouselShelfRenderer)
@@ -120,10 +120,23 @@ suspend fun Innertube.playlistPage(body: ContinuationBody) = runCatchingNonCance
         mask("continuationContents.musicPlaylistShelfContinuation(continuations,contents.$musicResponsiveListItemRendererMask)")
     }.body<ContinuationResponse>()
 
-    response
-        .continuationContents
-        ?.musicShelfContinuation
-        ?.toSongsPage()
+    val shelf = response.continuationContents
+        ?.musicPlaylistShelfContinuation
+        ?: response.continuationContents?.musicShelfContinuation
+
+    (shelf ?: response.onResponseReceivedActions
+        ?.plus(response.onResponseReceivedEndpoints.orEmpty())
+        ?.flatMap { action ->
+            (action.appendContinuationItemsAction ?: action.reloadContinuationItemsCommand)
+                ?.continuationItems.orEmpty()
+        }
+        ?.mapNotNull { it.musicResponsiveListItemRenderer }
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { renderers ->
+            MusicShelfRenderer(
+                contents = renderers.map { MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it) }
+            )
+        })?.toSongsPage()
 }
 
 private fun MusicShelfRenderer?.toSongsPage() =
