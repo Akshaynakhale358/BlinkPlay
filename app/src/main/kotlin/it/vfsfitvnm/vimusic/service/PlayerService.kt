@@ -69,6 +69,7 @@ import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.extractor.ExtractorsFactory
 import androidx.media3.extractor.mkv.MatroskaExtractor
@@ -1033,7 +1034,11 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val videoId = dataSpec.key ?: error("A key must be set")
 
-            if (cache.isCached(videoId, dataSpec.position, chunkLength)) {
+            // Podcast media items carry their direct RSS enclosure URL in the cache key.
+            // Bypass the YouTube resolver and stream directly from the RSS audio URL.
+            if (videoId.startsWith("podcast:")) {
+                dataSpec
+            } else if (cache.isCached(videoId, dataSpec.position, chunkLength)) {
                 dataSpec
             } else {
                 when (videoId) {
@@ -1191,9 +1196,8 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     }
 
     private fun createExtractorsFactory(): ExtractorsFactory {
-        return ExtractorsFactory {
-            arrayOf(MatroskaExtractor(), FragmentedMp4Extractor())
-        }
+        // Podcasts commonly use MP3, AAC/ADTS, Ogg and MP4 formats.
+        return DefaultExtractorsFactory()
     }
 
     private fun createRendersFactory(): RenderersFactory {
