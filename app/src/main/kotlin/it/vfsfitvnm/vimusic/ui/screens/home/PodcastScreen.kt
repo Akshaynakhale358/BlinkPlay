@@ -242,10 +242,13 @@ fun PodcastScreen(homeResetKey: Int) {
                 }
             }
         } else {
+            Text(
+                text = selectedPodcast!!.title,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 AsyncImage(model = selectedPodcast!!.artwork, contentDescription = selectedPodcast!!.title, contentScale = ContentScale.Crop, modifier = Modifier.size(88.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(selectedPodcast!!.title)
                     if (selectedPodcast!!.author.isNotBlank()) Text(selectedPodcast!!.author)
                 }
             }
