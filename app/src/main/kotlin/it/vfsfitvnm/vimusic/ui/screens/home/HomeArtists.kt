@@ -166,9 +166,9 @@ fun HomeArtistList(
         snapshotFlow {
             val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
             val itemCount = artists.size
-            lastVisible to itemCount
-        }.collect { (lastVisible, itemCount) ->
-            if (!loading && !finished && itemCount > 0 && lastVisible >= itemCount - 5) {
+            Triple(lastVisible, itemCount, loading)
+        }.collect { (lastVisible, itemCount, isLoading) ->
+            if (!isLoading && !finished && itemCount > 0 && lastVisible >= itemCount - 5) {
                 fetchNextPage()
             }
         }
