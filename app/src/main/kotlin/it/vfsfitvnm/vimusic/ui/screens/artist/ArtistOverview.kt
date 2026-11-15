@@ -158,7 +158,7 @@ fun ArtistOverview(
                             youtubeArtistPage.songsEndpoint?.let {
                                 BasicText(
                                     text = "View all",
-                                    style = typography.xs.secondary,
+                                    style = typography.s.semiBold,
                                     modifier = sectionTextModifier
                                         .clickable(onClick = onViewAllSongsClick),
                                 )
@@ -211,7 +211,7 @@ fun ArtistOverview(
                             youtubeArtistPage.albumsEndpoint?.let {
                                 BasicText(
                                     text = "View all",
-                                    style = typography.xs.secondary,
+                                    style = typography.s.semiBold,
                                     modifier = sectionTextModifier
                                         .clickable(onClick = onViewAllAlbumsClick),
                                 )
@@ -256,7 +256,7 @@ fun ArtistOverview(
                             youtubeArtistPage.singlesEndpoint?.let {
                                 BasicText(
                                     text = "View all",
-                                    style = typography.xs.secondary,
+                                    style = typography.s.semiBold,
                                     modifier = sectionTextModifier
                                         .clickable(onClick = onViewAllSinglesClick),
                                 )
