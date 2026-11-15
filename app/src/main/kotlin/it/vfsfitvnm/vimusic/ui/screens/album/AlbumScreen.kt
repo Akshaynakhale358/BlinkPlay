@@ -43,6 +43,7 @@ import it.vfsfitvnm.vimusic.ui.styling.px
 import it.vfsfitvnm.vimusic.utils.asMediaItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 @ExperimentalFoundationApi
@@ -67,7 +68,11 @@ fun AlbumScreen(browseId: String) {
             .collect { (currentAlbum, tabIndex) ->
                 album = currentAlbum
 
-                if (albumPage == null && (currentAlbum?.timestamp == null || currentAlbum.title == null || tabIndex == 1)) {
+                val hasCachedSongs = withContext(Dispatchers.IO) {
+                    Database.albumSongs(browseId).first().isNotEmpty()
+                }
+
+                if (albumPage == null && (currentAlbum?.timestamp == null || currentAlbum.title == null || tabIndex == 1 || !hasCachedSongs)) {
                     withContext(Dispatchers.IO) {
                         Innertube.albumPage(BrowseBody(browseId = browseId))
                             ?.onSuccess { currentAlbumPage ->
