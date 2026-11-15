@@ -49,10 +49,14 @@ suspend fun Innertube.artistPage(body: BrowseBody): Result<Innertube.ArtistPage>
                 ?.watchEndpointMusicSupportedConfigs
                 ?.watchEndpointMusicConfig
                 ?.musicVideoType
-            return song.takeUnless {
-                videoType == "MUSIC_VIDEO_TYPE_OMV" ||
-                    videoType == "MUSIC_VIDEO_TYPE_UGC"
-            }
+            // Artist music shelves can contain video uploads and podcast episodes.
+            // Keep normal audio tracks (including tracks with a missing type field), but
+            // exclude known non-audio content before it reaches every Artist shelf/tab.
+            val isNonMusicVideo = videoType == "MUSIC_VIDEO_TYPE_OMV" ||
+                videoType == "MUSIC_VIDEO_TYPE_UGC" ||
+                videoType?.contains("PODCAST", ignoreCase = true) == true
+
+            return song.takeUnless { isNonMusicVideo }
         }
 
         fun shelfTitle(content: SectionListRenderer.Content): String? =
