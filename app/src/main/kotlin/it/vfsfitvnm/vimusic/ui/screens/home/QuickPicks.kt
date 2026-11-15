@@ -910,34 +910,36 @@ private fun QuickPicksSongShelf(
         }
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 24.dp, bottom = 8.dp).padding(endPaddingValues),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
-    ) {
-        BasicText(text = title, style = typography.s.semiBold, modifier = Modifier.weight(1f))
-        if (onPlay != null || onViewAll != null) {
-            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                onPlay?.let { action ->
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(32.dp).clip(CircleShape)
-                            .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
-                            .background(Color.White.copy(alpha = 0.14f))
-                            .clickable(onClick = action)
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.play),
-                            contentDescription = "Play",
-                            colorFilter = ColorFilter.tint(Color.White),
-                            modifier = Modifier.size(15.dp)
-                        )
+    if (!verticalList) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 24.dp, bottom = 8.dp).padding(endPaddingValues),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+        ) {
+            BasicText(text = title, style = typography.s.semiBold, modifier = Modifier.weight(1f))
+            if (onPlay != null || onViewAll != null) {
+                Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    onPlay?.let { action ->
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.size(32.dp).clip(CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
+                                .background(Color.White.copy(alpha = 0.14f))
+                                .clickable(onClick = action)
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.play),
+                                contentDescription = "Play",
+                                colorFilter = ColorFilter.tint(Color.White),
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
                     }
-                }
-                onViewAll?.let { action ->
-                    BasicText(text = "VIEW ALL", style = typography.xs.semiBold.copy(fontSize = typography.xs.fontSize * 1.2f),
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
-                            .clickable(onClick = action).padding(horizontal = 9.dp, vertical = 7.dp))
+                    onViewAll?.let { action ->
+                        BasicText(text = "VIEW ALL", style = typography.xs.semiBold.copy(fontSize = typography.xs.fontSize * 1.2f),
+                            modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.14f))
+                                .clickable(onClick = action).padding(horizontal = 9.dp, vertical = 7.dp))
+                    }
                 }
             }
         }
@@ -2026,4 +2028,3 @@ private suspend fun fetchIndiaDirectSongShelves(refreshCycle: Int): Triple<
 
     Triple(trendingDeferred.await(), topDeferred.await(), releasesDeferred.await())
 }
-
