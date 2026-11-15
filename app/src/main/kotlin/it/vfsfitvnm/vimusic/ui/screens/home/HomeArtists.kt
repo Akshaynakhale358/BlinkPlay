@@ -98,31 +98,27 @@ fun HomeArtistList(
     var finished by remember(refreshToken) { mutableStateOf(false) }
 
     LaunchedEffect(refreshToken, gridState) {
-        // Observe both scroll position and list size: appending a page must
-        // re-check the near-end condition even when the user has not scrolled.
-        snapshotFlow {
-            Triple(
-                gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0,
-                artists.size,
-                loading
-            )
-        }.collect { (lastVisible, artistCount, isLoading) ->
-                // Include loading in the observed state. When a request completes,
-                // re-evaluate the near-end condition even if the user did not scroll.
-                if (isLoading || finished || lastVisible < artistCount - 4) return@collect
-                loading = true
-                withContext(Dispatchers.IO) {
-                    var attempts = 0
-                    while (attempts < 50 && !finished) {
-                        val query = queries.getOrNull(queryIndex)
-                        if (query == null) {
-                            finished = true
-                            break
-                        }
-                        val token = continuation
-                        val result = if (token == null) {
+        suspend fun fetchNextPage(): Boolean {
+            if (loading || finished) return false
+            loading = true
+            try {
+                var attempts = 0
+                while (attempts < queries.size && !finished) {
+                    val query = queries.getOrNull(queryIndex)
+                    if (query == null) {
+                        finished = true
+                        break
+                    }
+
+                    val token = continuation
+                    val result = withContext(Dispatchers.IO) {
+                        if (token == null) {
                             Innertube.searchPage(
-                                body = SearchBody(context = indiaContext, query = query, params = Innertube.SearchFilter.Artist.value),
+                                body = SearchBody(
+                                    context = indiaContext,
+                                    query = query,
+                                    params = Innertube.SearchFilter.Artist.value
+                                ),
                                 fromMusicShelfRendererContent = Innertube.ArtistItem::from,
                                 fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
                             )
@@ -133,30 +129,49 @@ fun HomeArtistList(
                                 fromMusicTwoRowItemRenderer = Innertube.ArtistItem::from
                             )
                         }
-                        val page = result?.getOrNull()
-                        val incoming = page?.items.orEmpty()
-                        val known = artists.mapTo(mutableSetOf()) { it.key }
-                        val newItems = incoming.filter { known.add(it.key) }
-                        if (newItems.isNotEmpty()) {
-                            artists = artists + newItems
-                        }
-
-                        val nextContinuation = page?.continuation
-                        if (page == null || nextContinuation == null || nextContinuation == token) {
-                            // A failed, exhausted, or repeated page must not strand this category.
-                            queryIndex += 1
-                            continuation = null
-                        } else {
-                            continuation = nextContinuation
-                        }
-                        if (page == null && queryIndex >= queries.size) finished = true
-                        attempts += 1
-                        if (newItems.isNotEmpty()) break
                     }
+
+                    val page = result?.getOrNull()
+                    val incoming = page?.items.orEmpty()
+                    val known = artists.mapTo(mutableSetOf()) { it.key }
+                    val newItems = incoming.filter { known.add(it.key) }
+                    if (newItems.isNotEmpty()) artists = artists + newItems
+
+                    val nextToken = page?.continuation
+                    if (page == null || nextToken == null || nextToken == token) {
+                        continuation = null
+                        queryIndex += 1
+                    } else {
+                        continuation = nextToken
+                    }
+
+                    attempts++
                     if (queryIndex >= queries.size && continuation == null) finished = true
+                    if (newItems.isNotEmpty()) return true
                 }
+                return false
+            } finally {
                 loading = false
             }
+        }
+
+        // Load several pages immediately; initial loading must not depend on scrolling.
+        var initialPages = 0
+        while (initialPages < 4 && artists.size < 36 && !finished) {
+            fetchNextPage()
+            initialPages++
+        }
+
+        // After the first batch, load another page whenever the user approaches the end.
+        snapshotFlow {
+            val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            val itemCount = artists.size
+            lastVisible to itemCount
+        }.collect { (lastVisible, itemCount) ->
+            if (!loading && !finished && itemCount > 0 && lastVisible >= itemCount - 5) {
+                fetchNextPage()
+            }
+        }
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
