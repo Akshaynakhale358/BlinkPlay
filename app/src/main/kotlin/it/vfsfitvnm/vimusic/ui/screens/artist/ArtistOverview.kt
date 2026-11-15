@@ -344,6 +344,11 @@ fun ArtistOverview(
                     }
 
                     youtubeArtistPage.description?.let { description ->
+                        BasicText(
+                            text = "About Artist",
+                            style = typography.m.semiBold,
+                            modifier = sectionTextModifier
+                        )
                         val attributionsIndex = description.lastIndexOf("\n\nFrom Wikipedia")
 
                         Row(
