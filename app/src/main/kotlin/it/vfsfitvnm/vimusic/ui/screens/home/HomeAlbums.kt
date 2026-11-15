@@ -75,6 +75,22 @@ private data class AlbumShelf(
     val key: String
 )
 
+// Keep the home shelves varied: an album shown in an earlier shelf
+// is omitted from later shelves (including Trending vs Top Albums).
+private fun removeDuplicateAlbumsAcrossShelves(
+    shelves: List<AlbumShelf>,
+    albumsByShelf: Map<String, List<Innertube.AlbumItem>>
+): Map<String, List<Innertube.AlbumItem>> {
+    val seenAlbumIds = mutableSetOf<String>()
+    return shelves.associate { shelf ->
+        val uniqueAlbums = albumsByShelf[shelf.key].orEmpty().filter { album ->
+            val identity = album.info?.endpoint?.browseId ?: album.key
+            seenAlbumIds.add(identity)
+        }
+        shelf.key to uniqueAlbums
+    }
+}
+
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
@@ -136,7 +152,7 @@ fun HomeAlbums(
                 }.awaitAll().toMap()
             }
         }
-        shelfAlbums = firstPaint
+        shelfAlbums = removeDuplicateAlbumsAcrossShelves(shelves, firstPaint)
         loading = false
 
         val additionalAlbums = withContext(Dispatchers.IO) {
@@ -162,10 +178,11 @@ fun HomeAlbums(
                 }.awaitAll().toMap()
             }
         }
-        shelfAlbums = shelves.associate { shelf ->
+        val mergedShelves = shelves.associate { shelf ->
             shelf.key to (firstPaint[shelf.key].orEmpty() + additionalAlbums[shelf.key].orEmpty())
-                .distinctBy { it.key }.take(15)
+                .distinctBy { it.info?.endpoint?.browseId ?: it.key }.take(15)
         }
+        shelfAlbums = removeDuplicateAlbumsAcrossShelves(shelves, mergedShelves)
     }
 
     BackHandler(enabled = selectedShelf != null) { selectedShelf = null }
