@@ -24,22 +24,34 @@ suspend fun <T : Innertube.Item> Innertube.itemsPage(
 //        mask("contents.singleColumnBrowseResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents(musicPlaylistShelfRenderer(continuations,contents.$musicResponsiveListItemRendererMask),gridRenderer(continuations,items.$musicTwoRowItemRendererMask))")
     }.body<BrowseResponse>()
 
-    val sectionListRendererContent = response
-        .contents
-        ?.singleColumnBrowseResultsRenderer
-        ?.tabs
-        ?.firstOrNull()
-        ?.tabRenderer
-        ?.content
+    val sectionContents = response.contents
+        ?.twoColumnBrowseResultsRenderer
+        ?.secondaryContents
         ?.sectionListRenderer
         ?.contents
-        ?.firstOrNull()
+        ?: response.contents
+            ?.twoColumnBrowseResultsRenderer
+            ?.tabs
+            ?.firstOrNull()
+            ?.tabRenderer
+            ?.content
+            ?.sectionListRenderer
+            ?.contents
+        ?: response.contents
+            ?.singleColumnBrowseResultsRenderer
+            ?.tabs
+            ?.firstOrNull()
+            ?.tabRenderer
+            ?.content
+            ?.sectionListRenderer
+            ?.contents
+        ?: response.contents?.sectionListRenderer?.contents
 
     itemsPageFromMusicShelRendererOrGridRenderer(
-        musicShelfRenderer = sectionListRendererContent
-            ?.musicShelfRenderer,
-        gridRenderer = sectionListRendererContent
-            ?.gridRenderer,
+        musicShelfRenderer = sectionContents
+            ?.firstNotNullOfOrNull { it.musicPlaylistShelfRenderer ?: it.musicShelfRenderer },
+        gridRenderer = sectionContents
+            ?.firstNotNullOfOrNull { it.gridRenderer },
         fromMusicResponsiveListItemRenderer = fromMusicResponsiveListItemRenderer,
         fromMusicTwoRowItemRenderer = fromMusicTwoRowItemRenderer,
     )
@@ -56,9 +68,22 @@ suspend fun <T : Innertube.Item> Innertube.itemsPage(
     }.body<ContinuationResponse>()
 
     itemsPageFromMusicShelRendererOrGridRenderer(
-        musicShelfRenderer = response
-            .continuationContents
-            ?.musicShelfContinuation,
+        musicShelfRenderer = response.continuationContents
+            ?.musicPlaylistShelfContinuation
+            ?: response.continuationContents?.musicShelfContinuation
+            ?: response.onResponseReceivedActions
+                ?.plus(response.onResponseReceivedEndpoints.orEmpty())
+                ?.flatMap { action ->
+                    (action.appendContinuationItemsAction ?: action.reloadContinuationItemsCommand)
+                        ?.continuationItems.orEmpty()
+                }
+                ?.mapNotNull { it.musicResponsiveListItemRenderer }
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { renderers ->
+                    MusicShelfRenderer(
+                        contents = renderers.map { MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it) }
+                    )
+                },
         gridRenderer = null,
         fromMusicResponsiveListItemRenderer = fromMusicResponsiveListItemRenderer,
         fromMusicTwoRowItemRenderer = fromMusicTwoRowItemRenderer,
