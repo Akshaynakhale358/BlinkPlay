@@ -11,5 +11,6 @@ data class GridRenderer(
     data class Item(
         val musicTwoRowItemRenderer: MusicTwoRowItemRenderer? = null,
         val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null,
+        val continuationItemRenderer: ContinuationItemRenderer? = null,
     )
 }
