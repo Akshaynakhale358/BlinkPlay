@@ -77,7 +77,8 @@ fun SongItem(
     thumbnailSizeDp: Dp,
     modifier: Modifier = Modifier,
     onThumbnailContent: (@Composable BoxScope.() -> Unit)? = null,
-    trailingContent: (@Composable () -> Unit)? = null
+    trailingContent: (@Composable () -> Unit)? = null,
+    titleColor: Color = Color.Unspecified
 ) {
     SongItem(
         thumbnailUrl = song.thumbnailUrl?.thumbnail(thumbnailSizePx),
@@ -88,6 +89,7 @@ fun SongItem(
         onThumbnailContent = onThumbnailContent,
         trailingContent = trailingContent,
         modifier = modifier,
+        titleColor = titleColor
     )
 }
 
