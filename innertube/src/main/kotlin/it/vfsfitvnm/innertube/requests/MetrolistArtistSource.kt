@@ -1,35 +1,19 @@
-@file:Suppress("unused")
-
 package it.vfsfitvnm.innertube.requests
 
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.bodies.BrowseBody
 
 /**
- * BlinkPlay integration boundary for the Metrolist-derived Artist data pipeline.
+ * Artist data-source boundary used by BlinkPlay's ArtistScreen.
  *
- * The UI calls this adapter instead of binding itself to a particular parser.
- * ArtistPage.kt contains the ZPlay-compatible InnerTube transport and typed model
- * mapping. This adapter is the place where the upstream Metrolist parser port is
- * connected once its InnertubeX response/model dependencies have been ported.
+ * This is currently a ZPlay-compatible adapter around the existing typed
+ * InnerTube Artist parser. The original Metrolist parser and its InnertubeX /
+ * shared-model dependencies are preserved under artist-reference and still
+ * need a full dependency-compatible port before this function can invoke them.
  *
- * Keep the existing ZPlay request as a fallback so current Artist browsing remains
- * available while the upstream parser is being brought across.
+ * Keep this boundary stable: once that port is complete, replace the delegate
+ * below with the Metrolist parser without changing the Artist UI.
  */
 suspend fun Innertube.metrolistArtistPage(
     body: BrowseBody
 ): Result<Innertube.ArtistPage>? = artistPage(body)
-
-/**
- * Primary Metrolist-derived source, with the existing ZPlay source retained as
- * fallback. The second request is only attempted when the primary source fails.
- */
-suspend fun Innertube.artistPageWithSources(
-    body: BrowseBody
-): Result<Innertube.ArtistPage>? {
-    val primary = metrolistArtistPage(body)
-    if (primary?.isSuccess == true) return primary
-
-    val zplayFallback = artistPage(body)
-    return zplayFallback ?: primary
-}
