@@ -267,7 +267,7 @@ private fun fetchTopPodcasts(country: String): List<PodcastSearchResult> {
     val chart = JSONObject(httpGet("https://itunes.apple.com/$country/rss/toppodcasts/limit=200/json"))
     val items = chart.optJSONObject("feed")?.optJSONArray("entry") ?: return emptyList()
     val ids = (0 until items.length()).mapNotNull { index ->
-        items.optJSONObject(index)?.optJSONObject("id")?.optString("im:id")?.takeIf(String::isNotBlank)
+        items.optJSONObject(index)?.optJSONObject("id")?.optJSONObject("attributes")?.optString("im:id")?.takeIf(String::isNotBlank)
     }
     if (ids.isEmpty()) return emptyList()
     val lookup = JSONObject(httpGet("https://itunes.apple.com/lookup?id=${ids.joinToString(",")}&entity=podcast"))
