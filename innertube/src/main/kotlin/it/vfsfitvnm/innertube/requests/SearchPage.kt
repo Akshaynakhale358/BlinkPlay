@@ -19,47 +19,54 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 ) = runCatchingNonCancellable {
     val response = client.post(search) {
         setBody(body)
-        // Request the complete search response while diagnosing YouTube Music field-mask changes.
-        // A stale nested mask can make the API reject the request; callers previously swallowed
-        // that error and rendered every shelf as empty.
         mask("*")
     }.body<SearchResponse>()
 
-    // Search filters can return the requested results on a non-first tab.
-    // Collect matching shelves and grids from every tab so songs, albums,
-    // artists and playlists all use the same reliable parser.
-    val sections = response.contents
+    // Keep the parent SectionListRenderer: YouTube may place the continuation
+    // token on the section itself, not inside the shelf/grid.
+    val sectionLists = response.contents
         ?.tabbedSearchResultsRenderer
         ?.tabs
         .orEmpty()
-        .flatMap { tab ->
-            tab.tabRenderer
-                ?.content
-                ?.sectionListRenderer
-                ?.contents
-                .orEmpty()
-        }
-        .filter { it.musicShelfRenderer != null || it.gridRenderer != null }
+        .mapNotNull { it.tabRenderer?.content?.sectionListRenderer }
+
+    val sections = sectionLists.flatMap { it.contents.orEmpty() }
 
     val items = sections.flatMap { section ->
         buildList {
-            section.musicShelfRenderer
-                ?.contents
+            section.musicShelfRenderer?.contents
                 ?.mapNotNullTo(this, fromMusicShelfRendererContent)
-            section.gridRenderer
-                ?.items
-                ?.mapNotNull { it.musicTwoRowItemRenderer }
-                ?.mapNotNullTo(this, fromMusicTwoRowItemRenderer)
+            section.musicPlaylistShelfRenderer?.contents
+                ?.mapNotNullTo(this, fromMusicShelfRendererContent)
+            section.musicCarouselShelfRenderer?.contents.orEmpty().forEach { item ->
+                item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)?.let(::add)
+                item.musicResponsiveListItemRenderer
+                    ?.let { MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it) }
+                    ?.let(fromMusicShelfRendererContent)
+                    ?.let(::add)
+            }
+            section.gridRenderer?.items.orEmpty().forEach { item ->
+                item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)?.let(::add)
+                item.musicResponsiveListItemRenderer
+                    ?.let { MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it) }
+                    ?.let(fromMusicShelfRendererContent)
+                    ?.let(::add)
+            }
         }
     }.distinctBy(Innertube.Item::key)
 
-    val continuation = sections.asReversed().mapNotNull { section ->
-        section.musicShelfRenderer
-            ?.continuations
-            ?.firstOrNull()
-            ?.nextContinuationData
-            ?.continuation
-    }.firstOrNull()
+    val continuation = sections.asReversed().firstNotNullOfOrNull { section ->
+        section.musicShelfRenderer?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+            ?: section.musicShelfRenderer?.contents?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
+            ?: section.musicPlaylistShelfRenderer?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+            ?: section.musicPlaylistShelfRenderer?.contents?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
+            ?: section.musicCarouselShelfRenderer?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+            ?: section.gridRenderer?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+            ?: section.gridRenderer?.items?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
+            ?: section.continuationItemRenderer?.continuationEndpoint?.token()
+    } ?: sectionLists.asReversed().firstNotNullOfOrNull { list ->
+        list.continuations?.firstOrNull()?.nextContinuationData?.continuation
+    }
 
     Innertube.ItemsPage(items = items, continuation = continuation)
 }
@@ -71,17 +78,55 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
 ) = runCatchingNonCancellable {
     val response = client.post(search) {
         setBody(body)
-        mask("continuationContents.musicShelfContinuation(continuations,contents.$musicResponsiveListItemRendererMask)")
+        mask("*")
     }.body<ContinuationResponse>()
 
-    response
-        .continuationContents
-        ?.musicShelfContinuation
-        ?.toItemsPage(fromMusicShelfRendererContent)
-}
+    val playlistShelf = response.continuationContents?.musicPlaylistShelfContinuation
+    val shelf = response.continuationContents?.musicShelfContinuation
+    val grid = response.continuationContents?.gridContinuation
+    val carousel = response.continuationContents?.musicCarouselShelfContinuation
 
-private fun <T : Innertube.Item> MusicShelfRenderer?.toItemsPage(mapper: (MusicShelfRenderer.Content) -> T?) =
+    fun shelfItems(renderer: MusicShelfRenderer?) =
+        renderer?.contents.orEmpty().mapNotNull(fromMusicShelfRendererContent)
+
+    val gridItems = grid?.items.orEmpty().mapNotNull { item ->
+        item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)
+            ?: item.musicResponsiveListItemRenderer?.let {
+                fromMusicShelfRendererContent(MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it))
+            }
+    }
+    val carouselItems = carousel?.contents.orEmpty().mapNotNull { item ->
+        item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)
+            ?: item.musicResponsiveListItemRenderer?.let {
+                fromMusicShelfRendererContent(MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it))
+            }
+    }
+
+    val responseActions = response.onResponseReceivedActions.orEmpty() +
+        response.onResponseReceivedEndpoints.orEmpty()
+    val actionContinuationItems = responseActions.flatMap { action ->
+        (action.appendContinuationItemsAction ?: action.reloadContinuationItemsCommand)
+            ?.continuationItems.orEmpty()
+    }
+    val actionItems = actionContinuationItems.mapNotNull { item ->
+        item.musicTwoRowItemRenderer?.let(fromMusicTwoRowItemRenderer)
+            ?: item.musicResponsiveListItemRenderer?.let {
+                fromMusicShelfRendererContent(MusicShelfRenderer.Content(musicResponsiveListItemRenderer = it))
+            }
+    }
+
+    val continuation = playlistShelf?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        ?: playlistShelf?.contents?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
+        ?: shelf?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        ?: shelf?.contents?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
+        ?: grid?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        ?: grid?.items?.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
+        ?: carousel?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        ?: actionContinuationItems.lastOrNull()?.continuationItemRenderer?.continuationEndpoint?.token()
+
     Innertube.ItemsPage(
-        items = this?.contents?.mapNotNull(mapper),
-        continuation = this?.continuations?.firstOrNull()?.nextContinuationData?.continuation
+        items = (shelfItems(playlistShelf) + shelfItems(shelf) + gridItems + carouselItems + actionItems)
+            .distinctBy(Innertube.Item::key),
+        continuation = continuation
     )
+}
