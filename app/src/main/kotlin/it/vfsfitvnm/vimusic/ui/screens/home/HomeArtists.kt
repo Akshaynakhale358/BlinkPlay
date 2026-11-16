@@ -155,7 +155,7 @@ fun HomeArtistList(
         artists = emptyList()
         continuation = null
         finished = false
-        loadMetrolistArtists()
+        loadOpenTuneArtists()
     }
 
     LaunchedEffect(gridState, refreshToken, artistSearchActive) {
@@ -167,7 +167,7 @@ fun HomeArtistList(
             val nearEnd = total > 0 && lastVisible >= total - 4
             nearEnd && !loading && !finished
         }.collect { shouldLoad ->
-            if (shouldLoad) loadMetrolistArtists()
+            if (shouldLoad) loadOpenTuneArtists()
         }
     }
 
