@@ -23,7 +23,7 @@ import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
 suspend fun Innertube.metrolistArtistSearchPage(
     body: SearchBody
 ): Result<Innertube.ItemsPage<Innertube.ArtistItem>>? = runCatchingNonCancellable {
-    val response = client.post(search) {
+    val response = MetrolistArtistClient.client.post(MetrolistArtistClient.search) {
         setBody(body)
         mask("*")
     }.body<SearchResponse>()
@@ -90,7 +90,7 @@ suspend fun Innertube.metrolistArtistSearchPage(
 suspend fun Innertube.metrolistArtistSearchPage(
     body: ContinuationBody
 ): Result<Innertube.ItemsPage<Innertube.ArtistItem>>? = runCatchingNonCancellable {
-    val response = client.post(search) {
+    val response = MetrolistArtistClient.client.post(MetrolistArtistClient.search) {
         setBody(body)
         mask("*")
     }.body<ContinuationResponse>()
