@@ -115,7 +115,7 @@ internal object MetrolistArtistParser {
                     }
                 content.musicCarouselShelfRenderer?.contents.orEmpty().forEach { item ->
                     item.musicResponsiveListItemRenderer?.let { renderer ->
-                        (if (isVideoShelf) Innertube.SongItem.from(renderer) else audioSong(renderer))?.let(::add)
+                        audioSong(renderer)?.let(::add)
                     }
                     item.musicTwoRowItemRenderer?.let { renderer ->
                         (Innertube.AlbumItem.from(renderer)
@@ -125,7 +125,7 @@ internal object MetrolistArtistParser {
                 }
                 content.gridRenderer?.items.orEmpty().forEach { item ->
                     item.musicResponsiveListItemRenderer?.let { renderer ->
-                        (if (isVideoShelf) Innertube.SongItem.from(renderer) else audioSong(renderer))?.let(::add)
+                        audioSong(renderer)?.let(::add)
                     }
                     item.musicTwoRowItemRenderer?.let { renderer ->
                         (Innertube.AlbumItem.from(renderer)
