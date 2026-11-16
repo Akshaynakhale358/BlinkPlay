@@ -107,11 +107,10 @@ internal object MetrolistArtistParser {
 
         fun shelfItems(content: SectionListRenderer.Content): List<Innertube.Item> =
             buildList {
-                val isVideoShelf = shelfTitle(content)?.contains("video", ignoreCase = true) == true
                 (content.musicPlaylistShelfRenderer ?: content.musicShelfRenderer)
                     ?.contents.orEmpty().forEach { item ->
                         item.musicResponsiveListItemRenderer?.let { renderer ->
-                            (if (isVideoShelf) Innertube.SongItem.from(renderer) else audioSong(renderer))?.let(::add)
+                            audioSong(renderer)?.let(::add)
                         }
                     }
                 content.musicCarouselShelfRenderer?.contents.orEmpty().forEach { item ->
@@ -147,6 +146,7 @@ internal object MetrolistArtistParser {
         val allSections = sectionContents.mapNotNull { content ->
             val title = shelfTitle(content)?.trim()?.takeIf(String::isNotEmpty)
                 ?: return@mapNotNull null
+            if (title.contains("video", ignoreCase = true)) return@mapNotNull null
             val items = shelfItems(content)
             val browseEndpoint = (content.musicPlaylistShelfRenderer ?: content.musicShelfRenderer)
                 ?.bottomEndpoint?.browseEndpoint
