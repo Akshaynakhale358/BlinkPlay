@@ -107,12 +107,17 @@ internal object MetrolistArtistParser {
 
         fun shelfItems(content: SectionListRenderer.Content): List<Innertube.Item> =
             buildList {
+                val isVideoShelf = shelfTitle(content)?.contains("video", ignoreCase = true) == true
                 (content.musicPlaylistShelfRenderer ?: content.musicShelfRenderer)
                     ?.contents.orEmpty().forEach { item ->
-                        item.musicResponsiveListItemRenderer?.let(::audioSong)?.let(::add)
+                        item.musicResponsiveListItemRenderer?.let { renderer ->
+                            (if (isVideoShelf) Innertube.SongItem.from(renderer) else audioSong(renderer))?.let(::add)
+                        }
                     }
                 content.musicCarouselShelfRenderer?.contents.orEmpty().forEach { item ->
-                    item.musicResponsiveListItemRenderer?.let(::audioSong)?.let(::add)
+                    item.musicResponsiveListItemRenderer?.let { renderer ->
+                        (if (isVideoShelf) Innertube.SongItem.from(renderer) else audioSong(renderer))?.let(::add)
+                    }
                     item.musicTwoRowItemRenderer?.let { renderer ->
                         (Innertube.AlbumItem.from(renderer)
                             ?: fromTwoRow(renderer)
@@ -120,7 +125,9 @@ internal object MetrolistArtistParser {
                     }
                 }
                 content.gridRenderer?.items.orEmpty().forEach { item ->
-                    item.musicResponsiveListItemRenderer?.let(::audioSong)?.let(::add)
+                    item.musicResponsiveListItemRenderer?.let { renderer ->
+                        (if (isVideoShelf) Innertube.SongItem.from(renderer) else audioSong(renderer))?.let(::add)
+                    }
                     item.musicTwoRowItemRenderer?.let { renderer ->
                         (Innertube.AlbumItem.from(renderer)
                             ?: fromTwoRow(renderer)

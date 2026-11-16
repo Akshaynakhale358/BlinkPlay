@@ -94,12 +94,11 @@ fun ArtistScreen(browseId: String) {
     LaunchedEffect(browseId) {
         Database
             .artist(browseId)
-            .combine(snapshotFlow { tabIndex }.map { it != 8 }) { artist, mustFetch -> artist to mustFetch }
             .distinctUntilChanged()
-            .collect { (currentArtist, mustFetch) ->
+            .collect { currentArtist ->
                 artist = currentArtist
 
-                if (artistPage == null && (currentArtist?.timestamp == null || mustFetch)) {
+                if (artistPage == null) {
                     withContext(Dispatchers.IO) {
                         Innertube.metrolistArtistPage(BrowseBody(browseId = browseId))
                             ?.onSuccess { currentArtistPage ->
@@ -178,53 +177,18 @@ fun ArtistScreen(browseId: String) {
                 tabIndex = tabIndex,
                 onTabChanged = { tabIndex = it },
                 tabColumnContent = { Item ->
-                    Item(0, "Overview", R.drawable.sparkles)
-                    Item(1, "Latest release", R.drawable.disc)
-                    Item(2, "Top tracks", R.drawable.musical_notes)
-                    Item(3, "Songs", R.drawable.musical_notes)
-                    Item(4, "Albums", R.drawable.disc)
-                    Item(5, "Singles & EPs", R.drawable.disc)
-                    Item(6, "Appears on / Featured on", R.drawable.disc)
-                    Item(7, "Fans might also like", R.drawable.person)
-                    Item(8, "Library", R.drawable.library)
+                    Item(0, "Songs", R.drawable.musical_notes)
+                    Item(1, "Albums", R.drawable.disc)
+                    Item(2, "Singles & EPs", R.drawable.disc)
+                    Item(3, "Videos", R.drawable.play)
+                    Item(4, "Fans might also like", R.drawable.person)
+                    Item(5, "Playlists", R.drawable.library)
+                    Item(6, "Featured on / Appears on", R.drawable.disc)
                 },
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
                     when (currentTabIndex) {
-                        0 -> ArtistOverview(
-                            youtubeArtistPage = artistPage,
-                            thumbnailContent = thumbnailContent,
-                            headerContent = headerContent,
-                            onAlbumClick = { albumRoute(it) },
-                            onArtistClick = { artistRoute(it) },
-                            onPlaylistClick = { playlistRoute(it) },
-                            isSubscribed = artist?.bookmarkedAt != null,
-                            onToggleSubscribed = {
-                                val bookmarkedAt =
-                                    if (artist?.bookmarkedAt == null) System.currentTimeMillis() else null
-
-                                query {
-                                    // Upsert rather than update: the row only exists once the
-                                    // artist page has loaded and been stored, so tapping this
-                                    // early used to silently do nothing at all.
-                                    Database.upsert(
-                                        artist?.copy(bookmarkedAt = bookmarkedAt)
-                                            ?: Artist(
-                                                id = browseId,
-                                                name = artistPage?.name,
-                                                thumbnailUrl = artistPage?.thumbnail?.url,
-                                                timestamp = System.currentTimeMillis(),
-                                                bookmarkedAt = bookmarkedAt
-                                            )
-                                    )
-                                }
-                            },
-                            onViewAllSongsClick = { tabIndex = 3 },
-                            onViewAllAlbumsClick = { tabIndex = 4 },
-                            onViewAllSinglesClick = { tabIndex = 5 },
-                        )
-
-                        3 -> {
+                        0 -> {                        3 -> {
                             val binder = LocalPlayerServiceBinder.current
                             val menuState = LocalMenuState.current
                             val thumbnailSizeDp = Dimensions.thumbnails.song
@@ -292,7 +256,7 @@ fun ArtistScreen(browseId: String) {
                             )
                         }
 
-                        4 -> {
+                        1 -> {
                             val thumbnailSizeDp = 108.dp
                             val thumbnailSizePx = thumbnailSizeDp.px
 
@@ -345,16 +309,11 @@ fun ArtistScreen(browseId: String) {
                             )
                         }
 
-                        1 -> ArtistShelfPage("Latest release", artistPage?.findArtistSection("latest release", "latest releases", "new release", "new releases", "latest album", "latest albums"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        2 -> ArtistShelfPage("Top tracks", artistPage?.findArtistSection("top tracks", "top songs", "tracks"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        5 -> ArtistShelfPage("Singles & EPs", artistPage?.findArtistSection("singles & eps", "singles", "eps"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        6 -> ArtistShelfPage("Appears on / Featured on", artistPage?.findArtistSection("appears on", "featured on"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        7 -> ArtistShelfPage("Fans might also like", artistPage?.findArtistSection("fans might also like", "similar artists", "related artists"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        8 -> ArtistLocalSongs(
-                            browseId = browseId,
-                            headerContent = headerContent,
-                            thumbnailContent = thumbnailContent,
-                        )
+                        2 -> ArtistShelfPage("Singles & EPs", artistPage?.findArtistSection("singles & eps", "singles and eps", "singles", "eps"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        3 -> ArtistShelfPage("Videos", artistPage?.findArtistSection("videos", "music videos", "video"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        4 -> ArtistShelfPage("Fans might also like", artistPage?.findArtistSection("fans might also like", "similar artists", "related artists", "you might also like"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        5 -> ArtistShelfPage("Playlists", artistPage?.findArtistSection("playlists", "artist playlists"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        6 -> ArtistShelfPage("Featured on / Appears on", artistPage?.findArtistSection("appears on", "featured on"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
                     }
                 }
             }
