@@ -4,12 +4,15 @@ import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.MusicTwoRowItemRenderer
 
 fun Innertube.AlbumItem.Companion.from(renderer: MusicTwoRowItemRenderer): Innertube.AlbumItem? {
+    val titleRun = renderer.title?.runs?.firstOrNull()
+    val browseEndpoint = renderer.navigationEndpoint?.browseEndpoint
+        ?: titleRun?.navigationEndpoint?.browseEndpoint
+
     return Innertube.AlbumItem(
-        info = renderer
-            .title
-            ?.runs
-            ?.firstOrNull()
-            ?.let(Innertube::Info),
+        info = Innertube.Info(
+            name = titleRun?.text,
+            endpoint = browseEndpoint
+        ),
         authors = null,
         year = renderer
             .subtitle
@@ -26,12 +29,15 @@ fun Innertube.AlbumItem.Companion.from(renderer: MusicTwoRowItemRenderer): Inner
 }
 
 fun Innertube.ArtistItem.Companion.from(renderer: MusicTwoRowItemRenderer): Innertube.ArtistItem? {
+    val titleRun = renderer.title?.runs?.firstOrNull()
+    val browseEndpoint = renderer.navigationEndpoint?.browseEndpoint
+        ?: titleRun?.navigationEndpoint?.browseEndpoint
+
     return Innertube.ArtistItem(
-        info = renderer
-            .title
-            ?.runs
-            ?.firstOrNull()
-            ?.let(Innertube::Info),
+        info = Innertube.Info(
+            name = titleRun?.text,
+            endpoint = browseEndpoint
+        ),
         subscribersCountText = renderer
             .subtitle
             ?.runs
