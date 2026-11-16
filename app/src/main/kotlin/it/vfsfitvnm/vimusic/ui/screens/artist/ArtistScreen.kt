@@ -187,7 +187,7 @@ fun ArtistScreen(browseId: String) {
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
                     when (currentTabIndex) {
-                        0 -> {                        3 -> {
+                        0 -> {
                             val binder = LocalPlayerServiceBinder.current
                             val menuState = LocalMenuState.current
                             val thumbnailSizeDp = Dimensions.thumbnails.song
