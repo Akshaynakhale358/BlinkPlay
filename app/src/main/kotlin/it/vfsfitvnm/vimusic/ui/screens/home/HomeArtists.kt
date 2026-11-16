@@ -96,33 +96,56 @@ fun HomeArtistList(
     var loading by remember(refreshToken) { mutableStateOf(false) }
     var finished by remember(refreshToken) { mutableStateOf(false) }
 
-    // All Artist feed uses only the isolated Metrolist artist client.
-    // One focused query + its continuation replaces BlinkPlay's old multi-query feed.
-    suspend fun loadMetrolistArtists(next: String? = null) {
-        if (loading || finished && next != null) return
+    // Artist feed stays isolated on MetrolistArtistClient. Each search query has
+    // its own continuation; when a query has no continuation, move to the next query.
+    suspend fun loadMetrolistArtists(next: String? = continuation) {
+        if (loading || finished) return
         loading = true
         try {
-            val page = withContext(Dispatchers.IO) {
-                if (next == null) {
-                    Innertube.metrolistArtistSearchPage(
-                        SearchBody(
-                            context = indiaContext,
-                            query = "Indian music artists",
-                            params = Innertube.SearchFilter.Artist.value
+            var token = next
+            var index = queryIndex
+            var requests = 0
+
+            while (index < queries.size && requests < queries.size) {
+                val page = withContext(Dispatchers.IO) {
+                    if (token == null) {
+                        Innertube.metrolistArtistSearchPage(
+                            SearchBody(
+                                context = indiaContext,
+                                query = queries[index],
+                                params = Innertube.SearchFilter.Artist.value
+                            )
                         )
-                    )
-                } else {
-                    Innertube.metrolistArtistSearchPage(
-                        ContinuationBody(context = indiaContext, continuation = next)
-                    )
+                    } else {
+                        Innertube.metrolistArtistSearchPage(
+                            ContinuationBody(context = indiaContext, continuation = token)
+                        )
+                    }
+                }?.getOrNull()
+
+                if (page == null) break
+
+                val fresh = page.items.orEmpty()
+                artists = (artists + fresh).distinctBy(Innertube.ArtistItem::key)
+
+                val nextToken = page.continuation?.takeIf { it != token }
+                if (nextToken != null) {
+                    continuation = nextToken
+                    queryIndex = index
+                    break
                 }
-            }?.getOrNull()
-            val fresh = page?.items.orEmpty()
-            artists = (artists + fresh).distinctBy(Innertube.ArtistItem::key)
-            continuation = page?.continuation?.takeIf { it != next }
-            finished = fresh.isEmpty() || continuation == null
+
+                // No usable continuation: continue with the next artist search.
+                index += 1
+                queryIndex = index
+                token = null
+                continuation = null
+                requests += 1
+            }
+
+            finished = queryIndex >= queries.size && continuation == null
         } catch (_: Exception) {
-            finished = continuation == null
+            // Keep the current query/continuation so a later scroll can retry.
         } finally {
             loading = false
         }
@@ -141,11 +164,10 @@ fun HomeArtistList(
             val layout = gridState.layoutInfo
             val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: 0
             val total = layout.totalItemsCount
-            total > 0 && lastVisible >= total - 4
-        }.collect { nearEnd ->
-            if (nearEnd && !loading && !finished) {
-                continuation?.let { loadMetrolistArtists(it) }
-            }
+            val nearEnd = total > 0 && lastVisible >= total - 4
+            nearEnd && !loading && !finished
+        }.collect { shouldLoad ->
+            if (shouldLoad) loadMetrolistArtists()
         }
     }
 
