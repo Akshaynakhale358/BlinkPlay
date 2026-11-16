@@ -343,6 +343,32 @@ fun ArtistOverview(
                         }
                     }
 
+                    youtubeArtistPage.featuredOn?.takeIf { it.isNotEmpty() }?.let { playlists ->
+                        BasicText(
+                            text = "Featured On",
+                            style = typography.m.semiBold,
+                            modifier = sectionTextModifier
+                        )
+
+                        LazyRow(
+                            contentPadding = endPaddingValues,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(
+                                items = playlists,
+                                key = Innertube.PlaylistItem::key
+                            ) { playlist ->
+                                PlaylistItem(
+                                    playlist = playlist,
+                                    thumbnailSizePx = albumThumbnailSizePx,
+                                    thumbnailSizeDp = albumThumbnailSizeDp,
+                                    alternative = true,
+                                    modifier = Modifier.clickable(onClick = { onPlaylistClick(playlist.key) })
+                                )
+                            }
+                        }
+                    }
+
                     youtubeArtistPage.description?.let { description ->
                         val attributionsIndex = description.lastIndexOf("\n\nFrom Wikipedia")
 
