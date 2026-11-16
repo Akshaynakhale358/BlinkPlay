@@ -79,7 +79,7 @@ fun ArtistScreen(browseId: String) {
     LaunchedEffect(browseId) {
         Database
             .artist(browseId)
-            .combine(snapshotFlow { tabIndex }.map { it != 4 }) { artist, mustFetch -> artist to mustFetch }
+            .combine(snapshotFlow { tabIndex }.map { it != 3 }) { artist, mustFetch -> artist to mustFetch }
             .distinctUntilChanged()
             .collect { (currentArtist, mustFetch) ->
                 artist = currentArtist
@@ -160,14 +160,13 @@ fun ArtistScreen(browseId: String) {
             Scaffold(
                 topIconButtonId = R.drawable.chevron_back,
                 onTopIconButtonClick = pop,
-                tabIndex = tabIndex,
+                tabIndex = tabIndex.coerceIn(0, 3),
                 onTabChanged = { tabIndex = it },
                 tabColumnContent = { Item ->
                     Item(0, "Overview", R.drawable.sparkles)
-                    Item(1, "Songs", R.drawable.musical_notes)
-                    Item(2, "Albums", R.drawable.disc)
-                    Item(3, "Singles", R.drawable.disc)
-                    Item(4, "Library", R.drawable.library)
+                    Item(1, "Album", R.drawable.disc)
+                    Item(2, "Singles", R.drawable.disc)
+                    Item(3, "Library", R.drawable.library)
                 },
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
@@ -200,77 +199,11 @@ fun ArtistScreen(browseId: String) {
                                     )
                                 }
                             },
-                            onViewAllSongsClick = { tabIndex = 1 },
-                            onViewAllAlbumsClick = { tabIndex = 2 },
-                            onViewAllSinglesClick = { tabIndex = 3 },
+                            onViewAllAlbumsClick = { tabIndex = 1 },
+                            onViewAllSinglesClick = { tabIndex = 2 },
                         )
 
                         1 -> {
-                            val binder = LocalPlayerServiceBinder.current
-                            val menuState = LocalMenuState.current
-                            val thumbnailSizeDp = Dimensions.thumbnails.song
-                            val thumbnailSizePx = thumbnailSizeDp.px
-
-                            ItemsPage(
-                                tag = "artist/$browseId/songs",
-                                headerContent = headerContent,
-                                itemsPageProvider = artistPage?.let {
-                                    ({ continuation ->
-                                        continuation?.let {
-                                            Innertube.itemsPage(
-                                                body = ContinuationBody(continuation = continuation),
-                                                fromMusicResponsiveListItemRenderer = Innertube.SongItem::from,
-                                            )
-                                        } ?: artistPage
-                                            ?.songsEndpoint
-                                            ?.takeIf { it.browseId != null }
-                                            ?.let { endpoint ->
-                                                Innertube.itemsPage(
-                                                    body = BrowseBody(
-                                                        browseId = endpoint.browseId!!,
-                                                        params = endpoint.params,
-                                                    ),
-                                                    fromMusicResponsiveListItemRenderer = Innertube.SongItem::from,
-                                                )
-                                            }
-                                        ?: Result.success(
-                                            Innertube.ItemsPage(
-                                                items = artistPage?.songs,
-                                                continuation = null
-                                            )
-                                        )
-                                    })
-                                },
-                                itemContent = { song ->
-                                    SongItem(
-                                        song = song,
-                                        thumbnailSizeDp = thumbnailSizeDp,
-                                        thumbnailSizePx = thumbnailSizePx,
-                                        modifier = Modifier
-                                            .combinedClickable(
-                                                onLongClick = {
-                                                    menuState.display {
-                                                        NonQueuedMediaItemMenu(
-                                                            onDismiss = menuState::hide,
-                                                            mediaItem = song.asMediaItem,
-                                                        )
-                                                    }
-                                                },
-                                                onClick = {
-                                                    binder?.stopRadio()
-                                                    binder?.player?.forcePlay(song.asMediaItem)
-                                                    binder?.setupRadio(song.info?.endpoint)
-                                                }
-                                            )
-                                    )
-                                },
-                                itemPlaceholderContent = {
-                                    SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
-                                }
-                            )
-                        }
-
-                        2 -> {
                             val thumbnailSizeDp = 108.dp
                             val thumbnailSizePx = thumbnailSizeDp.px
 
@@ -320,7 +253,7 @@ fun ArtistScreen(browseId: String) {
                             )
                         }
 
-                        3 -> {
+                        2 -> {
                             val thumbnailSizeDp = 108.dp
                             val thumbnailSizePx = thumbnailSizeDp.px
 
@@ -370,7 +303,7 @@ fun ArtistScreen(browseId: String) {
                             )
                         }
 
-                        4 -> ArtistLocalSongs(
+                        3 -> ArtistLocalSongs(
                             browseId = browseId,
                             headerContent = headerContent,
                             thumbnailContent = thumbnailContent,
