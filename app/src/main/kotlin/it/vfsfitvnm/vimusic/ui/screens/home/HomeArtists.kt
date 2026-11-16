@@ -96,12 +96,57 @@ fun HomeArtistList(
     var loading by remember(refreshToken) { mutableStateOf(false) }
     var finished by remember(refreshToken) { mutableStateOf(false) }
 
-    // Diagnostic build: disable the automatic All Artist feed fetch only.
-    // Manual artist search below remains available so we can isolate the feed source.
+    // All Artist feed uses only the isolated Metrolist artist client.
+    // One focused query + its continuation replaces BlinkPlay's old multi-query feed.
+    suspend fun loadMetrolistArtists(next: String? = null) {
+        if (loading || finished && next != null) return
+        loading = true
+        try {
+            val page = withContext(Dispatchers.IO) {
+                if (next == null) {
+                    Innertube.metrolistArtistSearchPage(
+                        SearchBody(
+                            context = indiaContext,
+                            query = "Indian music artists",
+                            params = Innertube.SearchFilter.Artist.value
+                        )
+                    )
+                } else {
+                    Innertube.metrolistArtistSearchPage(
+                        ContinuationBody(context = indiaContext, continuation = next)
+                    )
+                }
+            }?.getOrNull()
+            val fresh = page?.items.orEmpty()
+            artists = (artists + fresh).distinctBy(Innertube.ArtistItem::key)
+            continuation = page?.continuation?.takeIf { it != next }
+            finished = fresh.isEmpty() || continuation == null
+        } catch (_: Exception) {
+            finished = continuation == null
+        } finally {
+            loading = false
+        }
+    }
+
     LaunchedEffect(refreshToken) {
-        loading = false
+        artists = emptyList()
         continuation = null
-        finished = true
+        finished = false
+        loadMetrolistArtists()
+    }
+
+    LaunchedEffect(gridState, refreshToken, artistSearchActive) {
+        if (artistSearchActive) return@LaunchedEffect
+        snapshotFlow {
+            val layout = gridState.layoutInfo
+            val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val total = layout.totalItemsCount
+            total > 0 && lastVisible >= total - 4
+        }.collect { nearEnd ->
+            if (nearEnd && !loading && !finished) {
+                continuation?.let { loadMetrolistArtists(it) }
+            }
+        }
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
