@@ -81,15 +81,10 @@ import kotlinx.coroutines.withContext
 @ExperimentalAnimationApi
 @Composable
 fun ArtistScreen(browseId: String) {
-    val saveableStateHolder = rememberSaveableStateHolder()
-
     var tabIndex by rememberPreference(artistScreenTabIndexKey, defaultValue = 0)
-
     PersistMapCleanup(tagPrefix = "artist/$browseId/")
 
     var artist by persist<Artist?>("artist/$browseId/artist")
-
-    var artistPage by persist<Innertube.ArtistPage?>("artist/$browseId/artistPage")
 
     LaunchedEffect(browseId) {
         Database
@@ -100,60 +95,20 @@ fun ArtistScreen(browseId: String) {
             }
     }
 
-    // Keep any persisted page visible, but always refresh its data when the artist is opened.
-    LaunchedEffect(browseId) {
-        // Do not present a persisted response as if it came from the current Metrolist request.
-        artistPage = null
-        withContext(Dispatchers.IO) {
-            Innertube.metrolistArtistPage(BrowseBody(browseId = browseId))
-                ?.onSuccess { currentArtistPage ->
-                    artistPage = currentArtistPage
-
-                    Database.upsert(
-                        Artist(
-                            id = browseId,
-                            name = currentArtistPage.name,
-                            thumbnailUrl = currentArtistPage.thumbnail?.url,
-                            timestamp = System.currentTimeMillis(),
-                            bookmarkedAt = artist?.bookmarkedAt
-                        )
-                    )
-                }
-        }
-    }
-
     RouteHandler(listenToGlobalEmitter = true) {
         globalRoutes()
 
         host {
-            val thumbnailContent =
-                adaptiveThumbnailContent(
-                    artist?.timestamp == null,
-                    artist?.thumbnailUrl,
-                    CircleShape
-                )
-
             val headerContent: @Composable (textButton: (@Composable () -> Unit)?) -> Unit =
                 { textButton ->
                     if (artist?.timestamp == null) {
-                        HeaderPlaceholder(
-                            modifier = Modifier
-                                .shimmer()
-                        )
+                        HeaderPlaceholder(modifier = Modifier.shimmer())
                     } else {
                         val (colorPalette) = LocalAppearance.current
                         val context = LocalContext.current
-
                         Header(title = artist?.name ?: "Unknown") {
                             textButton?.invoke()
-
-                            Spacer(
-                                modifier = Modifier
-                                    .weight(1f)
-                            )
-
-
-
+                            Spacer(modifier = Modifier.weight(1f))
                             HeaderIconButton(
                                 icon = R.drawable.share_social,
                                 color = colorPalette.text,
@@ -166,7 +121,6 @@ fun ArtistScreen(browseId: String) {
                                             "https://music.youtube.com/channel/$browseId"
                                         )
                                     }
-
                                     context.startActivity(Intent.createChooser(sendIntent, null))
                                 }
                             )
@@ -174,249 +128,25 @@ fun ArtistScreen(browseId: String) {
                     }
                 }
 
-            // OpenTune-style artist navigation: use the shelves YouTube Music
-            // actually returns for this artist instead of a fixed Metrolist category list.
-            val artistSections = artistPage?.sections.orEmpty()
-                .filter { section ->
-                    !section.title.contains("video", ignoreCase = true) &&
-                        (section.items.isNotEmpty() || section.continuation != null || section.browseEndpoint != null)
-                }
-                .distinctBy { it.title.trim().lowercase() }
-
             Scaffold(
                 topIconButtonId = R.drawable.chevron_back,
                 onTopIconButtonClick = pop,
-                tabIndex = tabIndex.coerceIn(0, (artistSections.size - 1).coerceAtLeast(0)),
+                tabIndex = tabIndex.coerceIn(0, 4),
                 onTabChanged = { tabIndex = it },
                 tabColumnContent = { Item ->
-                    artistSections.forEachIndexed { index, section ->
-                        val icon = when {
-                            section.title.contains("song", ignoreCase = true) ||
-                                section.title.contains("track", ignoreCase = true) -> R.drawable.musical_notes
-                            section.title.contains("album", ignoreCase = true) ||
-                                section.title.contains("single", ignoreCase = true) ||
-                                section.title.contains("release", ignoreCase = true) ||
-                                section.title.contains("ep", ignoreCase = true) -> R.drawable.disc
-                            section.title.contains("artist", ignoreCase = true) ||
-                                section.title.contains("fans", ignoreCase = true) -> R.drawable.person
-                            else -> R.drawable.library
-                        }
-                        Item(index, section.title, icon)
-                    }
-                },
-            ) { currentTabIndex ->
-                val section = artistSections.getOrNull(currentTabIndex)
-                if (section != null) {
-                    saveableStateHolder.SaveableStateProvider(key = section.title) {
-                        ArtistShelfPage(
-                            title = section.title,
-                            section = section,
-                            headerContent = headerContent,
-                            onAlbumClick = { albumRoute(it) },
-                            onArtistClick = { artistRoute(it) },
-                            onPlaylistClick = { playlistRoute(it) }
-                        )
-                    }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        item {
-                            headerContent(null)
-                            BasicText(
-                                text = "Artist categories are not available.",
-                                modifier = Modifier.padding(16.dp)
-                            )
-                        }
-                    }
+                    Item(0, "Overview", R.drawable.sparkles)
+                    Item(1, "Songs", R.drawable.musical_notes)
+                    Item(2, "Albums", R.drawable.disc)
+                    Item(3, "Singles", R.drawable.disc)
+                    Item(4, "Library", R.drawable.library)
                 }
-            }
-        }
-    }
-}
-
-
-private fun Innertube.ArtistPage.findArtistSection(vararg aliases: String): Innertube.ArtistSection? =
-    sections.firstOrNull { section ->
-        aliases.any { alias -> section.title.contains(alias, ignoreCase = true) }
-    }
-
-@Composable
-private fun ArtistShelfPage(
-    title: String,
-    section: Innertube.ArtistSection?,
-    headerContent: @Composable (textButton: (@Composable () -> Unit)?) -> Unit,
-    onAlbumClick: (String) -> Unit,
-    onArtistClick: (String) -> Unit,
-    onPlaylistClick: (String) -> Unit,
-) {
-    val (_, typography) = LocalAppearance.current
-    val songSize = Dimensions.thumbnails.song
-    val songSizePx = songSize.px
-    val entitySize = 108.dp
-    val entitySizePx = entitySize.px
-    val binder = LocalPlayerServiceBinder.current
-    val listState = rememberLazyListState()
-    val shelfItems = remember(section) {
-        mutableStateListOf<Innertube.Item>().apply { addAll(section?.items.orEmpty()) }
-    }
-    var continuation by remember(section) { mutableStateOf(section?.continuation) }
-    var useBrowseEndpoint by remember(section) {
-        mutableStateOf(section?.continuation == null && section?.browseEndpoint?.browseId != null)
-    }
-    var isLoading by remember(section) { mutableStateOf(false) }
-    var loadFailed by remember(section) { mutableStateOf(false) }
-    var retryKey by remember(section) { mutableStateOf(0) }
-
-    // Every artist shelf keeps its first batch and appends subsequent batches as the user scrolls.
-    LaunchedEffect(section, retryKey) {
-        snapshotFlow {
-            Triple(
-                listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1,
-                shelfItems.size,
-                continuation to useBrowseEndpoint
-            )
-        }.distinctUntilChanged().collect { (lastVisibleIndex, loadedCount, pagingState) ->
-            val loadThreshold = (loadedCount - 4).coerceAtLeast(0) + 1
-            val (token, browseFallback) = pagingState
-            if ((token != null || browseFallback) && !isLoading && lastVisibleIndex >= loadThreshold) {
-                isLoading = true
-                loadFailed = false
-                val result = withContext(Dispatchers.IO) {
-                    val fromMusicResponsive = { renderer: MusicResponsiveListItemRenderer ->
-                        Innertube.SongItem.from(renderer)
+            ) {
+                // Intentionally blank: keep BlinkPlay's existing Artist UI and tabs.
+                // Data source and artist content will be added after the UI is confirmed.
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    item(key = "artist-header") {
+                        headerContent(null)
                     }
-                    val fromMusicTwoRow = { renderer: MusicTwoRowItemRenderer ->
-                        Innertube.AlbumItem.from(renderer)
-                            ?: Innertube.ArtistItem.from(renderer)
-                            ?: Innertube.PlaylistItem.from(renderer)
-                    }
-                    if (token != null) {
-                        Innertube.metrolistArtistItemsPage<Innertube.Item>(
-                            body = ContinuationBody(continuation = token),
-                            fromMusicResponsiveListItemRenderer = fromMusicResponsive,
-                            fromMusicTwoRowItemRenderer = fromMusicTwoRow
-                        )
-                    } else {
-                        section?.browseEndpoint?.let { endpoint ->
-                            endpoint.browseId?.let { browseId ->
-                                Innertube.metrolistArtistItemsPage<Innertube.Item>(
-                                    body = BrowseBody(browseId = browseId, params = endpoint.params),
-                                    fromMusicResponsiveListItemRenderer = fromMusicResponsive,
-                                    fromMusicTwoRowItemRenderer = fromMusicTwoRow
-                                )
-                            }
-                        }
-                    }
-                }
-                if (result == null) {
-                    // Keep the current token / browse fallback so a failed request can be retried.
-                    loadFailed = true
-                } else {
-                    result.onSuccess { page ->
-                        if (page == null) {
-                            continuation = null
-                            useBrowseEndpoint = false
-                        } else {
-                            val knownKeys = shelfItems.mapTo(mutableSetOf(), Innertube.Item::key)
-                            page.items.orEmpty().filter { knownKeys.add(it.key) }.forEach { shelfItems.add(it) }
-                            continuation = page.continuation?.takeIf { it != token }
-                            useBrowseEndpoint = false
-                        }
-                    }.onFailure {
-                        loadFailed = true
-                    }
-                }
-                isLoading = false
-            }
-        }
-    }
-
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        item(key = "artist-header") {
-            headerContent(null)
-        }
-        item(key = "artist-shelf-title") {
-            BasicText(
-                text = title,
-                style = typography.m.semiBold.copy(color = Color.White),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
-            )
-        }
-
-        if (shelfItems.isEmpty() && continuation == null) {
-            item(key = "artist-shelf-empty") {
-                BasicText(
-                    text = "No $title available for this artist.",
-                    style = typography.s.copy(color = Color.White),
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-        } else {
-            items(
-                items = shelfItems,
-                key = Innertube.Item::key
-            ) { item ->
-                when (item) {
-                    is Innertube.SongItem -> SongItem(
-                        song = item,
-                        thumbnailSizeDp = songSize,
-                        thumbnailSizePx = songSizePx,
-                        titleColor = Color.White,
-                        modifier = Modifier.clickable {
-                            binder?.stopRadio()
-                            binder?.player?.forcePlay(item.asMediaItem)
-                            binder?.setupRadio(item.info?.endpoint)
-                        }
-                    )
-                    is Innertube.AlbumItem -> AlbumItem(
-                        album = item,
-                        thumbnailSizePx = entitySizePx,
-                        thumbnailSizeDp = entitySize,
-                        alternative = true,
-                        titleColor = Color.White,
-                        modifier = Modifier.clickable { onAlbumClick(item.key) }
-                    )
-                    is Innertube.ArtistItem -> ArtistItem(
-                        artist = item,
-                        thumbnailSizePx = entitySizePx,
-                        thumbnailSizeDp = entitySize,
-                        alternative = true,
-                        modifier = Modifier.clickable { onArtistClick(item.key) }
-                    )
-                    is Innertube.PlaylistItem -> PlaylistItem(
-                        playlist = item,
-                        thumbnailSizePx = entitySizePx,
-                        thumbnailSizeDp = entitySize,
-                        alternative = true,
-                        modifier = Modifier.clickable { onPlaylistClick(item.key) }
-                    )
-                    else -> Unit
-                }
-            }
-            if (isLoading) {
-                item(key = "artist-shelf-loading") {
-                    BasicText(
-                        text = "Loading more...",
-                        style = typography.s.copy(color = Color.White),
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            } else if (loadFailed && (continuation != null || section?.browseEndpoint?.browseId != null)) {
-                item(key = "artist-shelf-retry") {
-                    BasicText(
-                        text = "Couldn't load more. Tap to retry.",
-                        style = typography.s.copy(color = Color.White),
-                        modifier = Modifier
-                            .clickable {
-                                if (continuation == null) {
-                                    useBrowseEndpoint = section?.browseEndpoint?.browseId != null
-                                }
-                                retryKey++
-                            }
-                            .padding(16.dp)
-                    )
                 }
             }
         }
