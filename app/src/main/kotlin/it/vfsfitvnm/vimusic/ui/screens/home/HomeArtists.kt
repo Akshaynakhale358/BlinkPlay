@@ -113,7 +113,7 @@ fun HomeArtistList(
                             SearchBody(
                                 context = indiaContext,
                                 query = queries[index],
-                                params = Innertube.SearchFilter.Artist.value
+                                params = "EgWKAQIgAWoKEAkQChAFEAMQBA=="
                             )
                         )
                     } else {
@@ -236,7 +236,7 @@ fun HomeArtistList(
                         body = SearchBody(
                             context = indiaContext,
                             query = artistSearchText,
-                            params = Innertube.SearchFilter.Artist.value
+                            params = "EgWKAQIgAWoKEAkQChAFEAMQBA=="
                         )
                     )
                 }
