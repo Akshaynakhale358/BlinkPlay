@@ -180,10 +180,9 @@ fun ArtistScreen(browseId: String) {
                     Item(0, "Songs", R.drawable.musical_notes)
                     Item(1, "Albums", R.drawable.disc)
                     Item(2, "Singles & EPs", R.drawable.disc)
-                    Item(3, "Videos", R.drawable.play)
-                    Item(4, "Fans might also like", R.drawable.person)
-                    Item(5, "Playlists", R.drawable.library)
-                    Item(6, "Featured on / Appears on", R.drawable.disc)
+                    Item(3, "Fans might also like", R.drawable.person)
+                    Item(4, "Playlists", R.drawable.library)
+                    Item(5, "Featured on / Appears on", R.drawable.disc)
                 },
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
@@ -310,10 +309,9 @@ fun ArtistScreen(browseId: String) {
                         }
 
                         2 -> ArtistShelfPage("Singles & EPs", artistPage?.findArtistSection("singles & eps", "singles and eps", "singles", "eps"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        3 -> ArtistShelfPage("Videos", artistPage?.findArtistSection("videos", "music videos", "video"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        4 -> ArtistShelfPage("Fans might also like", artistPage?.findArtistSection("fans might also like", "similar artists", "related artists", "you might also like"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        5 -> ArtistShelfPage("Playlists", artistPage?.findArtistSection("playlists", "artist playlists"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        6 -> ArtistShelfPage("Featured on / Appears on", artistPage?.findArtistSection("appears on", "featured on"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        3 -> ArtistShelfPage("Fans might also like", artistPage?.findArtistSection("fans might also like", "similar artists", "related artists", "you might also like"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        4 -> ArtistShelfPage("Playlists", artistPage?.findArtistSection("playlists", "artist playlists"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
+                        5 -> ArtistShelfPage("Featured on / Appears on", artistPage?.findArtistSection("appears on", "featured on"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
                     }
                 }
             }
