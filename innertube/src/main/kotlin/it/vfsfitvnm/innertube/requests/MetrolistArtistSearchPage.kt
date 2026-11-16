@@ -60,8 +60,16 @@ suspend fun Innertube.metrolistArtistSearchPage(
         grid?.continuations.orEmpty().forEach { it.nextContinuationData?.continuation?.let(tokens::add) }
     }
 
-    val sectionLists = response.contents?.tabbedSearchResultsRenderer?.tabs.orEmpty()
-        .mapNotNull { it.tabRenderer?.content?.sectionListRenderer }
+    val tabs = response.contents?.tabbedSearchResultsRenderer?.tabs.orEmpty()
+    // Keep the Artist-filtered result tab and its continuation together. Collecting
+    // tokens from unrelated search tabs can select a songs/videos continuation.
+    val artistTabs = tabs.filter { tab ->
+        val renderer = tab.tabRenderer
+        renderer?.title?.contains("artist", ignoreCase = true) == true ||
+            renderer?.tabIdentifier?.contains("artist", ignoreCase = true) == true
+    }
+    val selectedTabs = artistTabs.ifEmpty { tabs }
+    val sectionLists = selectedTabs.mapNotNull { it.tabRenderer?.content?.sectionListRenderer }
     sectionLists.forEach { sectionList ->
         sectionList.contents.orEmpty().forEach { content ->
             addShelf(content.musicShelfRenderer)
@@ -75,7 +83,7 @@ suspend fun Innertube.metrolistArtistSearchPage(
 
     Innertube.ItemsPage(
         items = items.distinctBy(Innertube.Item::key),
-        continuation = tokens.singleOrNull()
+        continuation = tokens.firstOrNull()
     )
 }
 
