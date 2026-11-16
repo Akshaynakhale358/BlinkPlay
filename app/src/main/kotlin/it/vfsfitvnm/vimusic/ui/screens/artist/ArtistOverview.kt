@@ -59,7 +59,6 @@ import it.vfsfitvnm.vimusic.utils.semiBold
 @Composable
 fun ArtistOverview(
     youtubeArtistPage: Innertube.ArtistPage?,
-    onViewAllSongsClick: () -> Unit,
     onViewAllAlbumsClick: () -> Unit,
     onViewAllSinglesClick: () -> Unit,
     onAlbumClick: (String) -> Unit,
@@ -150,20 +149,10 @@ fun ArtistOverview(
                                 .padding(endPaddingValues)
                         ) {
                             BasicText(
-                                text = "Songs",
+                                text = "Top Songs",
                                 style = typography.m.semiBold,
                                 modifier = sectionTextModifier
-                            )
-
-                            youtubeArtistPage.songsEndpoint?.let {
-                                BasicText(
-                                    text = "View all",
-                                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
-                                    modifier = sectionTextModifier
-                                        .clickable(onClick = onViewAllSongsClick),
-                                )
-                            }
-                        }
+                            )}
 
                         songs.forEach { song ->
                             SongItem(
@@ -191,96 +180,6 @@ fun ArtistOverview(
                                     )
                                     .padding(endPaddingValues)
                             )
-                        }
-                    }
-
-                    youtubeArtistPage.albums?.let { albums ->
-                        Row(
-                            verticalAlignment = Alignment.Bottom,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(endPaddingValues)
-                        ) {
-                            BasicText(
-                                text = "Albums",
-                                style = typography.m.semiBold,
-                                modifier = sectionTextModifier
-                            )
-
-                            youtubeArtistPage.albumsEndpoint?.let {
-                                BasicText(
-                                    text = "View all",
-                                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
-                                    modifier = sectionTextModifier
-                                        .clickable(onClick = onViewAllAlbumsClick),
-                                )
-                            }
-                        }
-
-                        LazyRow(
-                            contentPadding = endPaddingValues,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ) {
-                            items(
-                                items = albums,
-                                key = Innertube.AlbumItem::key
-                            ) { album ->
-                                AlbumItem(
-                                    album = album,
-                                    thumbnailSizePx = albumThumbnailSizePx,
-                                    thumbnailSizeDp = albumThumbnailSizeDp,
-                                    alternative = true,
-                                    modifier = Modifier
-                                        .clickable(onClick = { onAlbumClick(album.key) })
-                                )
-                            }
-                        }
-                    }
-
-                    youtubeArtistPage.singles?.let { singles ->
-                        Row(
-                            verticalAlignment = Alignment.Bottom,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(endPaddingValues)
-                        ) {
-                            BasicText(
-                                text = "Singles",
-                                style = typography.m.semiBold,
-                                modifier = sectionTextModifier
-                            )
-
-                            youtubeArtistPage.singlesEndpoint?.let {
-                                BasicText(
-                                    text = "View all",
-                                    style = typography.s.semiBold.copy(fontSize = typography.s.fontSize * 0.8f),
-                                    modifier = sectionTextModifier
-                                        .clickable(onClick = onViewAllSinglesClick),
-                                )
-                            }
-                        }
-
-                        LazyRow(
-                            contentPadding = endPaddingValues,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ) {
-                            items(
-                                items = singles,
-                                key = Innertube.AlbumItem::key
-                            ) { album ->
-                                AlbumItem(
-                                    album = album,
-                                    thumbnailSizePx = albumThumbnailSizePx,
-                                    thumbnailSizeDp = albumThumbnailSizeDp,
-                                    alternative = true,
-                                    modifier = Modifier
-                                        .clickable(onClick = { onAlbumClick(album.key) })
-                                )
-                            }
                         }
                     }
 
@@ -315,17 +214,16 @@ fun ArtistOverview(
                         }
                     }
 
-                    youtubeArtistPage.playlists?.takeIf { it.isNotEmpty() }?.let { playlists ->
+                    youtubeArtistPage.featuredOn?.takeIf { it.isNotEmpty() }?.let { playlists ->
                         BasicText(
-                            text = "Playlists",
+                            text = "Featured On",
                             style = typography.m.semiBold,
                             modifier = sectionTextModifier
                         )
 
                         LazyRow(
                             contentPadding = endPaddingValues,
-                            modifier = Modifier
-                                .fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             items(
                                 items = playlists,
@@ -336,8 +234,7 @@ fun ArtistOverview(
                                     thumbnailSizePx = albumThumbnailSizePx,
                                     thumbnailSizeDp = albumThumbnailSizeDp,
                                     alternative = true,
-                                    modifier = Modifier
-                                        .clickable(onClick = { onPlaylistClick(playlist.key) })
+                                    modifier = Modifier.clickable(onClick = { onPlaylistClick(playlist.key) })
                                 )
                             }
                         }
