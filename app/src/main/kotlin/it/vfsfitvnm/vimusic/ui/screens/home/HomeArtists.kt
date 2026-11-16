@@ -117,7 +117,7 @@ fun HomeArtistList(
                             )
                         )
                     } else {
-                        Innertube.metrolistArtistSearchPage(
+                        Innertube.openTuneArtistSearchPage(
                             ContinuationBody(context = indiaContext, continuation = token)
                         )
                     }
@@ -232,7 +232,7 @@ fun HomeArtistList(
                 delay(350)
                 artistSearchLoading = true
                 val result = withContext(Dispatchers.IO) {
-                    Innertube.metrolistArtistSearchPage(
+                    Innertube.openTuneArtistSearchPage(
                         body = SearchBody(
                             context = indiaContext,
                             query = artistSearchText,
