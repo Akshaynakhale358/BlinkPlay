@@ -12,8 +12,9 @@ internal fun SectionListRenderer.findSectionByTitle(text: String): SectionListRe
             ?.musicCarouselShelfBasicHeaderRenderer
             ?.title
             ?: content
-                .musicShelfRenderer
+                .musicPlaylistShelfRenderer
                 ?.title
+                ?: content.musicShelfRenderer?.title
 
         title
             ?.runs
@@ -37,14 +38,44 @@ internal fun SectionListRenderer.findSectionByTitleContaining(text: String): Sec
             ?.musicCarouselShelfBasicHeaderRenderer
             ?.title
             ?: content
-                .musicShelfRenderer
+                .musicPlaylistShelfRenderer
                 ?.title
+                ?: content.musicShelfRenderer?.title
 
         title
             ?.runs
             ?.firstOrNull()
             ?.text
             ?.contains(text, ignoreCase = true) == true
+    }
+}
+
+/**
+ * Adapted from haturatu/ViMusic (GPL-3.0).
+ * Matches known artist shelf aliases and tolerates YouTube's title variations.
+ */
+internal fun SectionListRenderer.findSectionByTitleAny(vararg texts: String): SectionListRenderer.Content? {
+    fun normalize(value: String?) = value?.trim()?.lowercase()
+
+    return contents?.find { content ->
+        val title = normalize(
+            content.musicCarouselShelfRenderer
+                ?.header
+                ?.musicCarouselShelfBasicHeaderRenderer
+                ?.title
+                ?.runs
+                ?.firstOrNull()
+                ?.text
+                ?: (content.musicPlaylistShelfRenderer?.title ?: content.musicShelfRenderer?.title)
+                    ?.runs
+                    ?.firstOrNull()
+                    ?.text
+        )
+
+        title != null && texts.any { text ->
+            val target = normalize(text)
+            target != null && (title == target || title.contains(target))
+        }
     }
 }
 
