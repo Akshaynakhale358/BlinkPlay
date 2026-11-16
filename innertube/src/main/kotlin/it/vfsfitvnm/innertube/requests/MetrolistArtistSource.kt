@@ -10,12 +10,11 @@ import it.vfsfitvnm.innertube.utils.runCatchingNonCancellable
 
 /**
  * Artist-only source boundary adapted from MetrolistGroup/Metrolist's artist data flow
- * (GPL-3.0). Uses BlinkPlay's HTTP client and UI-facing model types; no Metrolist UI or
- * unrelated Last.fm/Apple Music/settings modules are imported.
+ * (GPL-3.0). Uses an isolated Metrolist artist HTTP client; BlinkPlay's playback/search client is not used.
  */
 suspend fun Innertube.metrolistArtistPage(body: BrowseBody): Result<Innertube.ArtistPage>? =
     runCatchingNonCancellable {
-        val response = client.post(browse) {
+        val response = MetrolistArtistClient.client.post(MetrolistArtistClient.browse) {
             setBody(body)
             mask("contents,header,microformat")
         }.body<BrowseResponse>()
