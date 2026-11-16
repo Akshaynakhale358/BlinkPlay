@@ -102,6 +102,8 @@ fun ArtistScreen(browseId: String) {
 
     // Keep any persisted page visible, but always refresh its data when the artist is opened.
     LaunchedEffect(browseId) {
+        // Do not present a persisted response as if it came from the current Metrolist request.
+        artistPage = null
         withContext(Dispatchers.IO) {
             Innertube.metrolistArtistPage(BrowseBody(browseId = browseId))
                 ?.onSuccess { currentArtistPage ->
@@ -197,6 +199,7 @@ fun ArtistScreen(browseId: String) {
                             ItemsPage(
                                 tag = "artist/$browseId/songs",
                                 headerContent = headerContent,
+                                refreshOnEnter = true,
                                 itemsPageProvider = artistPage?.let {
                                     ({ continuation ->
                                         continuation?.let {
@@ -263,6 +266,7 @@ fun ArtistScreen(browseId: String) {
                             ItemsPage(
                                 tag = "artist/$browseId/albums",
                                 headerContent = headerContent,
+                                refreshOnEnter = true,
                                 emptyItemsText = "This artist didn't release any album",
                                 itemsPageProvider = artistPage?.let {
                                     ({ continuation ->
