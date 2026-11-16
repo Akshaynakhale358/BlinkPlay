@@ -96,88 +96,12 @@ fun HomeArtistList(
     var loading by remember(refreshToken) { mutableStateOf(false) }
     var finished by remember(refreshToken) { mutableStateOf(false) }
 
-    LaunchedEffect(refreshToken, gridState) {
-        suspend fun fetchNextPage(): Boolean {
-            if (loading || finished) return false
-            loading = true
-            try {
-                var attempts = 0
-                while (attempts < queries.size && !finished) {
-                    val query = queries.getOrNull(queryIndex)
-                    if (query == null) {
-                        finished = true
-                        break
-                    }
-
-                    val token = continuation
-                    val result = withContext(Dispatchers.IO) {
-                        if (token != null) {
-                            Innertube.metrolistArtistSearchPage(
-                                body = ContinuationBody(context = indiaContext, continuation = token)
-                            )
-                        } else {
-                            suspend fun searchArtists(params: String) =
-                                Innertube.metrolistArtistSearchPage(
-                                    body = SearchBody(
-                                        context = indiaContext,
-                                        query = query,
-                                        params = params
-                                    )
-                                )
-
-                            // YouTube Music's dedicated Artist filter sometimes returns an
-                            // empty/partial layout for broad regional queries. Retry the same
-                            // query without the filter; Metrolist's artist parser returns only ArtistItems.
-                            val filtered = searchArtists(Innertube.SearchFilter.Artist.value)
-                            if (filtered?.getOrNull()?.items.isNullOrEmpty()) {
-                                searchArtists("")
-                            } else {
-                                filtered
-                            }
-                        }
-                    }
-
-                    val page = result?.getOrNull()
-                    val incoming = page?.items.orEmpty()
-                    val known = artists.mapTo(mutableSetOf()) { it.key }
-                    val newItems = incoming.filter { known.add(it.key) }
-                    if (newItems.isNotEmpty()) artists = artists + newItems
-
-                    val nextToken = page?.continuation
-                    if (page == null || nextToken == null || nextToken == token) {
-                        continuation = null
-                        queryIndex += 1
-                    } else {
-                        continuation = nextToken
-                    }
-
-                    attempts++
-                    if (queryIndex >= queries.size && continuation == null) finished = true
-                    if (newItems.isNotEmpty()) return true
-                }
-                return false
-            } finally {
-                loading = false
-            }
-        }
-
-        // Load several pages immediately; initial loading must not depend on scrolling.
-        var initialPages = 0
-        while (initialPages < 4 && artists.size < 36 && !finished) {
-            fetchNextPage()
-            initialPages++
-        }
-
-        // After the first batch, load another page whenever the user approaches the end.
-        snapshotFlow {
-            val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-            val itemCount = artists.size
-            Triple(lastVisible, itemCount, loading)
-        }.collect { (lastVisible, itemCount, isLoading) ->
-            if (!isLoading && !finished && itemCount > 0 && lastVisible >= itemCount - 5) {
-                fetchNextPage()
-            }
-        }
+    // Diagnostic build: disable the automatic All Artist feed fetch only.
+    // Manual artist search below remains available so we can isolate the feed source.
+    LaunchedEffect(refreshToken) {
+        loading = false
+        continuation = null
+        finished = true
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
