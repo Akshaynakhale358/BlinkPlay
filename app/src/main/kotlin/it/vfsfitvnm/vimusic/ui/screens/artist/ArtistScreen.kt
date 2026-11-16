@@ -97,26 +97,27 @@ fun ArtistScreen(browseId: String) {
             .distinctUntilChanged()
             .collect { currentArtist ->
                 artist = currentArtist
-
-                if (artistPage == null) {
-                    withContext(Dispatchers.IO) {
-                        Innertube.metrolistArtistPage(BrowseBody(browseId = browseId))
-                            ?.onSuccess { currentArtistPage ->
-                                artistPage = currentArtistPage
-
-                                Database.upsert(
-                                    Artist(
-                                        id = browseId,
-                                        name = currentArtistPage.name,
-                                        thumbnailUrl = currentArtistPage.thumbnail?.url,
-                                        timestamp = System.currentTimeMillis(),
-                                        bookmarkedAt = currentArtist?.bookmarkedAt
-                                    )
-                                )
-                            }
-                    }
-                }
             }
+    }
+
+    // Keep any persisted page visible, but always refresh its data when the artist is opened.
+    LaunchedEffect(browseId) {
+        withContext(Dispatchers.IO) {
+            Innertube.metrolistArtistPage(BrowseBody(browseId = browseId))
+                ?.onSuccess { currentArtistPage ->
+                    artistPage = currentArtistPage
+
+                    Database.upsert(
+                        Artist(
+                            id = browseId,
+                            name = currentArtistPage.name,
+                            thumbnailUrl = currentArtistPage.thumbnail?.url,
+                            timestamp = System.currentTimeMillis(),
+                            bookmarkedAt = artist?.bookmarkedAt
+                        )
+                    )
+                }
+        }
     }
 
     RouteHandler(listenToGlobalEmitter = true) {
