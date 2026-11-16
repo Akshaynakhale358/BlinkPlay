@@ -38,7 +38,7 @@ import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
 import it.vfsfitvnm.innertube.models.bodies.ContinuationBody
 import it.vfsfitvnm.innertube.models.bodies.SearchBody
-import it.vfsfitvnm.innertube.requests.metrolistArtistSearchPage
+import it.vfsfitvnm.innertube.requests.openTuneArtistSearchPage
 import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.Header
@@ -96,9 +96,9 @@ fun HomeArtistList(
     var loading by remember(refreshToken) { mutableStateOf(false) }
     var finished by remember(refreshToken) { mutableStateOf(false) }
 
-    // Artist feed stays isolated on MetrolistArtistClient. Each search query has
+    // Artist feed now uses OpenTune's Innertube artist-row parser. Each search query has
     // its own continuation; when a query has no continuation, move to the next query.
-    suspend fun loadMetrolistArtists(next: String? = continuation) {
+    suspend fun loadOpenTuneArtists(next: String? = continuation) {
         if (loading || finished) return
         loading = true
         try {
@@ -109,7 +109,7 @@ fun HomeArtistList(
             while (index < queries.size && requests < queries.size) {
                 val page = withContext(Dispatchers.IO) {
                     if (token == null) {
-                        Innertube.metrolistArtistSearchPage(
+                        Innertube.openTuneArtistSearchPage(
                             SearchBody(
                                 context = indiaContext,
                                 query = queries[index],
@@ -205,7 +205,7 @@ fun HomeArtistList(
                 )
             } else {
                 BasicText(
-                    text = "All Artist",
+                    text = "All Artist • ${artists.size}",
                     style = typography.s.semiBold.copy(
                         fontSize = typography.xxl.fontSize * 0.5616f,
                         textAlign = TextAlign.End
