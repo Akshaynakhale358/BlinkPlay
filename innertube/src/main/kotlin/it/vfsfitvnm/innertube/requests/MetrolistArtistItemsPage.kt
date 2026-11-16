@@ -79,7 +79,7 @@ suspend fun <T : Innertube.Item> Innertube.metrolistArtistItemsPage(
 
     val page: Innertube.ItemsPage<T>? = Innertube.ItemsPage(
         items = items.distinctBy(Innertube.Item::key),
-        continuation = tokens.singleOrNull()
+        continuation = tokens.firstOrNull()
     )
     page
 }
@@ -143,7 +143,7 @@ suspend fun <T : Innertube.Item> Innertube.metrolistArtistItemsPage(
 
     val page: Innertube.ItemsPage<T>? = Innertube.ItemsPage(
         items = items.distinctBy(Innertube.Item::key),
-        continuation = tokens.singleOrNull()
+        continuation = tokens.firstOrNull()
     )
     page
 }
