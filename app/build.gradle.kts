@@ -21,7 +21,7 @@ android {
         // still theirs. The application id is the identity on a device and in a store, and
         // that one has to be ours: the original already occupies the old id on F-Droid, and
         // two apps cannot share it.
-        applicationId = "net.m4j.BlinkPlayPodcast"
+        applicationId = "net.m4j.blinkplay.artisttest"
         minSdk = 23
         targetSdk = 36
         versionCode = 23
@@ -51,7 +51,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["appName"] = "BlinkPlayPodcast"
+            manifestPlaceholders["appName"] = "BlinkPlay"
         }
 
         release {
