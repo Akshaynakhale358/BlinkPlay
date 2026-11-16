@@ -174,149 +174,58 @@ fun ArtistScreen(browseId: String) {
                     }
                 }
 
+            // OpenTune-style artist navigation: use the shelves YouTube Music
+            // actually returns for this artist instead of a fixed Metrolist category list.
+            val artistSections = artistPage?.sections.orEmpty()
+                .filter { section ->
+                    !section.title.contains("video", ignoreCase = true) &&
+                        (section.items.isNotEmpty() || section.continuation != null || section.browseEndpoint != null)
+                }
+                .distinctBy { it.title.trim().lowercase() }
+
             Scaffold(
                 topIconButtonId = R.drawable.chevron_back,
                 onTopIconButtonClick = pop,
-                tabIndex = tabIndex,
+                tabIndex = tabIndex.coerceIn(0, (artistSections.size - 1).coerceAtLeast(0)),
                 onTabChanged = { tabIndex = it },
                 tabColumnContent = { Item ->
-                    Item(0, "Songs", R.drawable.musical_notes)
-                    Item(1, "Albums", R.drawable.disc)
-                    Item(2, "Singles & EPs", R.drawable.disc)
-                    Item(3, "Fans might also like", R.drawable.person)
-                    Item(4, "Playlists", R.drawable.library)
-                    Item(5, "Featured on / Appears on", R.drawable.disc)
+                    artistSections.forEachIndexed { index, section ->
+                        val icon = when {
+                            section.title.contains("song", ignoreCase = true) ||
+                                section.title.contains("track", ignoreCase = true) -> R.drawable.musical_notes
+                            section.title.contains("album", ignoreCase = true) ||
+                                section.title.contains("single", ignoreCase = true) ||
+                                section.title.contains("release", ignoreCase = true) ||
+                                section.title.contains("ep", ignoreCase = true) -> R.drawable.disc
+                            section.title.contains("artist", ignoreCase = true) ||
+                                section.title.contains("fans", ignoreCase = true) -> R.drawable.person
+                            else -> R.drawable.library
+                        }
+                        Item(index, section.title, icon)
+                    }
                 },
             ) { currentTabIndex ->
-                saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
-                    when (currentTabIndex) {
-                        0 -> {
-                            val binder = LocalPlayerServiceBinder.current
-                            val menuState = LocalMenuState.current
-                            val thumbnailSizeDp = Dimensions.thumbnails.song
-                            val thumbnailSizePx = thumbnailSizeDp.px
-
-                            ItemsPage(
-                                tag = "artist/$browseId/songs",
-                                headerContent = headerContent,
-                                refreshOnEnter = true,
-                                itemsPageProvider = artistPage?.let {
-                                    ({ continuation ->
-                                        continuation?.let {
-                                            Innertube.metrolistArtistItemsPage(
-                                                body = ContinuationBody(continuation = continuation),
-                                                fromMusicResponsiveListItemRenderer = Innertube.SongItem::from,
-                                            )
-                                        } ?: artistPage
-                                            ?.songsEndpoint
-                                            ?.takeIf { it.browseId != null }
-                                            ?.let { endpoint ->
-                                                Innertube.metrolistArtistItemsPage(
-                                                    body = BrowseBody(
-                                                        browseId = endpoint.browseId!!,
-                                                        params = endpoint.params,
-                                                    ),
-                                                    fromMusicResponsiveListItemRenderer = Innertube.SongItem::from,
-                                                )
-                                            }
-                                        ?: Result.success(
-                                            Innertube.ItemsPage(
-                                                items = artistPage?.songs,
-                                                continuation = artistPage?.findArtistSection(
-                                                    "songs", "top songs", "top tracks", "popular songs", "tracks"
-                                                )?.continuation
-                                            )
-                                        )
-                                    })
-                                },
-                                itemContent = { song ->
-                                    SongItem(
-                                        song = song,
-                                        thumbnailSizeDp = thumbnailSizeDp,
-                                        thumbnailSizePx = thumbnailSizePx,
-                                        titleColor = Color.White,
-                                        modifier = Modifier
-                                            .combinedClickable(
-                                                onLongClick = {
-                                                    menuState.display {
-                                                        NonQueuedMediaItemMenu(
-                                                            onDismiss = menuState::hide,
-                                                            mediaItem = song.asMediaItem,
-                                                        )
-                                                    }
-                                                },
-                                                onClick = {
-                                                    binder?.stopRadio()
-                                                    binder?.player?.forcePlay(song.asMediaItem)
-                                                    binder?.setupRadio(song.info?.endpoint)
-                                                }
-                                            )
-                                    )
-                                },
-                                itemPlaceholderContent = {
-                                    SongItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
-                                }
+                val section = artistSections.getOrNull(currentTabIndex)
+                if (section != null) {
+                    saveableStateHolder.SaveableStateProvider(key = section.title) {
+                        ArtistShelfPage(
+                            title = section.title,
+                            section = section,
+                            headerContent = headerContent,
+                            onAlbumClick = { albumRoute(it) },
+                            onArtistClick = { artistRoute(it) },
+                            onPlaylistClick = { playlistRoute(it) }
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        item {
+                            headerContent(null)
+                            BasicText(
+                                text = "Artist categories are not available.",
+                                modifier = Modifier.padding(16.dp)
                             )
                         }
-
-                        1 -> {
-                            val thumbnailSizeDp = 108.dp
-                            val thumbnailSizePx = thumbnailSizeDp.px
-
-                            ItemsPage(
-                                tag = "artist/$browseId/albums",
-                                headerContent = headerContent,
-                                refreshOnEnter = true,
-                                emptyItemsText = "This artist didn't release any album",
-                                itemsPageProvider = artistPage?.let {
-                                    ({ continuation ->
-                                        continuation?.let {
-                                            Innertube.metrolistArtistItemsPage(
-                                                body = ContinuationBody(continuation = continuation),
-                                                fromMusicTwoRowItemRenderer = Innertube.AlbumItem::from,
-                                            )
-                                        } ?: artistPage
-                                            ?.albumsEndpoint
-                                            ?.takeIf { it.browseId != null }
-                                            ?.let { endpoint ->
-                                                Innertube.metrolistArtistItemsPage(
-                                                    body = BrowseBody(
-                                                        browseId = endpoint.browseId!!,
-                                                        params = endpoint.params,
-                                                    ),
-                                                    fromMusicTwoRowItemRenderer = Innertube.AlbumItem::from,
-                                                )
-                                            }
-                                        ?: Result.success(
-                                            Innertube.ItemsPage(
-                                                items = artistPage?.albums,
-                                                continuation = artistPage?.findArtistSection(
-                                                    "albums", "releases", "full albums"
-                                                )?.continuation
-                                            )
-                                        )
-                                    })
-                                },
-                                itemContent = { album ->
-                                    AlbumItem(
-                                        album = album,
-                                        thumbnailSizePx = thumbnailSizePx,
-                                        thumbnailSizeDp = thumbnailSizeDp,
-                                        titleColor = Color.White,
-                                        modifier = Modifier
-                                            .clickable(onClick = { albumRoute(album.key) })
-                                    )
-                                },
-                                itemPlaceholderContent = {
-                                    AlbumItemPlaceholder(thumbnailSizeDp = thumbnailSizeDp)
-                                }
-                            )
-                        }
-
-                        2 -> ArtistShelfPage("Singles & EPs", artistPage?.findArtistSection("singles & eps", "singles and eps", "singles", "eps"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        3 -> ArtistShelfPage("Fans might also like", artistPage?.findArtistSection("fans might also like", "similar artists", "related artists", "you might also like"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        4 -> ArtistShelfPage("Playlists", artistPage?.findArtistSection("playlists", "artist playlists"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
-                        5 -> ArtistShelfPage("Featured on / Appears on", artistPage?.findArtistSection("appears on", "featured on"), headerContent, { albumRoute(it) }, { artistRoute(it) }, { playlistRoute(it) })
                     }
                 }
             }
