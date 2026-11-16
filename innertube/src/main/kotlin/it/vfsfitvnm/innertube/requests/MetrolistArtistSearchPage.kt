@@ -151,6 +151,6 @@ suspend fun Innertube.metrolistArtistSearchPage(
 
     Innertube.ItemsPage(
         items = items.distinctBy(Innertube.Item::key),
-        continuation = tokens.singleOrNull()
+        continuation = tokens.firstOrNull()
     )
 }
