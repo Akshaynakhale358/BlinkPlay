@@ -26,7 +26,7 @@ suspend fun <T : Innertube.Item> Innertube.metrolistArtistItemsPage(
     fromMusicResponsiveListItemRenderer: (MusicResponsiveListItemRenderer) -> T? = { null },
     fromMusicTwoRowItemRenderer: (MusicTwoRowItemRenderer) -> T? = { null }
 ): Result<Innertube.ItemsPage<T>?>? = runCatchingNonCancellable {
-    val response = client.post(browse) {
+    val response = MetrolistArtistClient.client.post(MetrolistArtistClient.browse) {
         setBody(body)
         mask("*")
     }.body<BrowseResponse>()
@@ -89,7 +89,7 @@ suspend fun <T : Innertube.Item> Innertube.metrolistArtistItemsPage(
     fromMusicResponsiveListItemRenderer: (MusicResponsiveListItemRenderer) -> T? = { null },
     fromMusicTwoRowItemRenderer: (MusicTwoRowItemRenderer) -> T? = { null }
 ): Result<Innertube.ItemsPage<T>?>? = runCatchingNonCancellable {
-    val response = client.post(browse) {
+    val response = MetrolistArtistClient.client.post(MetrolistArtistClient.browse) {
         setBody(body)
         mask("*")
     }.body<ContinuationResponse>()
