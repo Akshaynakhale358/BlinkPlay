@@ -205,7 +205,7 @@ fun HomeArtistList(
                 )
             } else {
                 BasicText(
-                    text = "All Artist • ${artists.size}",
+                    text = "OpenTune Artists • ${artists.size}",
                     style = typography.s.semiBold.copy(
                         fontSize = typography.xxl.fontSize * 0.5616f,
                         textAlign = TextAlign.End
