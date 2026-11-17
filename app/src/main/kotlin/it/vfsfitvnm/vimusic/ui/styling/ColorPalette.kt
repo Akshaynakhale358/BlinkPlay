@@ -54,8 +54,8 @@ val DefaultDarkColorPalette = ColorPalette(
     background1 = Color(0xff1f2029),
     background2 = Color(0xff2b2d3b),
     text = Color.White,
-    textSecondary = Color(0xffa3a4a6),
-    textDisabled = Color(0xff6f6f73),
+    textSecondary = Color.White,
+    textDisabled = Color.White,
     accent = Color(0xff5055c0),
     onAccent = Color.White,
     isDark = true
@@ -66,8 +66,8 @@ val DefaultLightColorPalette = ColorPalette(
     background1 = Color(0xfff8f8fc),
     background2 = Color(0xffeaeaf5),
     text = Color.White,
-    textSecondary = Color(0xff656566),
-    textDisabled = Color(0xff9d9d9d),
+    textSecondary = Color.White,
+    textDisabled = Color.White,
     accent = Color(0xff5055c0),
     onAccent = Color.White,
     isDark = false
@@ -134,8 +134,8 @@ fun dynamicColorPaletteOf(hsl: FloatArray, isDark: Boolean): ColorPalette {
         background2 = Color.hsl(hsl[0], hsl[1].coerceAtMost(0.4f), if (isDark) 0.2f else 0.85f),
         accent = Color.hsl(hsl[0], hsl[1].coerceAtMost(0.5f), 0.5f),
         text = Color.White,
-        textSecondary = Color.hsl(hsl[0], hsl[1].coerceAtMost(0.1f), if (isDark) 0.65f else 0.40f),
-        textDisabled = Color.hsl(hsl[0], hsl[1].coerceAtMost(0.2f), if (isDark) 0.40f else 0.65f),
+        textSecondary = Color.White,
+        textDisabled = Color.White,
     )
 }
 
