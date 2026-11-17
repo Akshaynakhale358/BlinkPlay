@@ -72,7 +72,7 @@ fun ArtistItem(
     modifier: Modifier = Modifier,
     alternative: Boolean = false,
 ) {
-    val (_, typography) = LocalAppearance.current
+    val (colorPalette, typography) = LocalAppearance.current
 
     ItemContainer(
         alternative = alternative,
@@ -93,7 +93,7 @@ fun ArtistItem(
         ) {
             BasicText(
                 text = name ?: "",
-                style = typography.xs.semiBold,
+                style = typography.xs.semiBold.copy(color = colorPalette.text),
                 maxLines = if (alternative) 1 else 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -101,7 +101,7 @@ fun ArtistItem(
             subscribersCount?.let {
                 BasicText(
                     text = subscribersCount,
-                    style = typography.xxs.semiBold.secondary,
+                    style = typography.xxs.semiBold.secondary.copy(color = colorPalette.textSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
