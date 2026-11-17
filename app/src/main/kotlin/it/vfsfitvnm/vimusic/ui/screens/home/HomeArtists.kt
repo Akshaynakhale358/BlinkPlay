@@ -224,6 +224,16 @@ fun HomeArtistList(
             )
         }
 
+        if (!artistSearchActive) {
+            BasicText(
+                text = "All Artist",
+                style = typography.s.semiBold.copy(color = colorPalette.text),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+        }
+
         LaunchedEffect(artistSearchText, artistSearchActive) {
             if (!artistSearchActive || artistSearchText.isBlank()) {
                 artistSearchResults = emptyList()
