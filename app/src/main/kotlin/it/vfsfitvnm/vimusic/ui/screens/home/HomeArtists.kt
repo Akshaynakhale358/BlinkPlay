@@ -229,11 +229,13 @@ fun HomeArtistList(
             // Keep the all-artists section label directly below the artist count.
             BasicText(
                 text = "All Artist",
-                style = typography.s.semiBold.copy(color = colorPalette.text),
+                style = typography.s.semiBold.copy(
+                    color = colorPalette.text,
+                    textAlign = TextAlign.End
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                textAlign = TextAlign.End
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
             )
         }
 
