@@ -207,6 +207,7 @@ fun HomeArtistList(
                 BasicText(
                     text = "OpenTune Artists • ${artists.size}",
                     style = typography.s.semiBold.copy(
+                        color = colorPalette.text,
                         fontSize = typography.xxl.fontSize * 0.5616f,
                         textAlign = TextAlign.End
                     )
@@ -231,7 +232,8 @@ fun HomeArtistList(
                 style = typography.s.semiBold.copy(color = colorPalette.text),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                textAlign = TextAlign.End
             )
         }
 
