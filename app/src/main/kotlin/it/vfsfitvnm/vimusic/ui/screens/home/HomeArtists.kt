@@ -225,6 +225,7 @@ fun HomeArtistList(
         }
 
         if (!artistSearchActive) {
+            // Keep the all-artists section label directly below the artist count.
             BasicText(
                 text = "All Artist",
                 style = typography.s.semiBold.copy(color = colorPalette.text),
