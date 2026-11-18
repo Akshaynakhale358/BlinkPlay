@@ -93,7 +93,7 @@ fun ArtistItem(
         ) {
             BasicText(
                 text = name ?: "",
-                style = typography.xs.semiBold,
+                style = typography.xs.semiBold.copy(color = androidx.compose.ui.graphics.Color.White),
                 maxLines = if (alternative) 1 else 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -101,7 +101,7 @@ fun ArtistItem(
             subscribersCount?.let {
                 BasicText(
                     text = subscribersCount,
-                    style = typography.xxs.semiBold.secondary,
+                    style = typography.xxs.semiBold.copy(color = androidx.compose.ui.graphics.Color.White),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
