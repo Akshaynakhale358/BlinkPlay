@@ -283,7 +283,12 @@ fun PlaylistSongList(
                     key = "header",
                     contentType = 0
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(colorPalette.background0)
+                    ) {
                         headerContent()
                         if (!isLandscape) thumbnailContent()
                     }
