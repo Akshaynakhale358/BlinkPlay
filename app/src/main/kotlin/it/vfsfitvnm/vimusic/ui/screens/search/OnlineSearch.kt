@@ -148,7 +148,7 @@ fun OnlineSearch(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            item(
+            stickyHeader(
                 key = "header",
                 contentType = 0
             ) {
