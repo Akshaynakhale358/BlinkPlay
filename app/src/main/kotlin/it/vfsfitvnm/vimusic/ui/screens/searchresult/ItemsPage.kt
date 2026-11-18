@@ -1,6 +1,7 @@
 package it.vfsfitvnm.vimusic.ui.screens.searchresult
 
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
@@ -39,6 +40,7 @@ import it.vfsfitvnm.vimusic.utils.secondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalFoundationApi::class)
 @ExperimentalAnimationApi
 @Composable
 inline fun <T : Innertube.Item> ItemsPage(
@@ -148,7 +150,7 @@ inline fun <T : Innertube.Item> ItemsPage(
             modifier = modifier
                 .fillMaxSize()
         ) {
-            item(
+            stickyHeader(
                 key = "header",
                 contentType = "header",
             ) {
