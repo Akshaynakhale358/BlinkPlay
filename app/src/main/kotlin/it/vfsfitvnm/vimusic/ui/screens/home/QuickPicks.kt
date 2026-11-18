@@ -52,6 +52,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -482,6 +484,9 @@ fun QuickPicks(
             Header(
                 title = "Quick Picks",
                 modifier = Modifier
+                    .offset { IntOffset(0, scrollState.value) }
+                    .zIndex(1f)
+                    .background(colorPalette.background0)
                     .padding(endPaddingValues),
                 titleScale = 1.404f
             )
@@ -732,7 +737,14 @@ fun QuickPicks(
                     "long_listen" -> uniqueQuickPicksSongs.longListen
                     else -> uniqueQuickPicksSongs.longListen
                 }
-                Header(title = "Quick Picks", titleScale = 1.404f)
+                Header(
+                    title = "Quick Picks",
+                    modifier = Modifier
+                        .offset { IntOffset(0, scrollState.value) }
+                        .zIndex(1f)
+                        .background(colorPalette.background0),
+                    titleScale = 1.404f
+                )
                 BasicText(
                     text = shelfTitle,
                     style = typography.m.semiBold.copy(
@@ -773,7 +785,14 @@ fun QuickPicks(
                 }
             } else {
                 val category = selectedDiscoveryCategory!!
-                Header(title = "Quick Picks", titleScale = 1.404f)
+                Header(
+                    title = "Quick Picks",
+                    modifier = Modifier
+                        .offset { IntOffset(0, scrollState.value) }
+                        .zIndex(1f)
+                        .background(colorPalette.background0),
+                    titleScale = 1.404f
+                )
                 BasicText(
                     text = category.title.replaceFirstChar { it.uppercase() },
                     style = typography.m.semiBold.copy(
