@@ -20,10 +20,7 @@ fun BuiltInPlaylistScreen(builtInPlaylist: BuiltInPlaylist) {
     val saveableStateHolder = rememberSaveableStateHolder()
 
     val (tabIndex, onTabIndexChanged) = rememberSaveable {
-        mutableStateOf(when (builtInPlaylist) {
-            BuiltInPlaylist.Favorites -> 0
-            BuiltInPlaylist.Offline -> 1
-        })
+        mutableStateOf(0)
     }
 
     PersistMapCleanup(tagPrefix = "${builtInPlaylist.name}/")
@@ -38,14 +35,15 @@ fun BuiltInPlaylistScreen(builtInPlaylist: BuiltInPlaylist) {
                 tabIndex = tabIndex,
                 onTabChanged = onTabIndexChanged,
                 tabColumnContent = { Item ->
-                    Item(0, "Favorites", R.drawable.heart)
-                    Item(1, "Offline", R.drawable.airplane)
+                    when (builtInPlaylist) {
+                        BuiltInPlaylist.Favorites -> Item(0, "Favorites", R.drawable.heart)
+                        BuiltInPlaylist.Offline -> Item(0, "Offline", R.drawable.airplane)
+                    }
                 }
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
-                    when (currentTabIndex) {
-                        0 -> BuiltInPlaylistSongs(builtInPlaylist = BuiltInPlaylist.Favorites)
-                        1 -> BuiltInPlaylistSongs(builtInPlaylist = BuiltInPlaylist.Offline)
+                    if (currentTabIndex == 0) {
+                        BuiltInPlaylistSongs(builtInPlaylist = builtInPlaylist)
                     }
                 }
             }
