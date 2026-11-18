@@ -88,7 +88,7 @@ fun BuiltInPlaylistSongs(builtInPlaylist: BuiltInPlaylist) {
                 .background(colorPalette.background0)
                 .fillMaxSize()
         ) {
-            item(
+            stickyHeader(
                 key = "header",
                 contentType = 0
             ) {
