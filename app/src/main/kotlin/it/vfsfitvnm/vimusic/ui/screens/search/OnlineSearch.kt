@@ -2,6 +2,7 @@ package it.vfsfitvnm.vimusic.ui.screens.search
 
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -77,6 +78,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @ExperimentalAnimationApi
+@ExperimentalFoundationApi
 @Composable
 fun OnlineSearch(
     textFieldValue: TextFieldValue,
