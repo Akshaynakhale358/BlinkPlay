@@ -80,7 +80,7 @@ fun AlbumSongs(
                     .background(colorPalette.background0)
                     .fillMaxSize()
             ) {
-                item(
+                stickyHeader(
                     key = "header",
                     contentType = 0
                 ) {
