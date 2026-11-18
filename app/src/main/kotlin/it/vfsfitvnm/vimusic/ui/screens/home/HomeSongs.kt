@@ -246,6 +246,7 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
                     BasicText(
                         text = category.name,
                         style = typography.m.semiBold.copy(
+                            color = Color.White,
                             fontSize = typography.s.fontSize,
                             textAlign = TextAlign.End
                         ),
@@ -254,6 +255,7 @@ fun HomeSongs(homeResetKey: Int = 0, onSearchClick: () -> Unit, onPlaylistClick:
                     BasicText(
                         text = "All Songs",
                         style = typography.s.semiBold.copy(
+                            color = Color.White,
                             fontSize = typography.xxl.fontSize * 0.5616f,
                             textAlign = TextAlign.End
                         ),
