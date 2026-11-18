@@ -116,7 +116,7 @@ fun HomePlaylists(
                 .fillMaxSize()
                 .background(colorPalette.background0)
         ) {
-            item(key = "header", contentType = 0, span = { GridItemSpan(maxLineSpan) }) {
+            stickyHeader(key = "header", contentType = 0, span = { GridItemSpan(maxLineSpan) }) {
                 Header(title = "Playlists") {
                     SecondaryTextButton(
                         text = "New playlist",
