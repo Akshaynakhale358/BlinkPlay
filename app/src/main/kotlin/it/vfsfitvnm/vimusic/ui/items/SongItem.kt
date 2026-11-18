@@ -139,7 +139,9 @@ fun SongItem(
     trailingContent: @Composable (() -> Unit)? = null,
     titleColor: Color = Color.Unspecified
 ) {
-    val (_, typography) = LocalAppearance.current
+    val (colorPalette, typography) = LocalAppearance.current
+    // Unspecified titleColor previously bypassed the app palette and left song titles dark.
+    val resolvedTitleColor = if (titleColor == Color.Unspecified) Color.White else titleColor
 
     ItemContainer(
         alternative = false,
@@ -158,7 +160,7 @@ fun SongItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BasicText(
                         text = title ?: "",
-                        style = typography.xs.semiBold.copy(color = titleColor),
+                        style = typography.xs.semiBold.copy(color = resolvedTitleColor),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
