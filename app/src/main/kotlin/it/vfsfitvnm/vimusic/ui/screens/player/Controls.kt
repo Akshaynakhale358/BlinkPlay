@@ -1,11 +1,8 @@
 package it.vfsfitvnm.vimusic.ui.screens.player
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateDp
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -83,13 +81,7 @@ fun Controls(
         Database.likedAt(mediaId).distinctUntilChanged().collect { likedAt = it }
     }
 
-    val shouldBePlayingTransition = updateTransition(shouldBePlaying, label = "shouldBePlaying")
 
-    val playPauseRoundness by shouldBePlayingTransition.animateDp(
-        transitionSpec = { tween(durationMillis = 100, easing = LinearEasing) },
-        label = "playPauseRoundness",
-        targetValueByState = { if (it) 32.dp else 16.dp }
-    )
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -222,7 +214,8 @@ fun Controls(
 
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(playPauseRoundness))
+                    .clip(CircleShape)
+                    .border(1.dp, colorPalette.text.copy(alpha = 0.7f), CircleShape)
                     .clickable {
                         if (shouldBePlaying) {
                             binder.player.pause()
