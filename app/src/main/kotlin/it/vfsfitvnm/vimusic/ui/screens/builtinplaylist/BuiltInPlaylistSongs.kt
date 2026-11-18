@@ -98,6 +98,7 @@ fun BuiltInPlaylistSongs(builtInPlaylist: BuiltInPlaylist) {
                         BuiltInPlaylist.Offline -> "Offline"
                     },
                     modifier = Modifier
+                        .background(colorPalette.background0)
                         .padding(bottom = 8.dp)
                 ) {
                     if (builtInPlaylist == BuiltInPlaylist.Favorites) {
