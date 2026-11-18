@@ -57,7 +57,7 @@ inline fun <T : Innertube.Item> ItemsPage(
     noinline itemsPageProvider: (suspend (String?) -> Result<Innertube.ItemsPage<T>?>?)? = null,
     noinline onRefresh: (() -> Unit)? = null,
 ) {
-    val (_, typography) = LocalAppearance.current
+    val (colorPalette, typography) = LocalAppearance.current
 
     val updatedItemsPageProvider by rememberUpdatedState(itemsPageProvider)
 
