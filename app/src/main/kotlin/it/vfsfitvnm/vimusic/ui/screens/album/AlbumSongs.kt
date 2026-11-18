@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import it.vfsfitvnm.compose.persist.persistList
 import it.vfsfitvnm.vimusic.Database
 import it.vfsfitvnm.vimusic.LocalPlayerAwareWindowInsets
@@ -101,7 +102,30 @@ fun AlbumSongs(
                             )
                         }
 
-                        if (!isLandscape) {
+                        BasicText(
+                            text = "Songs",
+                            style = typography.m.semiBold.copy(
+                                color = Color.White,
+                                fontSize = typography.s.fontSize,
+                                textAlign = TextAlign.End
+                            ),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
+                        )
+                        BasicText(
+                            text = "All Songs",
+                            style = typography.s.semiBold.copy(
+                                color = Color.White,
+                                fontSize = typography.xxl.fontSize * 0.5616f,
+                                textAlign = TextAlign.End
+                            ),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                if (!isLandscape) {
+                    item(key = "album-artwork") {
+                        Box(modifier = Modifier.fillMaxWidth()) {
                             thumbnailContent()
                         }
                     }
