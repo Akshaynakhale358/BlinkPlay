@@ -36,7 +36,7 @@ fun SongItem(
     thumbnailSizePx: Int,
     thumbnailSizeDp: Dp,
     modifier: Modifier = Modifier,
-    titleColor: Color = Color.Unspecified
+    titleColor: Color = Color.White
 ) {
     SongItem(
         thumbnailUrl = song.thumbnail?.size(thumbnailSizePx),
