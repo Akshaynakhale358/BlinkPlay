@@ -78,7 +78,7 @@ fun SongItem(
     modifier: Modifier = Modifier,
     onThumbnailContent: (@Composable BoxScope.() -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
-    titleColor: Color = Color.Unspecified
+    titleColor: Color = Color.White
 ) {
     SongItem(
         thumbnailUrl = song.thumbnailUrl?.thumbnail(thumbnailSizePx),
@@ -103,7 +103,7 @@ fun SongItem(
     modifier: Modifier = Modifier,
     onThumbnailContent: (@Composable BoxScope.() -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
-    titleColor: Color = Color.Unspecified
+    titleColor: Color = Color.White
 ) {
     SongItem(
         title = title,
@@ -137,7 +137,7 @@ fun SongItem(
     thumbnailSizeDp: Dp,
     modifier: Modifier = Modifier,
     trailingContent: @Composable (() -> Unit)? = null,
-    titleColor: Color = Color.Unspecified
+    titleColor: Color = Color.White
 ) {
     val (_, typography) = LocalAppearance.current
 
