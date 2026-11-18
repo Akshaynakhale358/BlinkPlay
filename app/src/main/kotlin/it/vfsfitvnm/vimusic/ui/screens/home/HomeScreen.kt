@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.platform.LocalContext
 import it.vfsfitvnm.compose.persist.PersistMapCleanup
 import it.vfsfitvnm.compose.routing.RouteHandler
@@ -160,23 +161,25 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
                     Item(4, "Podcast", R.drawable.disc)
                 },
                 bottomContent = {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     PrimaryButton(
                         iconId = R.drawable.heart,
                         onClick = { builtInPlaylistRoute(BuiltInPlaylist.Favorites) },
                         transparentBackground = true,
-                        circle = true
+                        circle = true,
+                        modifier = Modifier.size(48.dp)
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     PrimaryButton(
                         iconId = R.drawable.search,
                         onClick = { searchRoute("") },
                         transparentBackground = true,
-                        circle = true
+                        circle = true,
+                        modifier = Modifier.size(48.dp)
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    MiniPlayerActionButton(circle = true, modifier = Modifier.size(48.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    MiniPlayerActionButton(circle = true)
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
