@@ -50,7 +50,7 @@ fun AlbumItem(
     thumbnailSizeDp: Dp,
     modifier: Modifier = Modifier,
     alternative: Boolean = false,
-    titleColor: Color = Color.Unspecified
+    titleColor: Color = Color.White
 ) {
     AlbumItem(
         thumbnailUrl = album.thumbnail?.url,
@@ -105,7 +105,7 @@ fun AlbumItem(
                 authors?.let {
                     BasicText(
                         text = authors,
-                        style = typography.xs.semiBold.secondary,
+                        style = typography.xs.semiBold.copy(color = Color.White),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -114,7 +114,7 @@ fun AlbumItem(
 
             BasicText(
                 text = year ?: "",
-                style = typography.xxs.semiBold.secondary,
+                style = typography.xxs.semiBold.copy(color = Color.White),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
