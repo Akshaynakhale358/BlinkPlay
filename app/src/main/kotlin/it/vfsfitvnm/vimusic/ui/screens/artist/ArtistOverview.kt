@@ -34,6 +34,7 @@ import it.vfsfitvnm.vimusic.R
 import it.vfsfitvnm.vimusic.ui.components.LocalMenuState
 import it.vfsfitvnm.vimusic.ui.components.ShimmerHost
 import it.vfsfitvnm.vimusic.ui.components.themed.FloatingActionsContainerWithScrollToTop
+import it.vfsfitvnm.vimusic.ui.components.themed.Header
 import it.vfsfitvnm.vimusic.ui.components.themed.LayoutWithAdaptiveThumbnail
 import it.vfsfitvnm.vimusic.ui.components.themed.NonQueuedMediaItemMenu
 import it.vfsfitvnm.vimusic.ui.components.themed.SecondaryTextButton
@@ -324,6 +325,19 @@ fun ArtistOverview(
                         binder?.playRadio(endpoint)
                     }
                 )
+            }
+
+            // Keep the artist name available after the artwork header has scrolled away.
+            if (scrollState.value > 220) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .background(colorPalette.background0)
+                        .padding(windowInsets.only(WindowInsetsSides.Top).asPaddingValues())
+                ) {
+                    Header(title = youtubeArtistPage?.name ?: "Artist")
+                }
             }
         }
     }
