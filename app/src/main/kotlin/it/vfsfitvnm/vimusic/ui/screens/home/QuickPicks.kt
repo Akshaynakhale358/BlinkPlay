@@ -748,18 +748,30 @@ fun QuickPicks(
                 BasicText(
                     text = shelfTitle,
                     style = typography.m.semiBold.copy(
+                        color = Color.White,
                         fontSize = typography.s.fontSize,
                         textAlign = TextAlign.End
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
+                    modifier = Modifier.fillMaxWidth()
+                        .offset { IntOffset(0, scrollState.value) }
+                        .zIndex(1f)
+                        .background(colorPalette.background0)
+                        .padding(horizontal = 16.dp, vertical = 2.dp)
+                        .offset(y = (-4).dp)
                 )
                 BasicText(
                     text = "All Songs",
                     style = typography.s.semiBold.copy(
+                        color = Color.White,
                         fontSize = typography.xxl.fontSize * 0.5616f,
                         textAlign = TextAlign.End
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).offset(y = (-4).dp)
+                    modifier = Modifier.fillMaxWidth()
+                        .offset { IntOffset(0, scrollState.value) }
+                        .zIndex(1f)
+                        .background(colorPalette.background0)
+                        .padding(horizontal = 16.dp, vertical = 2.dp)
+                        .offset(y = (-4).dp)
                 )
                 QuickPicksSongShelf(
                     title = "All Songs",
