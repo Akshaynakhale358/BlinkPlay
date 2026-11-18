@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.innertube.Innertube
@@ -150,7 +151,7 @@ fun ArtistOverview(
                         ) {
                             BasicText(
                                 text = "Top Songs",
-                                style = typography.m.semiBold,
+                                style = typography.m.semiBold.color(Color.White),
                                 modifier = sectionTextModifier
                             )}
 
@@ -263,7 +264,7 @@ fun ArtistOverview(
                                 } else {
                                     description.substring(0, attributionsIndex)
                                 },
-                                style = typography.xxs.secondary,
+                                style = typography.xxs.secondary.color(Color.White),
                                 modifier = Modifier
                                     .padding(horizontal = 8.dp)
                                     .weight(1f)
@@ -281,7 +282,7 @@ fun ArtistOverview(
                         if (attributionsIndex != -1) {
                             BasicText(
                                 text = "From Wikipedia under Creative Commons Attribution CC-BY-SA 3.0",
-                                style = typography.xxs.color(colorPalette.textDisabled).align(TextAlign.End),
+                                style = typography.xxs.color(Color.White).align(TextAlign.End),
                                 modifier = Modifier
                                     .padding(horizontal = 16.dp)
                                     .padding(bottom = 16.dp)
