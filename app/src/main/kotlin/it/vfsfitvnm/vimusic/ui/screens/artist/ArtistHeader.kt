@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
@@ -89,7 +90,7 @@ fun ArtistHeader(
             ) {
                 BasicText(
                     text = name ?: "Unknown",
-                    style = typography.xxl.semiBold.color(colorPalette.text),
+                    style = typography.xxl.semiBold.color(Color.White),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -97,7 +98,7 @@ fun ArtistHeader(
                 subscribers?.let {
                     BasicText(
                         text = "$it subscribers",
-                        style = typography.xs.secondary,
+                        style = typography.xs.secondary.color(Color.White),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
@@ -116,7 +117,7 @@ fun ArtistHeader(
             ) {
                 BasicText(
                     text = "About",
-                    style = typography.m.semiBold.color(colorPalette.text),
+                    style = typography.m.semiBold.color(Color.White),
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
                 BasicText(
