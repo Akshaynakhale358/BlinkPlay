@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -116,7 +115,7 @@ fun HomePlaylists(
                 .fillMaxSize()
                 .background(colorPalette.background0)
         ) {
-            stickyHeader(key = "header", contentType = 0, span = { GridItemSpan(maxLineSpan) }) {
+            stickyHeader(key = "header", contentType = 0) {
                 Header(title = "Playlists") {
                     SecondaryTextButton(
                         text = "New playlist",
