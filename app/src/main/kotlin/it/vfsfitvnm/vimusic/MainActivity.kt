@@ -237,7 +237,7 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
 
                                     appearance = appearance.copy(
                                         colorPalette = colorPalette,
-                                        typography = appearance.typography.copy(colorPalette.text),
+                                        typography = appearance.typography.copy(Color.White),
                                     )
                                 }
                             }
