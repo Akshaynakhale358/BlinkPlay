@@ -15,14 +15,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -92,8 +89,6 @@ inline fun NavigationRail(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
                 .width(if (isLandscape) Dimensions.navigationRailWidthLandscape else Dimensions.navigationRailWidth)
         ) {
             val transition = updateTransition(targetState = tabIndex, label = null)
@@ -130,7 +125,7 @@ inline fun NavigationRail(
                         modifier = Modifier
                             .vertical(enabled = !isLandscape)
                             .rotate(if (isLandscape) 0f else -90f)
-                            .padding(horizontal = 16.dp)
+                            .padding(horizontal = 8.dp)
                     )
                 }
 
@@ -142,7 +137,7 @@ inline fun NavigationRail(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = contentModifier
-                            .padding(vertical = 8.dp)
+                            .padding(vertical = 4.dp)
                     ) {
                         iconContent()
                         textContent()
