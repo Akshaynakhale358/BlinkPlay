@@ -153,6 +153,7 @@ fun LocalPlaylistSongs(
                 Header(
                     title = playlistWithSongs?.playlist?.name ?: "Unknown",
                     modifier = Modifier
+                        .background(colorPalette.background0)
                         .padding(bottom = 8.dp)
                 ) {
                     SecondaryTextButton(
