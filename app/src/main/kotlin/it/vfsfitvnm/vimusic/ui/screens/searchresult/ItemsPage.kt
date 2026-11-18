@@ -154,7 +154,13 @@ inline fun <T : Innertube.Item> ItemsPage(
                 key = "header",
                 contentType = "header",
             ) {
-                headerContent(null)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(colorPalette.background0)
+                ) {
+                    headerContent(null)
+                }
             }
 
             items(
