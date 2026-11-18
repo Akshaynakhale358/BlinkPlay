@@ -158,7 +158,7 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
                     mutableStateOf(
                         Appearance(
                             colorPalette = colorPalette,
-                            typography = typographyOf(colorPalette.text, useSystemFont, applyFontPadding),
+                            typography = typographyOf(Color.White, useSystemFont, applyFontPadding),
                             thumbnailShape = thumbnailRoundness.shape()
                         )
                     )
@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
 
                             appearance = appearance.copy(
                                 colorPalette = colorPalette,
-                                typography = appearance.typography.copy(colorPalette.text)
+                                typography = appearance.typography.copy(Color.White)
                             )
 
                             return@setBitmapListener
@@ -198,7 +198,7 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
                                 }
                                 appearance = appearance.copy(
                                     colorPalette = it,
-                                    typography = appearance.typography.copy(it.text)
+                                    typography = appearance.typography.copy(Color.White)
                                 )
                             }
                         }
@@ -256,7 +256,7 @@ class MainActivity : ComponentActivity(), PersistMapOwner {
                                 val applyFontPadding = sharedPreferences.getBoolean(applyFontPaddingKey, false)
 
                                 appearance = appearance.copy(
-                                    typography = typographyOf(appearance.colorPalette.text, useSystemFont, applyFontPadding),
+                                    typography = typographyOf(Color.White, useSystemFont, applyFontPadding),
                                 )
                             }
                         }
