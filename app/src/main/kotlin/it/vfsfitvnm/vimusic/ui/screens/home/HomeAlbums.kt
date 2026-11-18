@@ -323,7 +323,7 @@ fun HomeAlbums(
                 Header(
                     title = "Albums",
                     titleScale = 1.404f,
-                    modifier = Modifier.background(LocalAppearance.current.colorPalette.background0)
+                    modifier = Modifier.background(colorPalette.background0)
                 ) {}
             }
             items(shelves, key = { it.key }) { shelf ->
