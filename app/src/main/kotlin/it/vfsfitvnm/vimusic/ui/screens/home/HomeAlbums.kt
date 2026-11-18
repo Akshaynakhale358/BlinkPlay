@@ -319,7 +319,7 @@ fun HomeAlbums(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            item {
+            stickyHeader(key = "albums-page-header") {
                 Header(title = "Albums", titleScale = 1.404f) {}
             }
             items(shelves, key = { it.key }) { shelf ->
