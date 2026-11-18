@@ -73,6 +73,7 @@ fun AlbumSongs(
     val thumbnailSizeDp = Dimensions.thumbnails.song
 
     val lazyListState = rememberLazyListState()
+    val showAlbumArtwork = !isLandscape
 
     LayoutWithAdaptiveThumbnail(thumbnailContent = thumbnailContent) {
         Box {
@@ -125,7 +126,7 @@ fun AlbumSongs(
                     }
                 }
 
-                if (!isLandscape) {
+                if (showAlbumArtwork) {
                     item(key = "album-artwork") {
                         Box(modifier = Modifier.fillMaxWidth()) {
                             thumbnailContent()
