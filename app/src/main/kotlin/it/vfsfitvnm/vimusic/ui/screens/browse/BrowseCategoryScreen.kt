@@ -6,6 +6,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -21,6 +22,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
 import it.vfsfitvnm.innertube.Innertube
 import it.vfsfitvnm.innertube.models.Context
@@ -98,14 +101,22 @@ fun BrowseCategoryScreen(
         loading = false
     }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .background(colorPalette.background0)
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Vertical).asPaddingValues())
     ) {
-        Header(title = page?.title ?: "BROWSE")
+        Header(
+            title = page?.title ?: "BROWSE",
+            modifier = Modifier
+                .offset { IntOffset(0, scrollState.value) }
+                .zIndex(1f)
+                .background(colorPalette.background0)
+        )
         if (page?.sections?.isNotEmpty() == true) {
             val browsePage = page!!
             MusicBrowseShelves(
