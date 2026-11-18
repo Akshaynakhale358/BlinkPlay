@@ -135,7 +135,7 @@ fun HomeScreen(onPlaylistUrl: (String) -> Unit) {
             )
 
             Scaffold(
-                topIconButtonId = R.drawable.equalizer,
+                topIconButtonId = R.drawable.settings,
                 onTopIconButtonClick = { settingsRoute() },
                 tabIndex = tabIndex,
                 onTabChanged = { newIndex ->
