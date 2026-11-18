@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -93,7 +94,7 @@ fun ArtistItem(
         ) {
             BasicText(
                 text = name ?: "",
-                style = typography.xs.semiBold.copy(color = colorPalette.text),
+                style = typography.xs.semiBold.copy(color = Color.White),
                 maxLines = if (alternative) 1 else 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -101,7 +102,7 @@ fun ArtistItem(
             subscribersCount?.let {
                 BasicText(
                     text = subscribersCount,
-                    style = typography.xxs.semiBold.secondary.copy(color = colorPalette.textSecondary),
+                    style = typography.xxs.semiBold.secondary.copy(color = Color.White),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
