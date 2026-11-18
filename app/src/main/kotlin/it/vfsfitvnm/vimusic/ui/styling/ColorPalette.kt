@@ -76,7 +76,10 @@ val DefaultLightColorPalette = ColorPalette(
 val PureBlackColorPalette = DefaultDarkColorPalette.copy(
     background0 = Color.Black,
     background1 = Color.Black,
-    background2 = Color.Black
+    background2 = Color.Black,
+    text = Color.White,
+    textSecondary = Color.White,
+    textDisabled = Color.White
 )
 
 fun colorPaletteOf(
