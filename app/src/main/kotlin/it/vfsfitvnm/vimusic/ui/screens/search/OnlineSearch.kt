@@ -154,6 +154,7 @@ fun OnlineSearch(
                 key = "header",
                 contentType = 0
             ) {
+                Box(modifier = Modifier.fillMaxWidth().background(colorPalette.background0)) {
                 Header(
                     titleContent = {
                         BasicTextField(
@@ -199,6 +200,7 @@ fun OnlineSearch(
                         }
                     }
                 )
+                }
             }
 
             items(
