@@ -274,6 +274,7 @@ fun PodcastScreen(homeResetKey: Int) {
             BasicText(
                 text = "All Episodes",
                 style = typography.s.semiBold.copy(
+                    color = Color.White,
                     fontSize = typography.xxl.fontSize * 0.5616f,
                     textAlign = TextAlign.End
                 ),
