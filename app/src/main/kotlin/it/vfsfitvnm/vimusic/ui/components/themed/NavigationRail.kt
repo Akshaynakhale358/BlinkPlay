@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -60,7 +62,7 @@ inline fun NavigationRail(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .verticalScroll(rememberScrollState())
+            .fillMaxHeight()
             .padding(paddingValues)
     ) {
         Box(
@@ -90,6 +92,8 @@ inline fun NavigationRail(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
                 .width(if (isLandscape) Dimensions.navigationRailWidthLandscape else Dimensions.navigationRailWidth)
         ) {
             val transition = updateTransition(targetState = tabIndex, label = null)
